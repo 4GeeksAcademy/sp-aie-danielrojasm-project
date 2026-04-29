@@ -1,0 +1,9 @@
+{
+  "name": "trackflow-public-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Landing page publica de TrackFlow",
+  "scripts": {
+    "dev": "npx serve . -l 4173"
+  }
+}
