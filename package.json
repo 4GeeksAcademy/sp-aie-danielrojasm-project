@@ -4,6 +4,11 @@
   "private": true,
   "description": "Landing page publica de TrackFlow",
   "scripts": {
-    "dev": "npx serve . -l 4173"
+    "dev": "npx serve . -l 4173",
+    "check:ts": "npx -y tsc --noEmit -p tsconfig.json",
+    "run:ts": "npx -y tsx"
+  },
+  "dependencies": {
+    "typescript": "^6.0.3"
   }
 }
