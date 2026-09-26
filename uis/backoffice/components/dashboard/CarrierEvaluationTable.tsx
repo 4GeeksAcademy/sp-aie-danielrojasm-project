@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/Panel";
+import { CARRIER_SUITABILITY_THRESHOLD } from "@trackflow/logic/utils/transformations";
 import type { CarrierEvaluation } from "@/lib/carrier-evaluation";
 import { formatUSD } from "@/lib/labels";
 
@@ -40,7 +41,7 @@ export function CarrierEvaluationTable({ rows }: CarrierEvaluationTableProps) {
                 ) : row.suitable ? (
                   <Badge tone="info">Apto</Badge>
                 ) : (
-                  <Badge tone="neutral">No apto (&lt; 50)</Badge>
+                  <Badge tone="neutral">No apto (&lt; {CARRIER_SUITABILITY_THRESHOLD})</Badge>
                 )}
               </td>
             </tr>

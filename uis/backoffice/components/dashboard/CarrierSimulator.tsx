@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { findProductBySKU } from "@trackflow/logic/utils/search";
+import { CARRIER_SUITABILITY_THRESHOLD } from "@trackflow/logic/utils/transformations";
 import { validateShipment } from "@trackflow/logic/utils/validations";
 import type {
   Carrier,
@@ -20,7 +21,7 @@ import { countryLabels, formatUSD, priorityLabels } from "@/lib/labels";
 interface CarrierSimulatorProps {
   products: Product[];
   carriers: Carrier[];
-  /** Envío de partida (SH-2024-8821 de CONTEXT2.md). */
+  /** Envío de partida (SH-2024-8821, envío de referencia del Hito 2). */
   initialShipment: Shipment;
 }
 
@@ -133,7 +134,7 @@ export function CarrierSimulator({
               ) : (
                 <p>
                   <span className="font-semibold">Sin transportista apto:</span>{" "}
-                  ninguno alcanza 50 puntos para este envío.
+                  ninguno alcanza {CARRIER_SUITABILITY_THRESHOLD} puntos para este envío.
                 </p>
               )}
             </div>
@@ -148,7 +149,7 @@ export function CarrierSimulator({
                   ))}
                 </ul>
                 <p className="mt-2 text-xs">
-                  El scoring del Hito 2 pondera estos criterios en lugar de excluir; con 50
+                  El scoring del Hito 2 pondera estos criterios en lugar de excluir; con {CARRIER_SUITABILITY_THRESHOLD}
                   puntos de umbral puede ganar el más barato aunque no pueda entregar.
                 </p>
               </div>

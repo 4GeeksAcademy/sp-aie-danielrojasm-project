@@ -19,13 +19,17 @@ This repository is the **starter template** for transversal projects. You will w
 
 ---
 
-## Current status of the template
+## Current status (TrackFlow, Milestone 4)
 
-The repository currently provides a **base folder structure and documentation skeleton**. It does not include runnable apps or global scripts yet.
+This fork holds the **TrackFlow** project. `CONTEXT.md` contains the company briefing.
 
-- `CONTEXT.md` is a placeholder and must be replaced with your assigned company context.
-- There is no root `AGENTS.md` yet.
-- Shared package metadata exists in `packages/shared/package.json` (`@repo/shared-types`), but no workspace runner is configured at root.
+- **Business logic (Milestone 2)** lives in `src/` and is imported (never copied) by `uis/backoffice`.
+- **User interfaces** live in `uis/`: `uis/website` (public site, :3000), `uis/backoffice` (internal app, :3002) and
+  `uis/talent-pipeline-tracker` (Milestone 3). See [`uis/README.md`](./uis/README.md).
+- **APIs** go in `services/` (none yet).
+- **Coding-agent setup**: [`AGENTS.md`](./AGENTS.md), `memory-bank/` and `.agents/` (rules and skills).
+- **Root scripts**: `npm run verify` (types + lint + build), `npm run dev:website`, `npm run dev:backoffice`. Each app installs its own
+  dependencies (no workspace runner).
 
 ---
 
@@ -35,7 +39,11 @@ The repository currently provides a **base folder structure and documentation sk
 ai-engineering-company-project-monorepo/
 ├── README.md
 ├── README.es.md
-├── CONTEXT.md                # Placeholder to be replaced with assigned context
+├── CONTEXT.md                # TrackFlow company briefing
+├── AGENTS.md                 # Coding-agent protocol (+ CLAUDE.md)
+├── .agents/                  # Coding-agent rules and skills
+├── memory-bank/              # Persistent context for coding agents
+├── src/                      # Milestone 2 business logic (TypeScript)
 ├── agents/                   # Agent patterns/templates and tools docs
 ├── data/                     # raw, process, pipelines, eval
 ├── docs/                     # Project and architecture documentation
@@ -48,7 +56,7 @@ ai-engineering-company-project-monorepo/
 ├── services/                 # APIs and background workers
 ├── shared/                   # Shared assets/conventions at repo level
 ├── skills/                   # Reusable agent skills
-├── uis/                      # User interfaces (React, Next.js, Streamlit, HTML)
+├── uis/                      # User interfaces: website, backoffice, talent-pipeline-tracker
 └── workflows/                # Automation/orchestration documentation
 ```
 

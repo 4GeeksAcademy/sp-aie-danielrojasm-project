@@ -2,8 +2,8 @@
  * Datos de ejemplo del backoffice.
  *
  * Los tres productos, los tres transportistas y el envío SH-2024-8821 son los
- * definidos en CONTEXT2.md (Hito 2). El resto amplía el escenario con los
- * transportistas reales de TrackFlow (FedEx, MRW) para que el panel muestre
+ * de referencia del Hito 2. El resto amplía el escenario con los
+ * transportistas reales de TrackFlow (FedEx) y más envíos para que el panel muestre
  * agregaciones con sentido. Cuando exista la API en /services, este archivo se
  * sustituye por llamadas a esa API.
  */

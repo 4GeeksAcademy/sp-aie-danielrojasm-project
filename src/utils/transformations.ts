@@ -10,6 +10,31 @@ function roundToTwoDecimals(value: number): number {
 	return Math.round(value * 100) / 100;
 }
 
+export const CARRIER_SUITABILITY_THRESHOLD = 50;
+
+export interface CarrierConstraintChecks {
+	operatesInDestination: boolean;
+	supportsWeight: boolean;
+	supportsPriority: boolean;
+	supportsFragility: boolean;
+}
+
+export function checkCarrierConstraints(
+	carrier: Carrier,
+	shipment: Shipment,
+	product: Product,
+): CarrierConstraintChecks {
+	return {
+		operatesInDestination: carrier.operatesIn.includes(
+			shipment.destination.country,
+		),
+		supportsWeight:
+			product.weightKg * shipment.quantity <= carrier.maxWeightKg,
+		supportsPriority: carrier.acceptsPriority.includes(shipment.priority),
+		supportsFragility: !product.isFragile || carrier.handlesFragile,
+	};
+}
+
 export function calculateShippingCost(
 	shipment: Shipment,
 	product: Product,
@@ -36,21 +61,22 @@ export function scoreCarrierForShipment(
 	shipment: Shipment,
 	product: Product,
 ): number {
+	const checks = checkCarrierConstraints(carrier, shipment, product);
 	let score = 0;
 
-	if (carrier.operatesIn.includes(shipment.destination.country)) {
+	if (checks.operatesInDestination) {
 		score += 20;
 	}
 
-	if (product.weightKg * shipment.quantity <= carrier.maxWeightKg) {
+	if (checks.supportsWeight) {
 		score += 20;
 	}
 
-	if (carrier.acceptsPriority.includes(shipment.priority)) {
+	if (checks.supportsPriority) {
 		score += 15;
 	}
 
-	if (!product.isFragile || carrier.handlesFragile) {
+	if (checks.supportsFragility) {
 		score += 15;
 	}
 
@@ -69,7 +95,7 @@ export function selectBestCarrier(
 	for (const carrier of carriers) {
 		const score = scoreCarrierForShipment(carrier, shipment, product);
 
-		if (score < 50) {
+		if (score < CARRIER_SUITABILITY_THRESHOLD) {
 			continue;
 		}
 

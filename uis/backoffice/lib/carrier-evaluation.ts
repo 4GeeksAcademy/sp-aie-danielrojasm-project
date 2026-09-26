@@ -1,16 +1,16 @@
 import {
+  CARRIER_SUITABILITY_THRESHOLD,
   calculateShippingCost,
+  checkCarrierConstraints,
   scoreCarrierForShipment,
   selectBestCarrier,
+  type CarrierConstraintChecks,
 } from "@trackflow/logic/utils/transformations";
 import type {
   Carrier,
   Product,
   Shipment,
 } from "@trackflow/logic/types/models";
-
-/** Mismo umbral que aplica selectBestCarrier (src/utils/transformations.ts). */
-export const SUITABILITY_THRESHOLD = 50;
 
 export interface CarrierEvaluation {
   carrier: Carrier;
@@ -20,30 +20,30 @@ export interface CarrierEvaluation {
   isBest: boolean;
 }
 
+const constraintMessages: Record<
+  keyof CarrierConstraintChecks,
+  (carrierName: string) => string
+> = {
+  operatesInDestination: (name) => `${name} no opera en el país de destino.`,
+  supportsWeight: (name) => `El envío supera el peso máximo de ${name}.`,
+  supportsPriority: (name) => `${name} no acepta esta prioridad.`,
+  supportsFragility: (name) => `${name} no maneja productos frágiles.`,
+};
+
 /**
- * Restricciones duras que el scoring del Hito 2 solo pondera (no excluye).
- * Se usan únicamente para avisar en la UI; la recomendación no se altera.
- * Ver "Problemas conocidos" en memory-bank/progress.md.
+ * Traduce a mensajes los criterios que el scoring del Hito 2 solo pondera
+ * (no excluye). Los criterios vienen de checkCarrierConstraints (src/); aquí
+ * solo se redactan. Ver "Problemas conocidos" en memory-bank/progress.md.
  */
 export function findHardConstraintIssues(
   carrier: Carrier,
   shipment: Shipment,
   product: Product,
 ): string[] {
-  const issues: string[] = [];
-  if (!carrier.operatesIn.includes(shipment.destination.country)) {
-    issues.push(`${carrier.name} no opera en el país de destino.`);
-  }
-  if (product.weightKg * shipment.quantity > carrier.maxWeightKg) {
-    issues.push(`El envío supera el peso máximo de ${carrier.name}.`);
-  }
-  if (!carrier.acceptsPriority.includes(shipment.priority)) {
-    issues.push(`${carrier.name} no acepta esta prioridad.`);
-  }
-  if (product.isFragile && !carrier.handlesFragile) {
-    issues.push(`${carrier.name} no maneja productos frágiles.`);
-  }
-  return issues;
+  const checks = checkCarrierConstraints(carrier, shipment, product);
+  return (Object.keys(checks) as (keyof CarrierConstraintChecks)[])
+    .filter((key) => !checks[key])
+    .map((key) => constraintMessages[key](carrier.name));
 }
 
 /**
@@ -64,7 +64,7 @@ export function evaluateCarriers(
         carrier,
         score,
         cost: calculateShippingCost(shipment, product, carrier),
-        suitable: score >= SUITABILITY_THRESHOLD,
+        suitable: score >= CARRIER_SUITABILITY_THRESHOLD,
         isBest: best?.carrier.id === carrier.id,
       };
     })

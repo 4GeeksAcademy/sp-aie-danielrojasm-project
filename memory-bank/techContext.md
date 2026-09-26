@@ -1,82 +1,128 @@
-# Tech context — TrackFlow monorepo
+# Tech context del monorepo TrackFlow
 
-> Contexto técnico: stack, decisiones de arquitectura tomadas y restricciones. Actualízalo cuando cambie cualquiera de ellas.
+## AI Engineering · 4Geeks Academy — Banco de memoria: contexto técnico
 
-## Mapa del monorepo (lo que existe hoy)
+---
 
-| Ruta | Qué es | Estado |
-| --- | --- | --- |
-| `src/` | **Lógica de negocio del Hito 2** (TypeScript puro, sin dependencias). `types/models.ts` + `utils/{collections,search,transformations,validations}.ts` | Estable. Fuente única; se importa, no se copia |
-| `uis/website/` | Web pública (Hito 1 migrado a Next.js). Rutas `/` y `/aplicar` | Activo |
-| `uis/backoffice/` | App interna de la empresa. Ruta `/` = panel de operaciones que consume `src/` | Activo |
-| `uis/talent-pipeline-tracker/` | Hito 3: gestor de candidaturas contra API REST externa | Entregado, no tocar sin pedirlo |
-| `services/` | APIs y workers | Vacío. **Toda API nueva va aquí** |
-| `packages/shared/` | `@repo/shared-types` (plantilla, sin uso aún) | Placeholder |
-| `memory-bank/`, `AGENTS.md`, `.agents/` | Configuración de agentes de código | Hito 4 |
-| `agents/`, `skills/`, `mcps/`, `workflows/`, `data/`, `infra/` | Código de producto de hitos futuros (agentes de la empresa, NO del IDE) | Plantilla |
+Este archivo describe cómo está construido el monorepo: qué hay en cada carpeta, con qué stack, qué decisiones de arquitectura se han
+tomado y qué restricciones técnicas están en vigor. Hay que actualizarlo cada vez que cambie cualquiera de ellas.
+
+El monorepo parte de la plantilla del programa de 4Geeks Academy. Hoy contiene la lógica de negocio del Hito 2 en `src/`, tres interfaces
+en `uis/` y la configuración de agentes de código del Hito 4. Todavía no hay ningún servicio de backend propio.
+
+## Mapa del monorepo
+
+- **`src/`** — lógica de negocio del Hito 2 en TypeScript puro y sin dependencias (`types/models.ts` y
+  `utils/{collections,search,transformations,validations}.ts`). Es la fuente única: se importa, no se copia.
+- **`uis/website/`** — web pública (Hito 1 migrado a Next.js), con las rutas `/` y `/aplicar`.
+- **`uis/backoffice/`** — app interna de la empresa. Su ruta `/` es el panel de operaciones que consume `src/`.
+- **`uis/talent-pipeline-tracker/`** — Hito 3, gestor de candidaturas contra una API REST externa. No se toca sin pedirlo.
+- **`services/`** — APIs y workers. Está vacío: **toda API nueva va aquí**.
+- **`packages/shared/`** — paquete `@repo/shared-types` de la plantilla, todavía sin uso.
+- **`memory-bank/`, `AGENTS.md`, `.agents/`** — configuración de los agentes de código (Hito 4).
+- **`agents/`, `skills/`, `mcps/`, `workflows/`, `data/`, `infra/`** — espacio para el producto de hitos futuros (agentes de la empresa,
+  no del IDE). Solo contienen la plantilla.
+
+---
 
 ## Stack
 
-| Capa | Tecnología | Versión fijada |
-| --- | --- | --- |
-| Runtime | Node.js LTS | 24.x (instalado con winget en la máquina de desarrollo) |
-| Lógica de negocio | TypeScript (raíz) | `typescript ^6.0.3`, `tsconfig.json` raíz: `strict`, `moduleResolution: Bundler`, solo `src/**/*.ts` |
-| Frontends | Next.js (App Router, Turbopack) + React | `next 16.2.10`, `react 19.2.4` (mismas versiones en las tres apps) |
-| Estilos | Tailwind CSS v4 vía `@tailwindcss/postcss` | `^4` — sin `tailwind.config.js`; tokens en `app/globals.css` con `@theme` |
-| Lint | ESLint 9 flat config + `eslint-config-next` | `16.2.10` |
-| Tipos en apps | TypeScript 5 | `^5` |
+### ⚙️ Runtime y lógica de negocio
 
-> Next 16 tiene cambios incompatibles con versiones anteriores. Antes de usar una API de Next, lee la guía en
-> `uis/<app>/node_modules/next/dist/docs/` (lo exige el `AGENTS.md` de cada app).
+**Node.js:** 24.x LTS (instalado con winget en la máquina de desarrollo)
 
-## Decisiones de arquitectura (ADR resumidos)
+**TypeScript en la raíz:** `typescript ^6.0.3`. El `tsconfig.json` raíz es `strict`, usa `moduleResolution: Bundler` y solo incluye
+`src/**/*.ts`.
 
-1. **Apps independientes, sin npm workspaces.** Cada app de `uis/` tiene su `package.json` y `package-lock.json`. Motivo: el Hito 3
-   ya funcionaba así y la plantilla no define runner de workspaces. Consecuencia: `npm install` se ejecuta dentro de cada app
-   (o `npm run install:uis` desde la raíz).
-2. **La lógica del Hito 2 se importa desde `src/`, nunca se copia.** El backoffice la resuelve con el alias
-   `@trackflow/logic/*` → `../../src/*` (`uis/backoffice/tsconfig.json`) y amplía `turbopack.root` y `outputFileTracingRoot` a la
-   raíz del monorepo (`uis/backoffice/next.config.ts`), porque Turbopack no resuelve archivos fuera de su raíz.
-3. **`uis/website` fija `turbopack.root` a su propia carpeta** para que Next no tome el `package-lock.json` de la raíz como raíz
-   del proyecto (aviso de "multiple lockfiles").
-4. **Contenido de la web separado de la presentación.** Textos, enlaces y datos de empresa en `uis/website/content/site.ts`,
-   tipados en `uis/website/types/site.ts`; componentes en `components/{layout,sections,ui,forms,seo}`.
-5. **Validación de formularios como funciones puras** (`uis/website/lib/application-form.ts`), portadas de `validation.js`
-   del Hito 1. El componente cliente solo gestiona estado.
-6. **Layouts separados.** Web pública: cabecera + footer oscuros (marca slate-950/cyan-300). Backoffice: sidebar + barra
-   superior, fondo claro y `robots: noindex`. No comparten layout ni componentes.
-7. **Etiquetas de dominio centralizadas** en `uis/backoffice/lib/labels.ts` (`Record<Tipo, string>`), para que un valor nuevo del
-   modelo rompa el tipado en vez de mostrarse crudo.
-8. **Sin APIs dentro de `uis/`** (ni `app/api/*`, ni route handlers). Cuando haga falta backend, se crea en `services/<nombre>`.
-9. **Datos de ejemplo** del backoffice en `uis/backoffice/lib/sample-data.ts` (dataset de CONTEXT2 + FedEx y envíos extra).
-   Se sustituirán por la API de `services/` en el Hito 5.
+---
+
+### 🖥️ Frontends
+
+**Framework:** Next.js 16.2.10 (App Router, Turbopack) con React 19.2.4, las mismas versiones en las tres apps.
+
+**Estilos:** Tailwind CSS v4 mediante `@tailwindcss/postcss`, sin `tailwind.config.js`. Los tokens están en `app/globals.css` con `@theme`.
+
+**Calidad:** ESLint 9 (flat config) con `eslint-config-next` 16.2.10 y TypeScript 5 en cada app.
+
+Next 16 trae cambios incompatibles con versiones anteriores. Antes de usar una API de Next hay que leer su guía en
+`uis/<app>/node_modules/next/dist/docs/`, como exige el `AGENTS.md` de cada app.
+
+---
+
+## Decisiones de arquitectura
+
+### 📦 Apps independientes, sin npm workspaces
+
+Cada app de `uis/` tiene su propio `package.json` y `package-lock.json`. El Hito 3 ya funcionaba así y la plantilla no define un runner de
+workspaces. Por eso `npm install` se ejecuta dentro de cada app, o con `npm run install:uis` desde la raíz.
+
+---
+
+### 🔗 La lógica del Hito 2 se importa, nunca se copia
+
+El backoffice resuelve `src/` con el alias `@trackflow/logic/*` → `../../src/*` (en `uis/backoffice/tsconfig.json`) y amplía
+`turbopack.root` y `outputFileTracingRoot` a la raíz del monorepo (en `uis/backoffice/next.config.ts`), porque Turbopack no resuelve
+archivos fuera de su raíz. La web, en cambio, fija `turbopack.root` a su propia carpeta para que Next no tome el `package-lock.json` de la
+raíz como raíz del proyecto.
+
+---
+
+### 🧩 Contenido, validación y etiquetas separados de la presentación
+
+Los textos, enlaces y datos de empresa de la web están en `uis/website/content/site.ts`, tipados en `uis/website/types/site.ts`. Las
+validaciones del formulario son funciones puras en `uis/website/lib/application-form.ts`, portadas del antiguo `uis/website/validation.js` del Hito 1 (eliminado en el Hito 4). Las
+etiquetas en español de los valores de dominio están centralizadas en `uis/backoffice/lib/labels.ts` como `Record<Tipo, string>`, de modo
+que un valor nuevo del modelo rompe el tipado en lugar de mostrarse crudo.
+
+---
+
+### 🎨 Layouts separados
+
+La web pública tiene cabecera y footer oscuros con la marca (`slate-950` y `cyan-300`). El backoffice tiene sidebar y barra superior, fondo
+claro y `robots: noindex`. No comparten layout ni componentes.
+
+---
+
+### 🚫 Sin APIs dentro de `uis/`
+
+Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el
+backoffice usa datos de ejemplo en `uis/backoffice/lib/sample-data.ts` (el dataset de referencia del Hito 2 más FedEx y envíos extra), que se
+sustituirán por la API de `services/` en el Hito 5.
+
+---
 
 ## Puertos de desarrollo
 
-| App | Comando | Puerto |
-| --- | --- | --- |
-| `uis/website` | `npm run dev` (o `npm run dev:website` en la raíz) | 3000 |
-| `uis/backoffice` | `npm run dev` (o `npm run dev:backoffice`) | 3002 |
-| `uis/talent-pipeline-tracker` | `npm run dev -- --port 3003` | 3000 por defecto → choca con website |
+- **`uis/website`** — puerto **3000**, con `npm run dev` o `npm run dev:website` desde la raíz.
+- **`uis/backoffice`** — puerto **3002**, con `npm run dev` o `npm run dev:backoffice` desde la raíz.
+- **`uis/talent-pipeline-tracker`** — puerto 3000 por defecto, que choca con la web. Se arranca con `npm run dev -- --port 3003`.
 
-El backoffice **no** usa el 3001 porque el tracker del Hito 3 usa `http://localhost:3001` como API por defecto si no hay
+El backoffice **no** usa el 3001 porque el tracker del Hito 3 usa `http://localhost:3001` como API por defecto cuando no existe
 `NEXT_PUBLIC_TRACKFLOW_API_BASE_URL`.
+
+---
 
 ## Comandos de verificación
 
-| Comando (desde la raíz) | Qué comprueba |
-| --- | --- |
-| `npm run check:ts` | Tipos de `src/` (Hito 2) |
-| `npm run typecheck:uis` | `tsc --noEmit` en website y backoffice |
-| `npm run lint:uis` | ESLint en website y backoffice |
-| `npm run build:uis` | `next build` de ambas apps (detecta imports rotos hacia `src/`) |
-| `npm run verify` | Todo lo anterior en orden. Es la puerta obligatoria antes de commit |
+Todos se ejecutan desde la raíz del monorepo:
+
+- **`npm run check:ts`** — tipos de `src/` (Hito 2).
+- **`npm run typecheck:uis`** — `tsc --noEmit` en la web y el backoffice.
+- **`npm run lint:uis`** — ESLint en la web y el backoffice.
+- **`npm run build:uis`** — `next build` de ambas apps; detecta imports rotos hacia `src/`.
+- **`npm run verify`** — todo lo anterior en orden. Es la puerta obligatoria antes de cada commit.
+
+---
 
 ## Restricciones técnicas
 
-- No hay tests automatizados todavía: `verify` (tipos + lint + build) es la red de seguridad. Añadir tests es un paso siguiente.
-- `src/` no puede importar nada de `uis/` ni dependencias npm: debe seguir compilando con el `tsconfig.json` raíz.
-- Las imágenes remotas de la web solo pueden venir de `images.unsplash.com` (`images.remotePatterns`). Next 16 solo permite
-  `quality` 75 por defecto.
-- En Windows, `npm`/`node` pueden no estar en el PATH de shells ya abiertos tras instalar Node: reinicia la terminal.
-- Históricamente `node_modules/` de la raíz estaba versionado por error; desde el Hito 4 lo ignora `.gitignore`.
+- **Sin tests automatizados** — todavía no hay; `npm run verify` (tipos, lint y build) es la red de seguridad.
+- **`src/` aislado** — no puede importar nada de `uis/` ni paquetes npm; debe compilar con el `tsconfig.json` raíz.
+- **Imágenes remotas** — solo desde `images.unsplash.com` (`images.remotePatterns`). Next 16 solo permite `quality` 75 por defecto.
+- **Windows** — tras instalar Node, `npm` y `node` pueden no estar en el PATH de las terminales ya abiertas: hay que reiniciarlas.
+- **`node_modules/`** — la carpeta de la raíz estuvo versionada por error; desde el Hito 4 la ignora `.gitignore`.
+
+---
+
+_Documento interno — 4Geeks Academy · AI Engineering Track_
+_Banco de memoria de TrackFlow Tech · Actualízalo cuando cambie el stack, una decisión, un puerto o un comando_

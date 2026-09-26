@@ -1,5 +1,5 @@
 /**
- * Reglas del formulario de aplicación B2B (portadas de validation.js del Hito 1
+ * Reglas del formulario de aplicación B2B (portadas del antiguo uis/website/validation.js del Hito 1
  * a funciones puras y tipadas, testeables sin DOM).
  */
 
