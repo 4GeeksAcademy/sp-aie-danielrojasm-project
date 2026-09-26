@@ -10,7 +10,7 @@ export function TopBar() {
         </p>
       </div>
       <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
-        Datos de ejemplo · sin conexión a API
+        Datos de ejemplo en paneles operativos
       </span>
     </header>
   );

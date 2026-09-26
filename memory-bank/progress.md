@@ -53,7 +53,17 @@ endpoint en `services/` (Hito 5).
 
 ## Historial
 
-### 🤖 2026-09-26 — Nueva versión de `AGENTS.md`
+### Analizador interno de incidencias
+
+Se incorpora el CLI en `scripts/incidents-analyzer/`, un analizador Python
+compartido con `services/api` y la ruta `/incidents` del backoffice. La muestra
+de TrackFlow confirma 100 registros, 95 válidos, 5 inválidos y satisfacción
+media de 3.06; la API solo devuelve y exporta métricas agregadas. `npm run verify`,
+las pruebas unitarias del analizador y las comprobaciones HTTP locales pasan.
+
+---
+
+### 🤖 — Nueva versión de `AGENTS.md`
 
 El desarrollador sustituye `AGENTS.md` por una guía propia con 6 pasos antes del commit, y después se reescribe con otras palabras sin
 cambiar su significado. Se ajusta para que encaje con el repo: la lectura inicial incluye las reglas de `.agents/rules/` y la skill
@@ -63,7 +73,7 @@ y añaden `src/**` y `uis/talent-pipeline-tracker/**`. La skill habla ahora de
 
 ---
 
-### 🗂️ 2026-09-26 — Documentación alineada con `uis/`
+### 🗂️ — Documentación alineada con `uis/`
 
 Los README de la raíz ya describen el estado real: `src/`, `uis/` (website :3000, backoffice :3002, tracker), `services/`, `AGENTS.md`,
 `memory-bank/`, `.agents/` y los scripts de la raíz. Los README de la plantilla en `packages/`, `shared/` y `workflows/` hablaban de `apps/`,
@@ -72,7 +82,7 @@ citadas en la documentación existen, salvo `services/core-api` (prevista para e
 
 ---
 
-### 🔧 2026-09-26 — `src/` expone el umbral y los criterios del scoring
+### 🔧 — `src/` expone el umbral y los criterios del scoring
 
 Con autorización del desarrollador, `src/utils/transformations.ts` exporta `CARRIER_SUITABILITY_THRESHOLD` (50) y
 `checkCarrierConstraints` (país, peso, prioridad y fragilidad), que ahora usan internamente `scoreCarrierForShipment` y `selectBestCarrier`.
@@ -82,14 +92,14 @@ valores de control siguen en 46,22 USD / 97,6.
 
 ---
 
-### 📝 2026-09-26 — Documentación con el formato de CONTEXT.md
+### 📝 — Documentación con el formato de CONTEXT.md
 
 Los `.md` del Hito 4 (banco de memoria, `AGENTS.md`, reglas, skill y README de `uis/website` y `uis/backoffice`) siguen ahora la estructura
 de `CONTEXT.md`.
 
 ---
 
-### 🧠 2026-09-26 — Hito 4
+### 🧠 Hito 4
 
 Web del Hito 1 migrada a `uis/website` (Next.js); los HTML y JS estáticos se eliminan (siguen en git, commit `33fc434`). Nuevo
 `uis/backoffice`, integrado con `src/` mediante un alias y `turbopack.root`. Se crean el banco de memoria, `AGENTS.md`, las reglas y la skill

@@ -13,6 +13,7 @@ const navItems: NavItem[] = [
   { label: "Transportistas", href: "/#transportistas" },
   { label: "Envíos", href: "/#envios" },
   { label: "Calidad de datos", href: "/#validaciones" },
+  { label: "Análisis de incidencias", href: "/incidents" },
   { label: "Devoluciones", href: "#", upcoming: true },
   { label: "Atención al cliente", href: "#", upcoming: true },
   { label: "Dashboard ejecutivo", href: "#", upcoming: true },

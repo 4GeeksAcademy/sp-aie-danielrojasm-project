@@ -7,8 +7,8 @@
 Este archivo describe cómo está construido el monorepo: qué hay en cada carpeta, con qué stack, qué decisiones de arquitectura se han
 tomado y qué restricciones técnicas están en vigor. Hay que actualizarlo cada vez que cambie cualquiera de ellas.
 
-El monorepo parte de la plantilla del programa de 4Geeks Academy. Hoy contiene la lógica de negocio del Hito 2 en `src/`, tres interfaces
-en `uis/` y la configuración de agentes de código del Hito 4. Todavía no hay ningún servicio de backend propio.
+El monorepo parte de la plantilla del programa de 4Geeks Academy. Contiene la lógica de negocio del Hito 2 en `src/`, tres interfaces
+en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, una API interna para analizar incidencias.
 
 ## Mapa del monorepo
 
@@ -17,7 +17,7 @@ en `uis/` y la configuración de agentes de código del Hito 4. Todavía no hay 
 - **`uis/website/`** — web pública (Hito 1 migrado a Next.js), con las rutas `/` y `/aplicar`.
 - **`uis/backoffice/`** — app interna de la empresa. Su ruta `/` es el panel de operaciones que consume `src/`.
 - **`uis/talent-pipeline-tracker/`** — Hito 3, gestor de candidaturas contra una API REST externa. No se toca sin pedirlo.
-- **`services/`** — APIs y workers. Está vacío: **toda API nueva va aquí**.
+- **`services/`** — APIs y workers. `services/api/` contiene la API FastAPI de análisis de incidencias; el servicio principal de operaciones sigue pendiente.
 - **`packages/shared/`** — paquete `@repo/shared-types` de la plantilla, todavía sin uso.
 - **`memory-bank/`, `AGENTS.md`, `.agents/`** — configuración de los agentes de código (Hito 4).
 - **`agents/`, `skills/`, `mcps/`, `workflows/`, `data/`, `infra/`** — espacio para el producto de hitos futuros (agentes de la empresa,
@@ -33,6 +33,9 @@ en `uis/` y la configuración de agentes de código del Hito 4. Todavía no hay 
 
 **TypeScript en la raíz:** `typescript ^6.0.3`. El `tsconfig.json` raíz es `strict`, usa `moduleResolution: Bundler` y solo incluye
 `src/**/*.ts`.
+
+**Python:** el CLI y `services/api/incidents_analyzer.py` usan la biblioteca estándar para validar y agregar el CSV en streaming. La API usa
+FastAPI, `python-multipart` y Uvicorn, declarados en `services/api/requirements.txt`.
 
 ---
 
@@ -89,12 +92,21 @@ Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backe
 backoffice usa datos de ejemplo en `uis/backoffice/lib/sample-data.ts` (el dataset de referencia del Hito 2 más FedEx y envíos extra), que se
 sustituirán por la API de `services/` en el Hito 5.
 
+### 📊 Análisis interno de incidencias
+
+El módulo `services/api/incidents_analyzer.py` es compartido por el CLI `scripts/incidents-analyzer/analyze.py` y los endpoints de
+`services/api/main.py`. Procesa filas en streaming, no persiste registros ni exporta datos personales; FastAPI conserva en memoria solo el
+último resumen correcto. El backoffice consume la API desde `/incidents` y llama a `/api/incidents/*` en el mismo origen; un rewrite de Next
+reenvía la petición desde el servidor a `INCIDENTS_API_INTERNAL_URL` (predeterminado `http://127.0.0.1:8000`). El navegador no requiere acceso
+directo al puerto privado de la API.
+
 ---
 
 ## Puertos de desarrollo
 
 - **`uis/website`** — puerto **3000**, con `npm run dev` o `npm run dev:website` desde la raíz.
 - **`uis/backoffice`** — puerto **3002**, con `npm run dev` o `npm run dev:backoffice` desde la raíz.
+- **`services/api`** — puerto **8000**, con `uvicorn services.api.main:app --reload --port 8000` desde la raíz.
 - **`uis/talent-pipeline-tracker`** — puerto 3000 por defecto, que choca con la web. Se arranca con `npm run dev -- --port 3003`.
 
 El backoffice **no** usa el 3001 porque el tracker del Hito 3 usa `http://localhost:3001` como API por defecto cuando no existe
@@ -111,12 +123,14 @@ Todos se ejecutan desde la raíz del monorepo:
 - **`npm run lint:uis`** — ESLint en la web y el backoffice.
 - **`npm run build:uis`** — `next build` de ambas apps; detecta imports rotos hacia `src/`.
 - **`npm run verify`** — todo lo anterior en orden. Es la puerta obligatoria antes de cada commit.
+- **CLI de incidencias** — `python scripts/incidents-analyzer/analyze.py <fichero.csv>` desde la raíz.
+- **API de incidencias** — instalar `services/api/requirements.txt` y ejecutar `uvicorn services.api.main:app --reload --port 8000`.
 
 ---
 
 ## Restricciones técnicas
 
-- **Sin tests automatizados** — todavía no hay; `npm run verify` (tipos, lint y build) es la red de seguridad.
+- **Tests automatizados** — `python -m unittest services.api.test_incidents_analyzer`; `npm run verify` cubre tipos, lint y build de las UIs.
 - **`src/` aislado** — no puede importar nada de `uis/` ni paquetes npm; debe compilar con el `tsconfig.json` raíz.
 - **Imágenes remotas** — solo desde `images.unsplash.com` (`images.remotePatterns`). Next 16 solo permite `quality` 75 por defecto.
 - **Windows** — tras instalar Node, `npm` y `node` pueden no estar en el PATH de las terminales ya abiertas: hay que reiniciarlas.
