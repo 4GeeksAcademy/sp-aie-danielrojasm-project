@@ -58,7 +58,7 @@ endpoint en `services/` (Hito 5).
 El desarrollador sustituye `AGENTS.md` por una guía propia con 6 pasos antes del commit, y después se reescribe con otras palabras sin
 cambiar su significado. Se ajusta para que encaje con el repo: la lectura inicial incluye las reglas de `.agents/rules/` y la skill
 `delivery-checklist`; el paso 2 usa `npm run verify` y `npm run dev`; las rutas protegidas dejan fuera dos archivos que no existían
-(`company-choice.md` y `uis/talent-pipeline-tracker/TASK.md`) y añaden `src/**` y `uis/talent-pipeline-tracker/**`. La skill habla ahora de
+y añaden `src/**` y `uis/talent-pipeline-tracker/**`. La skill habla ahora de
 "rutas protegidas (sección 4)", como `AGENTS.md`.
 
 ---
@@ -76,7 +76,7 @@ citadas en la documentación existen, salvo `services/core-api` (prevista para e
 
 Con autorización del desarrollador, `src/utils/transformations.ts` exporta `CARRIER_SUITABILITY_THRESHOLD` (50) y
 `checkCarrierConstraints` (país, peso, prioridad y fragilidad), que ahora usan internamente `scoreCarrierForShipment` y `selectBestCarrier`.
-El backoffice los importa en lugar de repetir esa lógica en `uis/`, como exige `solution.md` ("no duplication of business logic"). El
+El backoffice los importa en lugar de repetir esa lógica en `uis/`, para no duplicar lógica de negocio. El
 comportamiento no cambia: 648 combinaciones de producto, transportista, prioridad, país y cantidad dan el mismo resultado que antes, y los
 valores de control siguen en 46,22 USD / 97,6.
 
