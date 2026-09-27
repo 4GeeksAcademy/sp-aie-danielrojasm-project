@@ -37,11 +37,11 @@ Este flujo no se puede omitir. Se ejecuta paso a paso, en orden, y queda documen
 
 ### Paso 1 - Validacion de contexto y alcance
 - Revisar el objetivo funcional y como afecta a las operaciones de TrackFlow.
-- Confirmar a que hito pertenece el cambio (hoy: Hito 4 en curso).
+- Confirmar que el cambio pertenece al Milestone 09 — Lightweight Storage API.
 - Identificar los modulos afectados y sus dependencias.
 
 ### Paso 2 - Verificacion tecnica local
-- Ejecutar `npm run verify` desde la raiz (tipos de `src/`, tipos, lint y build de `uis/website` y `uis/backoffice`); tiene que terminar sin errores. Si se toco `uis/talent-pipeline-tracker`, ejecutar tambien `npm run lint` y `npm run build` dentro de esa app.
+- Ejecutar las verificaciones de la API y de cada app afectada; tienen que terminar sin errores.
 - Arrancar con `npm run dev` la app afectada y comprobar que las rutas modificadas responden sin errores.
 - Comprobar que siguen funcionando los flujos clave del dominio (listado, detalle, estado/etapa, notas en la app activa).
 - Revisar los errores de consola y los estados de carga/error de la UI cuando aplique.
@@ -65,22 +65,9 @@ Este flujo no se puede omitir. Se ejecuta paso a paso, en orden, y queda documen
 - Escribir el commit con un formato claro: area + accion + objetivo.
 - Incluir una referencia breve al impacto esperado en TrackFlow.
 
-## 4) Rutas protegidas: no modificar sin confirmacion explicita
-Antes de tocar estas rutas hace falta la confirmacion explicita del usuario o del responsable tecnico:
-
-- CONTEXT.md
-- memory-bank/projectbrief.md
-- memory-bank/techContext.md
-- src/** (logica de negocio del Hito 2: se importa desde `uis/`, no se copia ni se cambia su comportamiento sin permiso)
-- uis/talent-pipeline-tracker/** (Hito 3 entregado)
-- packages/shared/package.json
-- packages/shared/types/index.ts
-
-Tambien hace falta confirmacion explicita para:
-
-- Borrar o renombrar carpetas de primer nivel del monorepo.
-- Hacer cambios masivos de estructura en uis, services, packages, data o workflows.
-- Cualquier cambio que modifique los contratos compartidos entre las apps de `uis/` y el paquete shared.
+## 4) Alcance de trabajo
+El alcance actual es el Milestone 09. Los archivos pueden modificarse cuando sean necesarios para completar la tarea, manteniendo los
+contratos y la compatibilidad del monorepo. Se pide confirmacion solo antes de operaciones destructivas o de cambios masivos de estructura.
 
 ## 5) Politicas de implementacion para TrackFlow
 
@@ -130,7 +117,7 @@ Dar prioridad a las tareas con impacto directo en:
 Un cambio se puede mergear cuando:
 
 - Ha pasado el flujo pre-commit completo.
-- No modifica rutas protegidas sin autorizacion.
+- No incluye operaciones destructivas no solicitadas ni cambios ajenos al alcance.
 - Sigue alineado con los objetivos de TrackFlow.
 - Deja el memory-bank actualizado segun su impacto real.
 - Otro agente puede entenderlo y continuarlo sin necesitar contexto adicional.

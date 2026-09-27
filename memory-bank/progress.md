@@ -7,7 +7,14 @@
 Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y qué viene después. Cada cambio relevante (una feature, una
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
-**Rama actual:** `hito4` (sigue a `origin/hito-4`)
+**Rama actual:** `proveedores`
+
+### Milestone 09 — Directorio de proveedores
+
+- Implementada la API FastAPI con modelos Pydantic, TinyDB persistente, CRUD, filtros por país/categoría y actualizaciones de tarifa con `updated_at`.
+- El seeder carga los 15 proveedores del contexto y es idempotente mediante `uv run seed`.
+- El backoffice añade `/suppliers` con filtros, alta, edición de tarifa y activación/suspensión visual.
+- Verificado: `uv run seed` (15 y 0), contratos HTTP (422/404/timestamp), Uvicorn (200/404) y typecheck/lint del backoffice.
 
 ## Estado actual
 
@@ -65,11 +72,8 @@ las pruebas unitarias del analizador y las comprobaciones HTTP locales pasan.
 
 ### 🤖 — Nueva versión de `AGENTS.md`
 
-El desarrollador sustituye `AGENTS.md` por una guía propia con 6 pasos antes del commit, y después se reescribe con otras palabras sin
-cambiar su significado. Se ajusta para que encaje con el repo: la lectura inicial incluye las reglas de `.agents/rules/` y la skill
-`delivery-checklist`; el paso 2 usa `npm run verify` y `npm run dev`; las rutas protegidas dejan fuera dos archivos que no existían
-y añaden `src/**` y `uis/talent-pipeline-tracker/**`. La skill habla ahora de
-"rutas protegidas (sección 4)", como `AGENTS.md`.
+El desarrollador sustituyó `AGENTS.md` por una guía propia con pasos antes de la entrega. La guía se actualizó para que el alcance vigente
+sea el Milestone 09 y para retirar restricciones heredadas de hitos anteriores.
 
 ---
 

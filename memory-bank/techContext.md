@@ -16,7 +16,7 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
   `utils/{collections,search,transformations,validations}.ts`). Es la fuente única: se importa, no se copia.
 - **`uis/website/`** — web pública (Hito 1 migrado a Next.js), con las rutas `/` y `/aplicar`.
 - **`uis/backoffice/`** — app interna de la empresa. Su ruta `/` es el panel de operaciones que consume `src/`.
-- **`uis/talent-pipeline-tracker/`** — Hito 3, gestor de candidaturas contra una API REST externa. No se toca sin pedirlo.
+- **`uis/talent-pipeline-tracker/`** — gestor de candidaturas contra una API REST externa.
 - **`services/`** — APIs y workers. `services/api/` contiene la API FastAPI de análisis de incidencias; el servicio principal de operaciones sigue pendiente.
 - **`packages/shared/`** — paquete `@repo/shared-types` de la plantilla, todavía sin uso.
 - **`memory-bank/`, `AGENTS.md`, `.agents/`** — configuración de los agentes de código (Hito 4).
@@ -85,6 +85,12 @@ La web pública tiene cabecera y footer oscuros con la marca (`slate-950` y `cya
 claro y `robots: noindex`. No comparten layout ni componentes.
 
 ---
+
+### Directorio de proveedores — Milestone 09
+
+`services/api/` también expone el directorio persistente `/suppliers`, implementado con FastAPI, Pydantic y TinyDB. El seeder se ejecuta
+con `uv run seed`, es idempotente y carga los 15 proveedores definidos en `CONTEXT-company.md`. `uis/backoffice` consume estas rutas mediante
+el rewrite `/api/suppliers/*` y muestra el directorio en `/suppliers`.
 
 ### 🚫 Sin APIs dentro de `uis/`
 

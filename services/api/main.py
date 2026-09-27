@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from services.api.incidents_analyzer import InvalidCsvError, analyze_csv, result_rows
+from services.api.routes.suppliers import router as suppliers_router
 
 
 allowed_origins = {os.getenv("BACKOFFICE_ORIGIN", "http://localhost:3002")}
@@ -24,6 +25,7 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
+app.include_router(suppliers_router)
 
 latest_analysis: dict[str, object] | None = None
 
