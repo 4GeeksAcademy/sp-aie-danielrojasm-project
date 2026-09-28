@@ -10,6 +10,7 @@ import {
   type IncidentCategory,
   type IncidentStatus,
 } from "@/lib/incident-analysis";
+import { apiFetch } from "@/lib/api-client";
 
 const SATISFACTION_LABELS = [
   "Muy insatisfecho",
@@ -60,7 +61,7 @@ export function IncidentAnalysis() {
     formData.append("file", file);
 
     try {
-      const response = await fetch("/api/incidents/analyze", {
+      const response = await apiFetch("/api/incidents/analyze", {
         method: "POST",
         body: formData,
       });
@@ -85,7 +86,7 @@ export function IncidentAnalysis() {
     setIsExporting(true);
     setExportError(null);
     try {
-      const response = await fetch(
+      const response = await apiFetch(
         "/api/incidents/results/export",
       );
       if (!response.ok) {

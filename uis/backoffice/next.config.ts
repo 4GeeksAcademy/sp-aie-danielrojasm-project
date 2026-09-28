@@ -5,8 +5,11 @@ import type { NextConfig } from "next";
 // desde `<repo>/src` (alias `@trackflow/logic/*` en tsconfig.json) sin copiarla.
 // Turbopack no resuelve archivos fuera de su `root`, por eso se amplía.
 const monorepoRoot = path.join(__dirname, "..", "..");
+const apiOrigin = (
+  process.env.TRACKFLOW_API_INTERNAL_URL ?? "http://127.0.0.1:8000"
+).replace(/\/$/, "");
 const incidentsApiOrigin = (
-  process.env.INCIDENTS_API_INTERNAL_URL ?? "http://127.0.0.1:8000"
+  process.env.INCIDENTS_API_INTERNAL_URL ?? apiOrigin
 ).replace(/\/$/, "");
 const suppliersApiOrigin = (
   process.env.SUPPLIERS_API_INTERNAL_URL ?? incidentsApiOrigin
@@ -26,6 +29,22 @@ const nextConfig: NextConfig = {
       {
         source: "/api/suppliers/:path*",
         destination: `${suppliersApiOrigin}/suppliers/:path*`,
+      },
+      {
+        source: "/api/auth/:path*",
+        destination: `${apiOrigin}/auth/:path*`,
+      },
+      {
+        source: "/api/users/:path*",
+        destination: `${apiOrigin}/users/:path*`,
+      },
+      {
+        source: "/api/users",
+        destination: `${apiOrigin}/users`,
+      },
+      {
+        source: "/api/profiles/:path*",
+        destination: `${apiOrigin}/profiles/:path*`,
       },
     ];
   },

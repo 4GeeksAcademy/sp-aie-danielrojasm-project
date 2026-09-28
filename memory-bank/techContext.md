@@ -102,6 +102,13 @@ entorno. `OAuth2PasswordBearer` protege el CRUD de usuarios, los perfiles, todas
 las rutas de proveedores y las dos rutas de incidencias; el health check y el
 registro permanecen públicos.
 
+El backoffice completa el flujo con autenticación exclusivamente cliente:
+`AuthProvider` restaura el usuario mediante `/auth/me`, `ProtectedShell` protege
+las vistas internas sin `middleware.ts` y `apiFetch` conserva el JWT en
+`localStorage`, añade el header `Authorization` y redirige a `/login` ante
+`401`. Los rewrites de Next mantienen las peticiones en el origen del
+backoffice. `uis/website` no participa en este flujo y sigue siendo público.
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el

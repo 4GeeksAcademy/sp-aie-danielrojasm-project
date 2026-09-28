@@ -15,6 +15,7 @@ const navItems: NavItem[] = [
   { label: "Calidad de datos", href: "/#validaciones" },
   { label: "Análisis de incidencias", href: "/incidents" },
   { label: "Directorio de proveedores", href: "/suppliers" },
+  { label: "Mi perfil", href: "/account/profile" },
   { label: "Devoluciones", href: "#", upcoming: true },
   { label: "Atención al cliente", href: "#", upcoming: true },
   { label: "Dashboard ejecutivo", href: "#", upcoming: true },
