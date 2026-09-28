@@ -8,6 +8,8 @@ dependencies = [
     "tinydb>=4.8,<5.0",
     "email-validator>=2.2,<3.0",
     "uvicorn[standard]>=0.34,<1.0",
+    "python-jose[cryptography]>=3.5.0",
+    "libpass[bcrypt]>=1.9.3",
 ]
 
 [project.scripts]
@@ -19,3 +21,8 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 include = ["services*"]
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.13.1",
+]

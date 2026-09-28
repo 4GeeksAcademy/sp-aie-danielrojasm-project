@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from services.api.database import get_db
 from services.api.models import (
@@ -12,9 +12,14 @@ from services.api.models import (
     SupplierCategory,
     SupplierCreate,
 )
+from services.api.security import get_current_user
 
 
-router = APIRouter(prefix="/suppliers", tags=["suppliers"])
+router = APIRouter(
+    prefix="/suppliers",
+    tags=["suppliers"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 def supplier_from_document(document: Any) -> Supplier:

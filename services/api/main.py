@@ -2,12 +2,16 @@ import csv
 import io
 import os
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
 from services.api.incidents_analyzer import InvalidCsvError, analyze_csv, result_rows
+from services.api.routes.auth import router as auth_router
+from services.api.routes.profiles import router as profiles_router
 from services.api.routes.suppliers import router as suppliers_router
+from services.api.routes.users import router as users_router
+from services.api.security import get_current_user
 
 
 allowed_origins = {os.getenv("BACKOFFICE_ORIGIN", "http://localhost:3002")}
@@ -18,13 +22,16 @@ if codespace_name:
     )
     allowed_origins.add(f"https://{codespace_name}-3002.{forwarding_domain}")
 
-app = FastAPI(title="TrackFlow Incidents API", version="1.0.0")
+app = FastAPI(title="TrackFlow API", version="1.0.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(allowed_origins),
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_headers=["Authorization", "Content-Type"],
 )
+app.include_router(auth_router)
+app.include_router(users_router)
+app.include_router(profiles_router)
 app.include_router(suppliers_router)
 
 latest_analysis: dict[str, object] | None = None
@@ -35,7 +42,7 @@ def health_check() -> dict[str, str]:
     return {"service": "TrackFlow Incidents API", "status": "ok"}
 
 
-@app.post("/api/incidents/analyze")
+@app.post("/api/incidents/analyze", dependencies=[Depends(get_current_user)])
 def analyze_incidents(file: UploadFile = File(...)) -> dict[str, object]:
     global latest_analysis
     try:
@@ -55,7 +62,10 @@ def analyze_incidents(file: UploadFile = File(...)) -> dict[str, object]:
     return summary
 
 
-@app.get("/api/incidents/results/export")
+@app.get(
+    "/api/incidents/results/export",
+    dependencies=[Depends(get_current_user)],
+)
 async def export_latest_results() -> StreamingResponse:
     if latest_analysis is None:
         raise HTTPException(status_code=404, detail="Todavía no hay resultados para exportar.")

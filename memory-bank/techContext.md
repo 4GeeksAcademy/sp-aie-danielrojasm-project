@@ -92,6 +92,16 @@ claro y `robots: noindex`. No comparten layout ni componentes.
 con `uv run seed`, es idempotente y carga los 15 proveedores definidos en `CONTEXT-company.md`. `uis/backoffice` consume estas rutas mediante
 el rewrite `/api/suppliers/*` y muestra el directorio en `/suppliers`.
 
+### Autenticación JWT — Milestone 09
+
+`services/api/` mantiene usuarios y perfiles exclusivamente en TinyDB
+(`auth.json`, tablas `users` y `profiles`) con UUID propios. Las contraseñas se
+hashean con `libpass[bcrypt]`; `python-jose` firma JWT HS256 cuyo `sub` es el ID
+TinyDB del usuario. `JWT_SECRET_KEY` y `ACCESS_TOKEN_EXPIRE_MINUTES` se leen del
+entorno. `OAuth2PasswordBearer` protege el CRUD de usuarios, los perfiles, todas
+las rutas de proveedores y las dos rutas de incidencias; el health check y el
+registro permanecen públicos.
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el
@@ -131,6 +141,8 @@ Todos se ejecutan desde la raíz del monorepo:
 - **`npm run verify`** — todo lo anterior en orden. Es la puerta obligatoria antes de cada commit.
 - **CLI de incidencias** — `python scripts/incidents-analyzer/analyze.py <fichero.csv>` desde la raíz.
 - **API de incidencias** — instalar `services/api/requirements.txt` y ejecutar `uvicorn services.api.main:app --reload --port 8000`.
+- **API completa** — `uv sync` y `uv run uvicorn services.api.main:app --reload --port 8000 --env-file .env`.
+- **Auth API** — `uv run python -m unittest services.api.test_auth_api -v`.
 
 ---
 
