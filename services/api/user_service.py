@@ -1,4 +1,6 @@
 from datetime import datetime, timezone
+from hashlib import sha256
+from threading import Lock
 from uuid import uuid4
 
 from tinydb import Query
@@ -6,6 +8,9 @@ from tinydb import Query
 from services.api.auth_models import Profile, ProfileFields, User, UserCreate, UserUpdate
 from services.api.database import get_auth_db
 from services.api.passwords import hash_password
+
+
+_password_lock = Lock()
 
 
 class EmailAlreadyExistsError(ValueError):
@@ -68,6 +73,44 @@ def get_user_by_email(email: str) -> User | None:
     return _user_from_document(document)
 
 
+def issue_reset_token(user_id: str) -> str:
+    from services.api.security import create_reset_token
+
+    token = create_reset_token(user_id)
+    with _password_lock, get_auth_db() as db:
+        resets = db.table("password_resets")
+        resets.remove(Query().user_id == user_id)
+        resets.insert({"user_id": user_id, "token_hash": sha256(token.encode()).hexdigest()})
+    return token
+
+
+def reset_user_password(token: str, new_password: str) -> bool:
+    from services.api.security import reset_token_user_id
+
+    user_id = reset_token_user_id(token)
+    if user_id is None:
+        return False
+    token_hash = sha256(token.encode()).hexdigest()
+    with _password_lock, get_auth_db() as db:
+        resets = db.table("password_resets")
+        if not resets.contains((Query().user_id == user_id) & (Query().token_hash == token_hash)):
+            return False
+        users = db.table("users")
+        if not users.contains(Query().id == user_id):
+            return False
+        users.update({"hashed_password": hash_password(new_password)}, Query().id == user_id)
+        resets.remove(Query().user_id == user_id)
+    return True
+
+
+def change_user_password(user_id: str, new_password: str) -> None:
+    with _password_lock, get_auth_db() as db:
+        db.table("users").update(
+            {"hashed_password": hash_password(new_password)}, Query().id == user_id
+        )
+        db.table("password_resets").remove(Query().user_id == user_id)
+
+
 def list_users() -> list[User]:
     with get_auth_db() as db:
         documents = db.table("users").all()
@@ -95,6 +138,8 @@ def update_user(user_id: str, payload: UserUpdate) -> User | None:
             return None
         if updates:
             users.update(updates, Query().id == user_id)
+            if password is not None:
+                db.table("password_resets").remove(Query().user_id == user_id)
         document = users.get(Query().id == user_id)
     return _user_from_document(document)
 
@@ -106,6 +151,7 @@ def delete_user(user_id: str) -> bool:
             return False
         users.remove(Query().id == user_id)
         db.table("profiles").remove(Query().user_id == user_id)
+        db.table("password_resets").remove(Query().user_id == user_id)
     return True
 
 

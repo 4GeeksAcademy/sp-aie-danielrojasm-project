@@ -94,6 +94,16 @@ el rewrite `/api/suppliers/*` y muestra el directorio en `/suppliers`.
 
 ### Autenticación JWT — Milestone 09
 
+AUTH-03 guarda el hash SHA-256 del JWT de recuperación en la tabla TinyDB
+`password_resets`; el token lleva propósito exclusivo y expira en 30 minutos.
+El reset o cualquier cambio de contraseña borra los tokens pendientes. Resend
+recibe el enlace mediante `RESEND_API_KEY` (remitente `RESEND_FROM_EMAIL`, URL
+`PASSWORD_RESET_URL`) a través del SDK oficial `resend`. El backoffice ofrece rutas públicas `/forgot-password` y
+`/reset-password`, y ruta protegida `/account/change-password`.
+En Codespaces, la API transforma la URL de reset local en el origen HTTPS del
+puerto reenviado; las URL externas explícitas se mantienen. Las rutas de
+recuperación siguen accesibles incluso con una sesión iniciada.
+
 `services/api/` mantiene usuarios y perfiles exclusivamente en TinyDB
 (`auth.json`, tablas `users` y `profiles`) con UUID propios. Las contraseñas se
 hashean con `libpass[bcrypt]`; `python-jose` firma JWT HS256 cuyo `sub` es el ID

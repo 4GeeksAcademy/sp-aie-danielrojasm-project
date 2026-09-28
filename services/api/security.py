@@ -1,4 +1,5 @@
 import os
+from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 
 from fastapi import Depends, HTTPException, status
@@ -52,11 +53,35 @@ def create_access_token(
     )
 
 
+def create_reset_token(user_id: str) -> str:
+    return jwt.encode(
+        {
+            "sub": user_id,
+            "purpose": "password-reset",
+            "jti": str(uuid4()),
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
+        },
+        _secret_key(),
+        algorithm=ALGORITHM,
+    )
+
+
+def reset_token_user_id(token: str) -> str | None:
+    try:
+        payload = jwt.decode(token, _secret_key(), algorithms=[ALGORITHM])
+    except (JWTError, RuntimeError):
+        return None
+    if payload.get("purpose") != "password-reset":
+        return None
+    user_id = payload.get("sub")
+    return user_id if isinstance(user_id, str) else None
+
+
 def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     try:
         payload = jwt.decode(token, _secret_key(), algorithms=[ALGORITHM])
         user_id = payload.get("sub")
-        if not isinstance(user_id, str):
+        if not isinstance(user_id, str) or payload.get("purpose") is not None:
             raise _unauthorized()
     except (JWTError, RuntimeError) as error:
         raise _unauthorized() from error

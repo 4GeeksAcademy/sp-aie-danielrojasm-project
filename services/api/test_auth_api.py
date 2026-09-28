@@ -2,6 +2,9 @@ import os
 import tempfile
 import unittest
 from datetime import timedelta
+from unittest.mock import patch
+
+from jose import jwt
 
 from fastapi.testclient import TestClient
 from tinydb import Query
@@ -94,6 +97,129 @@ class AuthApiTests(unittest.TestCase):
         self.assertTrue(json_token)
         self.assertEqual(form_response.status_code, 200, form_response.text)
         self.assertEqual(form_response.json()["token_type"], "bearer")
+
+    def test_reset_token_is_sent_and_cannot_be_reused(self) -> None:
+        self.register()
+        with patch("services.api.routes.auth.send_reset_email") as send_email:
+            requested = self.client.post(
+                "/auth/forgot-password", json={"email": "owner@example.com"}
+            )
+        self.assertEqual(requested.status_code, 200, requested.text)
+        self.assertEqual(send_email.call_count, 1)
+        token = send_email.call_args.args[1].split("token=", 1)[1]
+        self.assertEqual(
+            self.client.get("/auth/me", headers=self.authorization(token)).status_code,
+            401,
+        )
+
+        payload = {"token": token, "new_password": "replacement-password"}
+        changed = self.client.post("/auth/reset-password", json=payload)
+        reused = self.client.post("/auth/reset-password", json=payload)
+        self.assertEqual(changed.status_code, 200, changed.text)
+        self.assertEqual(reused.status_code, 400, reused.text)
+        self.login(password="replacement-password")
+        self.assertEqual(
+            self.client.post(
+                "/auth/login",
+                json={"email": "owner@example.com", "password": "correct-password"},
+            ).status_code,
+            401,
+        )
+
+    def test_forgot_password_does_not_disclose_unknown_email(self) -> None:
+        with patch("services.api.routes.auth.send_reset_email") as send_email:
+            response = self.client.post(
+                "/auth/forgot-password", json={"email": "unknown@example.com"}
+            )
+        self.assertEqual(response.status_code, 200)
+        send_email.assert_not_called()
+
+        self.register()
+        with patch("services.api.routes.auth.send_reset_email", side_effect=RuntimeError("provider unavailable")):
+            with self.assertLogs("services.api.routes.auth", level="ERROR"):
+                delivery_failed = self.client.post(
+                    "/auth/forgot-password", json={"email": "owner@example.com"}
+                )
+        self.assertEqual(delivery_failed.status_code, 200)
+        self.assertEqual(delivery_failed.json(), response.json())
+
+    def test_forgot_password_uses_forwarded_codespaces_url(self) -> None:
+        self.register()
+        with patch.dict(os.environ, {
+            "PASSWORD_RESET_URL": "http://localhost:3002/reset-password",
+            "CODESPACE_NAME": "example-space",
+            "GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN": "app.github.dev",
+        }):
+            with patch("services.api.routes.auth.send_reset_email") as send_email:
+                response = self.client.post(
+                    "/auth/forgot-password", json={"email": "owner@example.com"}
+                )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(
+            send_email.call_args.args[1].startswith(
+                "https://example-space-3002.app.github.dev/reset-password?token="
+            )
+        )
+
+    def test_reset_rejects_expired_invalid_and_session_tokens(self) -> None:
+        user = self.register()
+        with patch("services.api.routes.auth.send_reset_email") as send_email:
+            self.client.post("/auth/forgot-password", json={"email": "owner@example.com"})
+        token = send_email.call_args.args[1].split("token=", 1)[1]
+        expired = jwt.encode(
+            {"sub": user["id"], "purpose": "password-reset", "exp": 1},
+            os.environ["JWT_SECRET_KEY"], algorithm="HS256",
+        )
+        for candidate in (expired, "invalid", self.login(), token + "broken"):
+            with self.subTest(token=candidate):
+                response = self.client.post(
+                    "/auth/reset-password",
+                    json={"token": candidate, "new_password": "replacement-password"},
+                )
+                self.assertEqual(response.status_code, 400, response.text)
+
+        with patch("services.api.security.jwt.encode", return_value=expired):
+            with patch("services.api.routes.auth.send_reset_email") as send_email:
+                self.client.post("/auth/forgot-password", json={"email": "owner@example.com"})
+        self.assertEqual(send_email.call_count, 1)
+        self.assertEqual(
+            self.client.post("/auth/reset-password", json={"token": expired, "new_password": "replacement-password"}).status_code,
+            400,
+        )
+
+    def test_resend_request_contains_mobile_readable_link(self) -> None:
+        import resend
+
+        from services.api.reset_email import send_reset_email
+
+        with patch.dict(os.environ, {"RESEND_API_KEY": "test-key"}):
+            with patch.object(resend, "api_key", None):
+                with patch("services.api.reset_email.resend.Emails.send") as send:
+                    send_reset_email("owner@example.com", "https://example.com/reset-password?token=abc")
+                    self.assertEqual(resend.api_key, "test-key")
+        payload = send.call_args.args[0]
+        self.assertEqual(payload["to"], ["owner@example.com"])
+        self.assertIn("https://example.com/reset-password?token=abc", payload["text"])
+
+    def test_change_password_requires_correct_current_password(self) -> None:
+        self.register()
+        token = self.login()
+        payload = {"current_password": "wrong", "new_password": "replacement-password"}
+        self.assertEqual(self.client.post("/auth/change-password", json=payload).status_code, 401)
+        self.assertEqual(
+            self.client.post("/auth/change-password", headers=self.authorization(token), json=payload).status_code,
+            400,
+        )
+        payload["current_password"] = "correct-password"
+        changed = self.client.post(
+            "/auth/change-password", headers=self.authorization(token), json=payload
+        )
+        self.assertEqual(changed.status_code, 200, changed.text)
+        self.login(password="replacement-password")
+        rejected = self.client.post(
+            "/auth/login", json={"email": "owner@example.com", "password": "correct-password"}
+        )
+        self.assertEqual(rejected.status_code, 401)
 
     def test_auth_me_and_profile_update_return_linked_profile(self) -> None:
         user = self.register()

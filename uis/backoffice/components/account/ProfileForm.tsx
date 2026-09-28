@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { Save } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { requestJson } from "@/lib/api-client";
 import { userRoleLabels } from "@/lib/labels";
@@ -58,6 +59,7 @@ export function ProfileForm() {
           <div><dt className="text-xs font-medium text-slate-500">Email</dt><dd className="mt-1 text-sm text-slate-900">{user.email}</dd></div>
           <div><dt className="text-xs font-medium text-slate-500">Rol</dt><dd className="mt-1 text-sm text-slate-900">{userRoleLabels[user.role]}</dd></div>
         </dl>
+        <Link href="/account/change-password" className="mt-4 inline-block text-sm font-semibold text-cyan-800 hover:underline">Cambiar contraseña</Link>
       </section>
 
       <section aria-labelledby="profile-data-title" className="border-y border-slate-200 bg-white px-5 py-5 sm:rounded-md sm:border">

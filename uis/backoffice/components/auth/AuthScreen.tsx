@@ -6,7 +6,7 @@ interface AuthScreenProps {
   description: string;
   alternateText: string;
   alternateLabel: string;
-  alternateHref: "/login" | "/register";
+  alternateHref: "/login" | "/register" | "/forgot-password";
   children: ReactNode;
 }
 
