@@ -1,8 +1,13 @@
 # TrackFlow API
 
-API de autenticación, proveedores y análisis agregado de incidencias. Los
-usuarios y perfiles se guardan exclusivamente en TinyDB; las contraseñas se
-almacenan con bcrypt y la autenticación usa JWT stateless.
+API de autenticación, proveedores, incidencias e inventario. Usa dos bases de
+datos a la vez:
+
+- **TinyDB** (JSON local): usuarios y perfiles, proveedores e incidencias. Las
+  contraseñas se almacenan con bcrypt y la autenticación usa JWT stateless.
+- **Supabase (PostgreSQL) con SQLModel**: inventario — SKUs, recepciones
+  (`StockEntry`) y salidas (`StockExit`). Los movimientos guardan el UUID del
+  usuario de TinyDB en `user_uuid`; no hay tabla de usuarios en PostgreSQL.
 
 ## Ejecutar
 
@@ -19,7 +24,13 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 RESEND_API_KEY=tu-clave-de-resend
 RESEND_FROM_EMAIL=onboarding@resend.dev
 PASSWORD_RESET_URL=http://localhost:3002/reset-password
+DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
 ```
+
+`DATABASE_URL` es la URI del **Transaction pooler** de Supabase (Connect →
+Direct). Al arrancar, la API crea las tablas que falten
+(`SQLModel.metadata.create_all`). Sin `DATABASE_URL`, o si PostgreSQL no
+responde, la API arranca igual y las rutas de `/inventory` responden `503`.
 
 `RESEND_API_KEY` es obligatoria para enviar correos reales. Con el remitente de
 onboarding de Resend solo se puede enviar al email de la cuenta Resend; para
@@ -97,6 +108,47 @@ Carga del histórico CSV (idempotente, desde la raíz):
 uv run python scripts/seed_incidents.py [ruta.csv]
 ```
 
+### Inventario (`/inventory`)
+
+Modelos ORM en `models.py`, schemas de request/response en `schemas.py` y
+router en `routes/inventory.py`. La sesión de SQLModel se inyecta por petición
+con `Depends(get_db)` (`database.py`). Todas las rutas requieren bearer token:
+el inventario es información contractual de las marcas cliente.
+
+- `GET /inventory/products`: SKUs con su stock; filtro opcional `warehouse`
+  (`LA` o `ZGZ`).
+- `POST /inventory/products`: registra un SKU (`name`, `sku`, `client_name`,
+  `category` = `fashion | electronics | cosmetics`, `warehouse`). Empieza con
+  stock 0; un código repetido responde `409`.
+- `GET /inventory/products/{id}`: un SKU con su stock; `404` si no existe.
+- `POST /inventory/orders/inbound`: recepción (`sku_id`, `quantity` > 0,
+  `reference`, `warehouse`).
+- `POST /inventory/orders/outbound`: salida (`sku_id`, `quantity` > 0,
+  `exit_type` = `dispatch | loss`, `tracking_number`, `warehouse`).
+  `tracking_number` es obligatorio en `dispatch` y debe omitirse en `loss`
+  (`422`). Si la salida supera el stock del almacén responde `400` con
+  `Insufficient stock for SKU '<sku>'. Available: <n>, requested: <m>.` sin
+  escribir nada.
+- `GET /inventory/orders`: recepciones y salidas (más recientes primero) con
+  los datos del SKU, `user_uuid` y filtro opcional `warehouse`.
+
+**Stock.** No existe ninguna columna de stock ni ruta que lo modifique: se
+calcula como `SUMA(recepciones) − SUMA(salidas)` por SKU **y por almacén**, con
+dos consultas agregadas. `current_stock` es el stock del SKU en el almacén donde
+está dado de alta, y `stock_by_warehouse` muestra la cifra de cada almacén por
+separado (nunca se suman). Una salida se valida contra el stock de su propio
+almacén, con la fila del SKU bloqueada (`SELECT … FOR UPDATE`) para que dos
+salidas simultáneas no lo dejen en negativo. La base de datos refuerza las
+reglas con restricciones `CHECK` (cantidades > 0, valores permitidos y
+`tracking_number` coherente con `exit_type`) y claves foráneas a `skus`.
+
+Datos iniciales (6 SKUs, 7 recepciones y 4 salidas; idempotente, desde la
+raíz). `--user-email` es el usuario de TinyDB que firma los movimientos:
+
+```bash
+uv run --env-file .env python scripts/seed_inventory.py --user-email tu@email.com
+```
+
 En `/docs`, registra un usuario, abre **Authorize** y usa su email como
 `username` y su contraseña. Swagger obtiene el token desde `/auth/login` y lo
 envía en las rutas protegidas.
@@ -104,10 +156,8 @@ envía en las rutas protegidas.
 ## Pruebas
 
 ```bash
-uv run python -m unittest services.api.test_auth_api -v
-uv run python -m unittest services.api.test_incidents_analyzer -v
-uv run python -m unittest services.api.test_incidents_api -v
-uv run python -m unittest services.api.test_error_handling -v
+uv run pytest          # toda la batería (ver TESTING.md en la raíz)
+uv run pytest tests/inventory
 ```
 
 El resumen más reciente vive en memoria del proceso y se reemplaza tras cada

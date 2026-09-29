@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from services.api.models import RateUpdate, StatusUpdate, SupplierCreate
+from services.api.supplier_models import RateUpdate, StatusUpdate, SupplierCreate
 from services.api.routes.suppliers import (
     create_supplier,
     delete_supplier,

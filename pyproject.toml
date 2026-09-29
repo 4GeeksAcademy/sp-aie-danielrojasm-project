@@ -11,6 +11,8 @@ dependencies = [
     "python-jose[cryptography]>=3.5.0",
     "libpass[bcrypt]>=1.9.3",
     "resend>=2.48,<3.0",
+    "sqlmodel>=0.0.47",
+    "psycopg2-binary>=2.9.13",
 ]
 
 [project.scripts]

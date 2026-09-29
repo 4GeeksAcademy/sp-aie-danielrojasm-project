@@ -131,6 +131,19 @@ El seed (`scripts/seed_incidents.py`) no guarda `incident_id` en la incidencia: 
 `seed_imports` para ser idempotente. El backoffice muestra solo mensajes propios (`uis/backoffice/lib/incidents.ts`), nunca el
 texto de la API.
 
+### Inventario con doble base de datos — Hito 5
+
+`services/api` usa dos bases a la vez: TinyDB para auth, proveedores e incidencias, y Supabase (PostgreSQL, `DATABASE_URL`,
+Transaction pooler) con SQLModel para el inventario. `database.py` tiene el motor único (`get_engine`, `pool_pre_ping`) y la
+dependencia `get_db`, que abre una sesión por petición; no hay sesiones globales. Tablas `skus`, `stock_entries` y `stock_exits`
+(`models.py`); schemas separados en `schemas.py`; router `routes/inventory.py` con prefijo `/inventory` y bearer en todas las rutas.
+El stock no se almacena: `SUMA(entradas) − SUMA(salidas)` por SKU y almacén con dos `GROUP BY`; `current_stock` es el del almacén
+del SKU y `stock_by_warehouse` desglosa LA/ZGZ. Las salidas bloquean la fila del SKU (`FOR UPDATE`) antes de comprobar el stock.
+`user_uuid` es el id de TinyDB, sin FK. Integridad reforzada con `CHECK` en PostgreSQL. Sin `DATABASE_URL` o con PostgreSQL caído,
+la API arranca y `/inventory` responde 503. Para liberar los nombres, el antiguo `models.py` de proveedores pasó a
+`supplier_models.py` y el `get_db` de TinyDB a `get_suppliers_db`. No hay migraciones: `create_all` solo crea tablas que falten, así
+que cambiar una columna existente exigirá introducir Alembic.
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el
@@ -174,6 +187,7 @@ Todos se ejecutan desde la raíz del monorepo:
 - **Tests de Python** — `uv run pytest` (o `uv run pytest --cov`) desde la raíz; detalle en `TESTING.md`.
 - **Tests del backoffice** — `npm test` / `npm run test:coverage` en `uis/backoffice` (Jest).
 - **Seed de incidencias** — `uv run python scripts/seed_incidents.py`.
+- **Seed de inventario** — `uv run --env-file .env python scripts/seed_inventory.py --user-email <usuario TinyDB>`.
 
 ---
 

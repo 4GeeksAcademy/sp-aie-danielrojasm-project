@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 
 from pydantic import ValidationError
 
-from services.api.database import get_db
-from services.api.models import SupplierCreate
+from services.api.database import get_suppliers_db
+from services.api.supplier_models import SupplierCreate
 
 
 SUPPLIERS_SEED = [
@@ -54,7 +54,7 @@ def main() -> int:
         return 1
 
     try:
-        db = get_db()
+        db = get_suppliers_db()
         existing = {(document["name"], document["country"]) for document in db.all()}
     except OSError as error:
         print(f"Error: no se pudo abrir la base de datos de proveedores ({error.strerror}).", file=sys.stderr)

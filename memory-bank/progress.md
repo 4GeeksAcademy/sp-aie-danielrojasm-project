@@ -8,6 +8,26 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Hito 5 — Inventario con ORM y doble base de datos (TRK-0341)
+
+- `/inventory` en `services/api`: SKUs, recepciones y salidas en Supabase con
+   SQLModel; auth sigue en TinyDB y cada movimiento guarda su `user_uuid`.
+- Stock calculado por SKU y almacén (nunca almacenado); salida sin stock
+   suficiente → 400 sin escribir; `dispatch` sin `tracking_number` → 422.
+- `scripts/seed_inventory.py`: 6 SKUs, 7 recepciones, 4 salidas; verifica el
+   stock neto (LA: CLT-SNK-W-42 165, TEC-EAR-001 58, CLT-CHN-N-32 45; ZGZ:
+   CLT-SNK-W-42-Z 87, CSM-SRM-030 126, TEC-CHG-065 40).
+- Verificado: `uv run pytest` en verde (20 tests nuevos en
+   `tests/inventory`), prueba HTTP completa con `uvicorn` y seed contra SQLite.
+- Supabase (2026-09-29): la API crea el esquema al arrancar; el seed insertó
+   6 SKUs y 11 movimientos, y la segunda ejecución no duplicó nada.
+   `GET /inventory/products` devuelve el stock neto esperado,
+   `GET /inventory/orders` 11 órdenes con SKU y `user_uuid`, y una salida de
+   41 sobre 40 da 400 sin escribir (siguen 11 órdenes). Sin token → 401.
+- La contraseña de `DATABASE_URL` va sin los corchetes del ejemplo de Supabase.
+- Siguiente paso: demo del hito y, si se quiere, unificar en español el
+   mensaje del 400 de stock insuficiente.
+
 ### Milestone 09 — Batería de pruebas (AUTH-088, API-042, FE-019)
 
 - pytest en `tests/`: `tests/auth` (un módulo por endpoint, feliz/límite/fallo),
@@ -162,6 +182,11 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### 2026-09-29 — Inventario con ORM y doble base de datos
+
+API de inventario unificada por SKU y almacén: el stock solo cambia con
+recepciones y salidas trazables al usuario que las registra.
 
 ### 2026-09-29 — Batería de pruebas
 
