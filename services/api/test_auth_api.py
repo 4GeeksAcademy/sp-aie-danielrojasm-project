@@ -12,6 +12,7 @@ from tinydb import Query
 from services.api.auth_models import UserRole, UserUpdate
 from services.api.database import get_auth_db
 from services.api.main import app
+from services.api.reset_email import EmailDeliveryError
 from services.api.security import create_access_token
 from services.api.user_service import get_profile_by_user_id, update_user
 
@@ -135,7 +136,7 @@ class AuthApiTests(unittest.TestCase):
         send_email.assert_not_called()
 
         self.register()
-        with patch("services.api.routes.auth.send_reset_email", side_effect=RuntimeError("provider unavailable")):
+        with patch("services.api.routes.auth.send_reset_email", side_effect=EmailDeliveryError("provider unavailable")):
             with self.assertLogs("services.api.routes.auth", level="ERROR"):
                 delivery_failed = self.client.post(
                     "/auth/forgot-password", json={"email": "owner@example.com"}

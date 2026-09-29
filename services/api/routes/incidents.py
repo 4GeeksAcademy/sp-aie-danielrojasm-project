@@ -17,6 +17,7 @@ from packages.shared.incidents.domain import (
 )
 from services.api.auth_models import User
 from services.api.database import INCIDENTS_TABLE, get_incidents_db
+from services.api.errors import VALIDATION_DETAIL, field_name, validation_message
 from services.api.incident_models import (
     FieldError,
     Incident,
@@ -31,7 +32,6 @@ from services.api.security import get_current_user
 logger = logging.getLogger("trackflow.incidents")
 
 INCIDENTS_PREFIX = "/api/incidents"
-VALIDATION_DETAIL = "La solicitud contiene datos no válidos."
 
 router = APIRouter(
     prefix=INCIDENTS_PREFIX,
@@ -55,41 +55,12 @@ def validation_error_response(errors: list[FieldError]) -> JSONResponse:
     return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content=body.model_dump())
 
 
-def _field_name(location: tuple[Any, ...]) -> str:
-    names = [str(part) for part in location if part not in ("body", "query", "path")]
-    return names[-1] if names else "body"
-
-
-def _error_message(error: dict[str, Any]) -> str:
-    error_type = error.get("type", "")
-    context = error.get("ctx") or {}
-    if error_type == "missing":
-        return "Este campo es obligatorio."
-    if error_type == "string_too_short":
-        return "Este campo no puede estar vacío."
-    if error_type == "string_too_long":
-        return f"Admite como máximo {context.get('max_length')} caracteres."
-    if error_type == "enum":
-        return f"Valor no permitido. Valores válidos: {context.get('expected')}."
-    if error_type == "string_type":
-        return "Debe ser un texto."
-    if error_type == "int_parsing":
-        return "Debe ser un número entero."
-    if error_type == "extra_forbidden":
-        return "Este campo no se admite en la solicitud."
-    if error_type == "json_invalid":
-        return "El cuerpo de la solicitud no es un JSON válido."
-    if error_type in ("model_attributes_type", "dict_type"):
-        return "El cuerpo de la solicitud debe ser un objeto JSON."
-    return "Valor no válido."
-
-
 async def handle_request_validation_error(
     request: Request, error: RequestValidationError
 ) -> JSONResponse:
     """400 with one entry per field. Only registered for incident routes."""
     errors = [
-        FieldError(field=_field_name(tuple(item.get("loc", ()))), message=_error_message(item))
+        FieldError(field=field_name(tuple(item.get("loc", ()))), message=validation_message(item))
         for item in error.errors()
     ]
     logger.info(

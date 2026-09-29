@@ -67,9 +67,10 @@ def create_reset_token(user_id: str) -> str:
 
 
 def reset_token_user_id(token: str) -> str | None:
+    secret = _secret_key()
     try:
-        payload = jwt.decode(token, _secret_key(), algorithms=[ALGORITHM])
-    except (JWTError, RuntimeError):
+        payload = jwt.decode(token, secret, algorithms=[ALGORITHM])
+    except JWTError:
         return None
     if payload.get("purpose") != "password-reset":
         return None
@@ -78,13 +79,17 @@ def reset_token_user_id(token: str) -> str | None:
 
 
 def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+    # Sin JWT_SECRET_KEY es un fallo de configuración del servidor, no de las
+    # credenciales: se deja subir al handler global (500 genérico + log).
+    secret = _secret_key()
     try:
-        payload = jwt.decode(token, _secret_key(), algorithms=[ALGORITHM])
-        user_id = payload.get("sub")
-        if not isinstance(user_id, str) or payload.get("purpose") is not None:
-            raise _unauthorized()
-    except (JWTError, RuntimeError) as error:
+        payload = jwt.decode(token, secret, algorithms=[ALGORITHM])
+    except JWTError as error:
         raise _unauthorized() from error
+
+    user_id = payload.get("sub")
+    if not isinstance(user_id, str) or payload.get("purpose") is not None:
+        raise _unauthorized()
 
     user = get_user_by_id(user_id)
     if user is None or not user.is_active:

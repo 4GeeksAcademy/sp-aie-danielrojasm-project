@@ -4,11 +4,11 @@ import logging
 import os
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
-from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 
+from services.api.errors import internal_error_response, unprocessable_response
 from services.api.incidents_analyzer import InvalidCsvError, analyze_csv, result_rows
 from services.api.routes.auth import router as auth_router
 from services.api.routes.incidents import (
@@ -54,21 +54,17 @@ async def validation_error_handler(
     request: Request, error: RequestValidationError
 ) -> JSONResponse:
     # Las rutas de incidencias responden 400 con el campo afectado; el resto
-    # de la API conserva el 422 estándar de FastAPI que ya consumen sus clientes.
+    # de la API conserva el formato 422 de FastAPI que ya consumen sus clientes,
+    # pero sin el valor recibido (`input`), que podía incluir contraseñas.
     if is_incidents_path(request):
         return await handle_request_validation_error(request, error)
-    return await request_validation_exception_handler(request, error)
+    return unprocessable_response(error)
 
 
 @app.exception_handler(Exception)
 async def unhandled_error_handler(request: Request, error: Exception) -> JSONResponse:
     logger.exception("Error no controlado en %s %s", request.method, request.url.path)
-    return JSONResponse(
-        status_code=500,
-        content={
-            "detail": "Se produjo un error interno. Inténtalo de nuevo en unos minutos."
-        },
-    )
+    return internal_error_response()
 
 
 latest_analysis: dict[str, object] | None = None
