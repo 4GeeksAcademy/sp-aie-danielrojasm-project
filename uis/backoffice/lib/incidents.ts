@@ -3,7 +3,7 @@
  * Los valores coinciden con `packages/shared/incidents/domain.py`; la API es la
  * que valida. Aquí solo se replica lo necesario para guiar al usuario.
  */
-import { ApiError, requestJson } from "@/lib/api-client";
+import { ApiError, NETWORK_ERROR_STATUS, requestJson } from "@/lib/api-client";
 
 export type IncidentCategory =
   | "lost_parcel"
@@ -197,7 +197,7 @@ function isFormField(value: string): value is IncidentFormField {
 }
 
 export function toFriendlyError(error: unknown, action: string): FriendlyError {
-  if (!(error instanceof ApiError)) {
+  if (!(error instanceof ApiError) || error.status === NETWORK_ERROR_STATUS) {
     return {
       message: `No se pudo ${action}: no hay conexión con el servicio de incidencias. Comprueba tu red e inténtalo de nuevo.`,
       fields: {},

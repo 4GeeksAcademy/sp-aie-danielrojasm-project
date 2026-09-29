@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { KeyRound } from "lucide-react";
-import { clearAccessToken, requestJson } from "@/lib/api-client";
+import { ApiError, clearAccessToken, getUserMessage, requestJson } from "@/lib/api-client";
 
 export function ResetPasswordForm({ token }: { token: string | undefined }) {
   const [error, setError] = useState(token ? "" : "El enlace de restablecimiento no es válido.");
@@ -28,8 +28,15 @@ export function ResetPasswordForm({ token }: { token: string | undefined }) {
       });
       clearAccessToken();
       window.location.replace("/login?reset=success");
-    } catch {
-      setError("El enlace es inválido, ha caducado o ya se ha utilizado. Solicita uno nuevo.");
+    } catch (requestError) {
+      // Solo un 400 significa enlace no válido; un fallo de red o del servidor
+      // no debe hacer creer al usuario que tiene que pedir otro enlace.
+      setError(
+        requestError instanceof ApiError && requestError.status === 400
+          ? "El enlace es inválido, ha caducado o ya se ha utilizado. Solicita uno nuevo."
+          : getUserMessage(requestError, "No se pudo restablecer la contraseña. Inténtalo de nuevo."),
+      );
+    } finally {
       setPending(false);
     }
   }

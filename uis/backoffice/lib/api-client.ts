@@ -38,6 +38,17 @@ function redirectToLogin(): void {
   }
 }
 
+/** Estado 0: la petición no llegó a completarse (sin red, CORS, API caída). */
+export const NETWORK_ERROR_STATUS = 0;
+
+const NETWORK_ERROR_MESSAGE =
+  "No se pudo conectar con el servidor. Comprueba tu conexión e inténtalo de nuevo.";
+const SERVER_ERROR_MESSAGE =
+  "El servicio no está disponible en este momento. Inténtalo de nuevo en unos minutos.";
+const INVALID_RESPONSE_MESSAGE =
+  "El servidor respondió con datos que no se pudieron interpretar. Inténtalo de nuevo.";
+const VALIDATION_ERROR_MESSAGE = "Revisa los datos del formulario e inténtalo de nuevo.";
+
 export async function apiFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},
@@ -46,22 +57,49 @@ export async function apiFetch(
   const token = getAccessToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const response = await fetch(input, { ...init, headers });
+  let response: Response;
+  try {
+    response = await fetch(input, { ...init, headers });
+  } catch {
+    // fetch solo rechaza por fallos de red; su mensaje ("Failed to fetch")
+    // no es útil para el usuario.
+    throw new ApiError(NETWORK_ERROR_MESSAGE, NETWORK_ERROR_STATUS);
+  }
   if (response.status === 401) redirectToLogin();
   return response;
 }
 
+/**
+ * Mensaje legible para una respuesta de error. Solo se reutiliza el `detail`
+ * de texto de los 4xx (la API los redacta en español para el usuario); los
+ * errores de validación por campo y los 5xx usan textos propios.
+ */
 async function getApiError(
   response: Response,
   fallback: string,
 ): Promise<{ body: ApiErrorBody | null; message: string }> {
-  const body = (await response.json().catch(() => null)) as ApiErrorBody | null;
-  if (typeof body?.detail === "string") return { body, message: body.detail };
-  if (Array.isArray(body?.detail)) {
-    const messages = body.detail.flatMap((item) => item.msg ?? []);
-    if (messages.length > 0) return { body, message: messages.join(" ") };
+  let body: ApiErrorBody | null = null;
+  try {
+    body = (await response.json()) as ApiErrorBody | null;
+  } catch {
+    body = null;
+  }
+  if (response.status >= 500) return { body, message: SERVER_ERROR_MESSAGE };
+  if (typeof body?.detail === "string" && body.detail.trim()) {
+    return { body, message: body.detail };
+  }
+  if (Array.isArray(body?.detail) || Array.isArray(body?.errors)) {
+    return { body, message: VALIDATION_ERROR_MESSAGE };
   }
   return { body, message: fallback };
+}
+
+async function parseJson<T>(response: Response): Promise<T> {
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError(INVALID_RESPONSE_MESSAGE, response.status);
+  }
 }
 
 export async function requestJson<T>(
@@ -74,5 +112,32 @@ export async function requestJson<T>(
     const error = await getApiError(response, fallbackError);
     throw new ApiError(error.message, response.status, error.body);
   }
-  return (await response.json()) as T;
+  if (response.status === 204) return undefined as T;
+  return parseJson<T>(response);
+}
+
+export async function requestBlob(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  fallbackError = "No se pudo descargar el fichero.",
+): Promise<Blob> {
+  const response = await apiFetch(input, init);
+  if (!response.ok) {
+    const error = await getApiError(response, fallbackError);
+    throw new ApiError(error.message, response.status, error.body);
+  }
+  try {
+    return await response.blob();
+  } catch {
+    throw new ApiError(INVALID_RESPONSE_MESSAGE, response.status);
+  }
+}
+
+/**
+ * Texto seguro para mostrar al usuario a partir de cualquier error capturado.
+ * Solo los `ApiError` llevan mensajes redactados para la UI; cualquier otro
+ * error (de programación, de parseo...) se sustituye por `fallback`.
+ */
+export function getUserMessage(error: unknown, fallback: string): string {
+  return error instanceof ApiError ? error.message : fallback;
 }

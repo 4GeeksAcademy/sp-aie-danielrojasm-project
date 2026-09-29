@@ -14,6 +14,7 @@ import {
   CandidateStage,
   CandidateStatus,
 } from "@/types/candidate";
+import { getUserMessage } from "@/services/recordsApi";
 
 interface CandidateFormProps {
   mode: "create" | "edit";
@@ -138,9 +139,7 @@ export default function CandidateForm({
       }
     } catch (error) {
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "No se pudo enviar el formulario.",
+        getUserMessage(error, "No se pudo enviar el formulario. Inténtalo de nuevo."),
       );
     } finally {
       setIsSubmitting(false);

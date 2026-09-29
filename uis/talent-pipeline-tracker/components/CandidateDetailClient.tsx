@@ -15,6 +15,7 @@ import {
   deleteRecordNote,
   fetchRecordById,
   fetchRecordNotes,
+  getUserMessage,
   patchRecord,
   updateRecord,
 } from "@/services/recordsApi";
@@ -36,9 +37,12 @@ export default function CandidateDetailClient({ id }: CandidateDetailClientProps
 
   const [isLoadingCandidate, setIsLoadingCandidate] = useState(true);
   const [candidateError, setCandidateError] = useState<string | null>(null);
+  const [candidateAttempt, setCandidateAttempt] = useState(0);
 
   const [isLoadingNotes, setIsLoadingNotes] = useState(true);
   const [notesError, setNotesError] = useState<string | null>(null);
+  const [notesAttempt, setNotesAttempt] = useState(0);
+  const [deletingNoteId, setDeletingNoteId] = useState<string | null>(null);
 
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -54,46 +58,54 @@ export default function CandidateDetailClient({ id }: CandidateDetailClientProps
   const [noteMessage, setNoteMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
+
     async function loadCandidate() {
       setIsLoadingCandidate(true);
       setCandidateError(null);
 
       try {
         const foundCandidate = await fetchRecordById(id);
-        setCandidate(foundCandidate);
+        if (active) setCandidate(foundCandidate);
       } catch (error) {
-        setCandidateError(
-          error instanceof Error
-            ? error.message
-            : "No se pudo cargar la candidatura.",
-        );
+        if (active) {
+          setCandidateError(getUserMessage(error, "No se pudo cargar la candidatura."));
+        }
       } finally {
-        setIsLoadingCandidate(false);
+        if (active) setIsLoadingCandidate(false);
       }
     }
 
     void loadCandidate();
-  }, [id]);
+    return () => {
+      active = false;
+    };
+  }, [id, candidateAttempt]);
 
   useEffect(() => {
+    let active = true;
+
     async function loadNotes() {
       setIsLoadingNotes(true);
       setNotesError(null);
 
       try {
         const fetchedNotes = await fetchRecordNotes(id);
-        setNotes(fetchedNotes);
+        if (active) setNotes(fetchedNotes ?? []);
       } catch (error) {
-        setNotesError(
-          error instanceof Error ? error.message : "No se pudieron cargar las notas.",
-        );
+        if (active) {
+          setNotesError(getUserMessage(error, "No se pudieron cargar las notas."));
+        }
       } finally {
-        setIsLoadingNotes(false);
+        if (active) setIsLoadingNotes(false);
       }
     }
 
     void loadNotes();
-  }, [id]);
+    return () => {
+      active = false;
+    };
+  }, [id, notesAttempt]);
 
   const handleStatusUpdate = async (status: CandidateStatus) => {
     if (!candidate) return;
@@ -108,7 +120,7 @@ export default function CandidateDetailClient({ id }: CandidateDetailClientProps
       setStatusMessage("Estado actualizado correctamente.");
     } catch (error) {
       setStatusError(
-        error instanceof Error ? error.message : "No se pudo actualizar el estado.",
+        getUserMessage(error, "No se pudo actualizar el estado. Inténtalo de nuevo."),
       );
     } finally {
       setIsUpdatingStatus(false);
@@ -128,7 +140,7 @@ export default function CandidateDetailClient({ id }: CandidateDetailClientProps
       setStageMessage("Etapa actualizada correctamente.");
     } catch (error) {
       setStageError(
-        error instanceof Error ? error.message : "No se pudo actualizar la etapa.",
+        getUserMessage(error, "No se pudo actualizar la etapa. Inténtalo de nuevo."),
       );
     } finally {
       setIsUpdatingStage(false);
@@ -154,7 +166,7 @@ export default function CandidateDetailClient({ id }: CandidateDetailClientProps
       setNoteMessage("Nota añadida correctamente.");
     } catch (error) {
       setNoteError(
-        error instanceof Error ? error.message : "No se pudo añadir la nota.",
+        getUserMessage(error, "No se pudo añadir la nota. Inténtalo de nuevo."),
       );
     } finally {
       setIsAddingNote(false);
@@ -164,6 +176,7 @@ export default function CandidateDetailClient({ id }: CandidateDetailClientProps
   const handleDeleteNote = async (noteId: string) => {
     setNoteError(null);
     setNoteMessage(null);
+    setDeletingNoteId(noteId);
 
     try {
       await deleteRecordNote(id, noteId);
@@ -173,8 +186,10 @@ export default function CandidateDetailClient({ id }: CandidateDetailClientProps
       setNoteMessage("Nota eliminada correctamente.");
     } catch (error) {
       setNoteError(
-        error instanceof Error ? error.message : "No se pudo eliminar la nota.",
+        getUserMessage(error, "No se pudo eliminar la nota. Inténtalo de nuevo."),
       );
+    } finally {
+      setDeletingNoteId(null);
     }
   };
 
@@ -210,9 +225,24 @@ export default function CandidateDetailClient({ id }: CandidateDetailClientProps
       )}
 
       {candidateError && (
-        <p className="rounded-lg border border-rose-300/40 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
-          Error: {candidateError}
-        </p>
+        <div
+          role="alert"
+          className="rounded-lg border border-rose-300/40 bg-rose-400/10 px-3 py-2 text-sm text-rose-200"
+        >
+          <p>{candidateError}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setCandidateAttempt((attempt) => attempt + 1)}
+              className="mt-2 rounded-lg border border-rose-300/50 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-rose-100 hover:border-rose-200"
+            >
+              Reintentar
+            </button>
+            <Link href="/" className="mt-2 text-xs font-semibold text-cyan-200 underline">
+              Volver al listado
+            </Link>
+          </div>
+        </div>
       )}
 
       {candidate && !candidateError && !isLoadingCandidate && (
@@ -346,9 +376,19 @@ export default function CandidateDetailClient({ id }: CandidateDetailClientProps
             )}
 
             {notesError && (
-              <p className="mt-4 rounded-lg border border-rose-300/40 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
-                Error: {notesError}
-              </p>
+              <div
+                role="alert"
+                className="mt-4 rounded-lg border border-rose-300/40 bg-rose-400/10 px-3 py-2 text-sm text-rose-200"
+              >
+                <p>{notesError}</p>
+                <button
+                  type="button"
+                  onClick={() => setNotesAttempt((attempt) => attempt + 1)}
+                  className="mt-2 rounded-lg border border-rose-300/50 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-rose-100 hover:border-rose-200"
+                >
+                  Reintentar
+                </button>
+              </div>
             )}
 
             {!isLoadingNotes && !notesError && (
@@ -370,10 +410,11 @@ export default function CandidateDetailClient({ id }: CandidateDetailClientProps
                         </span>
                         <button
                           type="button"
-                          className="rounded-lg border border-rose-300/50 bg-rose-400/10 px-3 py-1 text-xs font-semibold text-rose-200"
-                          onClick={() => handleDeleteNote(note.id)}
+                          className="rounded-lg border border-rose-300/50 bg-rose-400/10 px-3 py-1 text-xs font-semibold text-rose-200 disabled:cursor-wait disabled:opacity-60"
+                          disabled={deletingNoteId === note.id}
+                          onClick={() => void handleDeleteNote(note.id)}
                         >
-                          Eliminar nota
+                          {deletingNoteId === note.id ? "Eliminando..." : "Eliminar nota"}
                         </button>
                       </div>
                     </li>

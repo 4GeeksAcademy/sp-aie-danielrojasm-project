@@ -9,8 +9,10 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import {
+  ApiError,
   clearAccessToken,
   getAccessToken,
+  getUserMessage,
   requestJson,
   storeAccessToken,
 } from "@/lib/api-client";
@@ -25,6 +27,9 @@ interface AuthContextValue {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  /** Fallo al restaurar la sesión que no es un 401 (red, 5xx): se puede reintentar. */
+  sessionError: string | null;
+  retrySession: () => void;
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (data: RegistrationData) => Promise<void>;
   logout: () => void;
@@ -45,6 +50,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionAttempt, setSessionAttempt] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -58,8 +65,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const currentUser = await fetchCurrentUser();
         if (isMounted) setUser(currentUser);
-      } catch {
-        if (isMounted) setUser(null);
+      } catch (error) {
+        if (!isMounted) return;
+        setUser(null);
+        // 401: el token no vale y apiFetch ya redirige a /login. Cualquier otro
+        // fallo no significa que la sesión haya caducado: se informa y se
+        // conserva el token para poder reintentar.
+        if (!(error instanceof ApiError && error.status === 401)) {
+          setSessionError(
+            getUserMessage(error, "No se pudo comprobar tu sesión. Inténtalo de nuevo."),
+          );
+        }
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -69,7 +85,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [sessionAttempt]);
+
+  function retrySession() {
+    setSessionError(null);
+    setIsLoading(true);
+    setSessionAttempt((attempt) => attempt + 1);
+  }
 
   async function refreshUser() {
     const currentUser = await fetchCurrentUser();
@@ -108,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function logout() {
     clearAccessToken();
     setUser(null);
+    setSessionError(null);
     router.replace("/login");
   }
 
@@ -117,6 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isAuthenticated: user !== null,
         isLoading,
+        sessionError,
+        retrySession,
         login,
         register,
         logout,

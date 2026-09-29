@@ -11,7 +11,7 @@ import {
   getStageLabel,
   getStatusLabel,
 } from "@/lib/domain";
-import { createRecord, fetchRecords } from "@/services/recordsApi";
+import { createRecord, fetchRecords, getUserMessage } from "@/services/recordsApi";
 import {
   Candidate,
   CandidateFormValues,
@@ -47,6 +47,7 @@ export default function CandidatesListClient() {
   const [records, setRecords] = useState<Candidate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -57,26 +58,31 @@ export default function CandidatesListClient() {
   const searchFilter = (searchParams.get("q") || "").trim();
 
   useEffect(() => {
+    let active = true;
+
     async function loadRecords() {
       setIsLoading(true);
       setErrorMessage(null);
 
       try {
         const candidates = await fetchRecords();
-        setRecords(candidates);
+        if (active) setRecords(candidates ?? []);
       } catch (error) {
-        setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : "No se pudo cargar el listado de candidaturas.",
-        );
+        if (active) {
+          setErrorMessage(
+            getUserMessage(error, "No se pudo cargar el listado de candidaturas."),
+          );
+        }
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     }
 
     void loadRecords();
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [loadAttempt]);
 
   const filteredRecords = useMemo(() => {
     return records.filter((candidate) => {
@@ -179,9 +185,19 @@ export default function CandidatesListClient() {
         )}
 
         {errorMessage && (
-          <p className="mt-4 rounded-lg border border-rose-300/40 bg-rose-400/10 px-3 py-2 text-sm text-rose-200">
-            Error: {errorMessage}
-          </p>
+          <div
+            role="alert"
+            className="mt-4 rounded-lg border border-rose-300/40 bg-rose-400/10 px-3 py-2 text-sm text-rose-200"
+          >
+            <p>{errorMessage}</p>
+            <button
+              type="button"
+              onClick={() => setLoadAttempt((attempt) => attempt + 1)}
+              className="mt-2 rounded-lg border border-rose-300/50 bg-slate-950 px-3 py-1.5 text-xs font-semibold text-rose-100 hover:border-rose-200"
+            >
+              Reintentar
+            </button>
+          </div>
         )}
 
         {!isLoading && !errorMessage && (
@@ -200,7 +216,9 @@ export default function CandidatesListClient() {
                 {filteredRecords.length === 0 ? (
                   <tr>
                     <td className="px-3 py-4 text-slate-300" colSpan={5}>
-                      No hay candidaturas que cumplan con los filtros actuales.
+                      {records.length === 0
+                        ? "Todavía no hay candidaturas registradas. Usa el formulario de abajo para añadir la primera."
+                        : "No hay candidaturas que cumplan con los filtros actuales."}
                     </td>
                   </tr>
                 ) : (

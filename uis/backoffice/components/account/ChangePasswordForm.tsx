@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { Save } from "lucide-react";
-import { requestJson } from "@/lib/api-client";
+import { getUserMessage, requestJson } from "@/lib/api-client";
 
 export function ChangePasswordForm() {
   const [error, setError] = useState("");
@@ -33,7 +33,7 @@ export function ChangePasswordForm() {
       form.reset();
       setNotice("Contraseña actualizada correctamente.");
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "No se pudo actualizar la contraseña.");
+      setError(getUserMessage(requestError, "No se pudo actualizar la contraseña. Inténtalo de nuevo."));
     } finally {
       setPending(false);
     }

@@ -3,7 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { UserPlus } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { ApiError } from "@/lib/api-client";
+import { ApiError, getUserMessage } from "@/lib/api-client";
 
 type RegistrationField =
   | "email"
@@ -123,7 +123,7 @@ export function RegisterForm() {
       if (Object.keys(serverFieldErrors).length > 0) {
         setFieldErrors(serverFieldErrors);
       } else {
-        setRequestError(error instanceof Error ? error.message : "No se pudo crear la cuenta.");
+        setRequestError(getUserMessage(error, "No se pudo crear la cuenta. Inténtalo de nuevo."));
       }
       setIsSubmitting(false);
     }
