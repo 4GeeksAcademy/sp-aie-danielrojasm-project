@@ -18,7 +18,8 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
 - **`uis/backoffice/`** — app interna de la empresa. Su ruta `/` es el panel de operaciones que consume `src/`.
 - **`uis/talent-pipeline-tracker/`** — gestor de candidaturas contra una API REST externa.
 - **`services/`** — APIs y workers. `services/api/` contiene la API FastAPI de análisis de incidencias; el servicio principal de operaciones sigue pendiente.
-- **`packages/shared/`** — paquete `@repo/shared-types` de la plantilla, todavía sin uso.
+- **`packages/shared/`** — paquete `@repo/shared-types` de la plantilla (sin uso) y `incidents/`, lógica Python de incidencias
+  compartida por `services/api` y `scripts/` (se importa como `packages.shared.incidents.*` desde la raíz).
 - **`memory-bank/`, `AGENTS.md`, `.agents/`** — configuración de los agentes de código (Hito 4).
 - **`agents/`, `skills/`, `mcps/`, `workflows/`, `data/`, `infra/`** — espacio para el producto de hitos futuros (agentes de la empresa,
   no del IDE). Solo contienen la plantilla.
@@ -34,7 +35,7 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
 **TypeScript en la raíz:** `typescript ^6.0.3`. El `tsconfig.json` raíz es `strict`, usa `moduleResolution: Bundler` y solo incluye
 `src/**/*.ts`.
 
-**Python:** el CLI y `services/api/incidents_analyzer.py` usan la biblioteca estándar para validar y agregar el CSV en streaming. La API usa
+**Python:** el CLI y `services/api/incidents_analyzer.py` usan la biblioteca estándar para validar y agregar el CSV en streaming. El analizador y el seed validan con `packages/shared/incidents/csv_validation.py`. La API usa
 FastAPI, `python-multipart` y Uvicorn, declarados en `services/api/requirements.txt`.
 
 ---
@@ -89,7 +90,7 @@ claro y `robots: noindex`. No comparten layout ni componentes.
 ### Directorio de proveedores — Milestone 09
 
 `services/api/` también expone el directorio persistente `/suppliers`, implementado con FastAPI, Pydantic y TinyDB. El seeder se ejecuta
-con `uv run seed`, es idempotente y carga los 15 proveedores definidos en `CONTEXT-company.md`. `uis/backoffice` consume estas rutas mediante
+con `uv run seed`, es idempotente y carga los 15 proveedores de referencia de TrackFlow. `uis/backoffice` consume estas rutas mediante
 el rewrite `/api/suppliers/*` y muestra el directorio en `/suppliers`.
 
 ### Autenticación JWT — Milestone 09
@@ -119,6 +120,17 @@ las vistas internas sin `middleware.ts` y `apiFetch` conserva el JWT en
 `401`. Los rewrites de Next mantienen las peticiones en el origen del
 backoffice. `uis/website` no participa en este flujo y sigue siendo público.
 
+### Gestor de incidencias — Milestone 09
+
+`services/api/routes/incidents.py` persiste incidencias en TinyDB (`incidents.json`, `INCIDENTS_DB_PATH`, ignorado por git) con
+id entero de TinyDB. Enums, transiciones y el mapeo CSV → modelo están en `packages/shared/incidents/domain.py`; la validación de
+filas del CSV, en `csv_validation.py`, compartida con el analizador. Solo las rutas `/api/incidents*` convierten los errores de
+validación en `400` con `errors[{field, message}]`; el resto de la API mantiene `422`. Un handler global devuelve `500` genérico
+y registra la traza en el log `trackflow.api`. Toda incidencia nueva nace `open` y guarda `reported_by` (email del JWT).
+El seed (`scripts/seed_incidents.py`) no guarda `incident_id` en la incidencia: lo registra en la tabla de control
+`seed_imports` para ser idempotente. El backoffice muestra solo mensajes propios (`uis/backoffice/lib/incidents.ts`), nunca el
+texto de la API.
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el
@@ -129,7 +141,7 @@ sustituirán por la API de `services/` en el Hito 5.
 
 El módulo `services/api/incidents_analyzer.py` es compartido por el CLI `scripts/incidents-analyzer/analyze.py` y los endpoints de
 `services/api/main.py`. Procesa filas en streaming, no persiste registros ni exporta datos personales; FastAPI conserva en memoria solo el
-último resumen correcto. El backoffice consume la API desde `/incidents` y llama a `/api/incidents/*` en el mismo origen; un rewrite de Next
+último resumen correcto. El backoffice consume la API desde `/incidents/analyzer` y llama a `/api/incidents/*` en el mismo origen; un rewrite de Next
 reenvía la petición desde el servidor a `INCIDENTS_API_INTERNAL_URL` (predeterminado `http://127.0.0.1:8000`). El navegador no requiere acceso
 directo al puerto privado de la API.
 
@@ -160,6 +172,8 @@ Todos se ejecutan desde la raíz del monorepo:
 - **API de incidencias** — instalar `services/api/requirements.txt` y ejecutar `uvicorn services.api.main:app --reload --port 8000`.
 - **API completa** — `uv sync` y `uv run uvicorn services.api.main:app --reload --port 8000 --env-file .env`.
 - **Auth API** — `uv run python -m unittest services.api.test_auth_api -v`.
+- **Gestor de incidencias** — `uv run python -m unittest services.api.test_incidents_api -v`; seed con
+  `uv run python scripts/seed_incidents.py`.
 
 ---
 

@@ -23,6 +23,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: "/api/incidents",
+        destination: `${incidentsApiOrigin}/api/incidents`,
+      },
+      {
         source: "/api/incidents/:path*",
         destination: `${incidentsApiOrigin}/api/incidents/:path*`,
       },

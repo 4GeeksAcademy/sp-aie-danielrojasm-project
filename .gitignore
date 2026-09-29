@@ -18,3 +18,11 @@ services/api/auth.json
 # Sistema / logs
 .DS_Store
 npm-debug.log*
+
+# Datos locales del gestor de incidencias (se regeneran con scripts/seed_incidents.py)
+services/api/incidents.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
