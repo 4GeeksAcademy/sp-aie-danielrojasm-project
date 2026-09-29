@@ -171,16 +171,20 @@ Todos se ejecutan desde la raíz del monorepo:
 - **CLI de incidencias** — `python scripts/incidents-analyzer/analyze.py <fichero.csv>` desde la raíz.
 - **API de incidencias** — instalar `services/api/requirements.txt` y ejecutar `uvicorn services.api.main:app --reload --port 8000`.
 - **API completa** — `uv sync` y `uv run uvicorn services.api.main:app --reload --port 8000 --env-file .env`.
-- **Auth API** — `uv run python -m unittest services.api.test_auth_api -v`.
-- **Gestión de errores** — `uv run python -m unittest services.api.test_error_handling -v`.
-- **Gestor de incidencias** — `uv run python -m unittest services.api.test_incidents_api -v`; seed con
-  `uv run python scripts/seed_incidents.py`.
+- **Tests de Python** — `uv run pytest` (o `uv run pytest --cov`) desde la raíz; detalle en `TESTING.md`.
+- **Tests del backoffice** — `npm test` / `npm run test:coverage` en `uis/backoffice` (Jest).
+- **Seed de incidencias** — `uv run python scripts/seed_incidents.py`.
 
 ---
 
 ## Restricciones técnicas
 
-- **Tests automatizados** — `python -m unittest services.api.test_incidents_analyzer`; `npm run verify` cubre tipos, lint y build de las UIs.
+- **Tests automatizados** — pytest en `tests/` (config en `pyproject.toml`, `--import-mode=importlib`): `tests/auth` y
+  `tests/backoffice` llaman a la lógica sin `TestClient`; `tests/http` conserva las pruebas de integración. `conftest.py`
+  aísla cada test con TinyDB temporales vía `*_DB_PATH`. Jest en `uis/backoffice/__tests__` (entorno `node`, `ts-jest`).
+  `npm run verify` sigue cubriendo tipos, lint y build de las UIs.
+- **Contraseñas** — límite de bcrypt en **bytes** (72): `passwords.exceeds_bcrypt_limit` y el tipo `NewPassword` en la API,
+  `lib/registration.ts` en el backoffice.
 - **Errores de API** — la validación responde con `loc`, `msg` en español y `type`, nunca con `input` ni `ctx`
   (`services/api/errors.py`). Los 500 son genéricos y la traza solo va al log `trackflow.api`. Las llamadas externas se
   envuelven en una excepción propia sin datos personales (`EmailDeliveryError`).

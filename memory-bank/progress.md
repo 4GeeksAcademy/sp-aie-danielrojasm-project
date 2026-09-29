@@ -8,6 +8,21 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Batería de pruebas (AUTH-088, API-042, FE-019)
+
+- pytest en `tests/`: `tests/auth` (un módulo por endpoint, feliz/límite/fallo),
+   `tests/backoffice` (proveedores e incidencias) y `tests/http` (integración
+   movida desde `services/api/`). Plan, ejecución y cobertura en `TESTING.md`.
+- Jest en `uis/backoffice/__tests__`: `api-client`, `registration`, `incidents`
+   y `labels`.
+- Bugs corregidos: contraseñas de más de 72 bytes daban 500 (ahora 422 en el
+   alta y 401 en el login); el registro del backoffice contaba caracteres en vez
+   de bytes; `formatIncidentDate` lanzaba con fechas inválidas.
+- Verificado: `uv run pytest` 146 en verde; cobertura de auth 97–100 % y de
+   backoffice 91–100 % con solo sus tests unitarios; `npm test` 40 en verde;
+   typecheck y lint del backoffice sin errores.
+- Siguiente paso: incluir `uv run pytest` y `npm test` en `npm run verify`.
+
 ### Milestone 09 — Auditoría de gestión de errores
 
 - Backend: el 422 ya no devuelve `input` (contraseñas y tokens) y sus mensajes
@@ -147,6 +162,11 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### 2026-09-29 — Batería de pruebas
+
+Pruebas unitarias de la lógica de autenticación, backoffice y utilidades del
+frontend tras la regresión de caducidad de tokens; tres bugs corregidos.
 
 ### 2026-09-29 — Auditoría de gestión de errores
 
