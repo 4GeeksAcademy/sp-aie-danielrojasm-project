@@ -4,16 +4,11 @@ import { useState, type FormEvent } from "react";
 import { UserPlus } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ApiError, getUserMessage } from "@/lib/api-client";
-
-type RegistrationField =
-  | "email"
-  | "password"
-  | "confirmPassword"
-  | "name"
-  | "phone"
-  | "address";
-
-type FieldErrors = Partial<Record<RegistrationField, string>>;
+import {
+  validateRegistration,
+  type RegistrationErrors,
+  type RegistrationField,
+} from "@/lib/registration";
 
 const registrationFields = new Set<RegistrationField>([
   "email",
@@ -23,25 +18,11 @@ const registrationFields = new Set<RegistrationField>([
   "address",
 ]);
 
-function validateRegistration(formData: FormData): FieldErrors {
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-  const confirmPassword = String(formData.get("confirmPassword") ?? "");
-  const errors: FieldErrors = {};
-
-  if (!email) errors.email = "Introduce tu email.";
-  else if (!/^\S+@\S+\.\S+$/.test(email)) errors.email = "Introduce un email válido.";
-  if (password.length < 8) errors.password = "Usa al menos 8 caracteres.";
-  else if (password.length > 72) errors.password = "Usa un máximo de 72 caracteres.";
-  if (confirmPassword !== password) errors.confirmPassword = "Las contraseñas no coinciden.";
-  return errors;
-}
-
-function apiFieldErrors(error: ApiError): FieldErrors {
+function apiFieldErrors(error: ApiError): RegistrationErrors {
   if (error.status === 409) return { email: error.message };
   if (!Array.isArray(error.body?.detail)) return {};
 
-  return error.body.detail.reduce<FieldErrors>((errors, detail) => {
+  return error.body.detail.reduce<RegistrationErrors>((errors, detail) => {
     const field = detail.loc?.at(-1);
     if (
       typeof field === "string" &&
@@ -97,7 +78,7 @@ function RegistrationFieldInput({
 
 export function RegisterForm() {
   const { register } = useAuth();
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [fieldErrors, setFieldErrors] = useState<RegistrationErrors>({});
   const [requestError, setRequestError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
