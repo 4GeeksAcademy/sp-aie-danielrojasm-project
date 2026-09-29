@@ -8,6 +8,27 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Hito 5 — Backoffice: interfaz de inventario (TRK-0341)
+
+- Cuatro vistas en `uis/backoffice` (2026-09-29): `/inventory/products` (stock
+   por SKU con nivel saludable ≥ 50 / bajo 1–49 / sin stock 0 y enlaces de
+   entrada/salida por fila), `/inventory/orders/inbound`,
+   `/inventory/orders/outbound` (stock del SKU consultado al seleccionarlo,
+   aviso si la cantidad lo supera y el 400 de la API junto a la cantidad) y
+   `/inventory/orders` (historial de solo lectura con tipo, SKU, fecha y
+   `user_uuid`). `/inventory` redirige al stock.
+- `lib/inventory.ts` concentra las llamadas; pasan por `requestJson`
+   (Bearer y 401 → `/login`) y el rewrite `/api/inventory/*`, que usa
+   `NEXT_PUBLIC_INVENTORY_API_URL` o el origen de la API.
+- Verificado: `npm run verify` exit 0, Jest 53 (13 nuevos), Playwright
+   contra la API real: las cuatro rutas sin sesión → `/login`; stock
+   reactivo (40 → 165 al cambiar de SKU); aviso con 41 sobre 40; 400 inline;
+   entrada y salida correctas con confirmación y formulario limpio; historial
+   y tabla actualizados; sin errores de consola.
+- Supabase conserva, por decisión del equipo, dos movimientos de esa prueba
+   en TEC-CHG-065 (ZGZ): entrada id 8 (+25) y salida id 5 (−10). El stock es
+   55 (no 40) y el historial tiene 13 órdenes (no 11).
+
 ### Hito 5 — Inventario con ORM y doble base de datos (TRK-0341)
 
 - `/inventory` en `services/api`: SKUs, recepciones y salidas en Supabase con
@@ -25,8 +46,9 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    `GET /inventory/orders` 11 órdenes con SKU y `user_uuid`, y una salida de
    41 sobre 40 da 400 sin escribir (siguen 11 órdenes). Sin token → 401.
 - La contraseña de `DATABASE_URL` va sin los corchetes del ejemplo de Supabase.
-- Siguiente paso: demo del hito y, si se quiere, unificar en español el
-   mensaje del 400 de stock insuficiente.
+- El 400 de stock insuficiente va en inglés a propósito: es el texto literal
+   que TrackFlow fija para la API.
+- Siguiente paso: demo del hito.
 
 ### Milestone 09 — Batería de pruebas (AUTH-088, API-042, FE-019)
 

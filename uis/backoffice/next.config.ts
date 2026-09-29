@@ -14,6 +14,11 @@ const incidentsApiOrigin = (
 const suppliersApiOrigin = (
   process.env.SUPPLIERS_API_INTERNAL_URL ?? incidentsApiOrigin
 ).replace(/\/$/, "");
+// El navegador llama a `/api/inventory/*` y Next lo reenvía a la API, así que
+// el puerto de la API no tiene que ser accesible desde el navegador.
+const inventoryApiOrigin = (
+  process.env.NEXT_PUBLIC_INVENTORY_API_URL ?? apiOrigin
+).replace(/\/$/, "");
 
 const nextConfig: NextConfig = {
   turbopack: {
@@ -33,6 +38,10 @@ const nextConfig: NextConfig = {
       {
         source: "/api/suppliers/:path*",
         destination: `${suppliersApiOrigin}/suppliers/:path*`,
+      },
+      {
+        source: "/api/inventory/:path*",
+        destination: `${inventoryApiOrigin}/inventory/:path*`,
       },
       {
         source: "/api/auth/:path*",

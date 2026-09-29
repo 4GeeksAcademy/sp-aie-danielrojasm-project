@@ -9,7 +9,10 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: "Panel de operaciones", href: "/" },
-  { label: "Inventario", href: "/#inventario" },
+  { label: "Stock por SKU", href: "/inventory/products" },
+  { label: "Registrar entrada de stock", href: "/inventory/orders/inbound" },
+  { label: "Registrar salida de stock", href: "/inventory/orders/outbound" },
+  { label: "Historial de movimientos", href: "/inventory/orders" },
   { label: "Transportistas", href: "/#transportistas" },
   { label: "Envíos", href: "/#envios" },
   { label: "Calidad de datos", href: "/#validaciones" },

@@ -14,6 +14,7 @@ module.exports = {
   collectCoverageFrom: [
     "lib/api-client.ts",
     "lib/incidents.ts",
+    "lib/inventory.ts",
     "lib/labels.ts",
     "lib/registration.ts",
   ],
