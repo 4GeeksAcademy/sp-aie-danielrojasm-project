@@ -19,13 +19,17 @@ Este repositorio es la **plantilla de inicio** para los proyectos transversales.
 
 ---
 
-## Estado actual de la plantilla
+## Estado actual (TrackFlow, Hito 4)
 
-Actualmente el repositorio ofrece una **estructura base de carpetas y documentación**, pero todavía no incluye aplicaciones ejecutables ni scripts globales en la raíz.
+Este fork contiene el proyecto de **TrackFlow**. `CONTEXT.md` recoge el briefing de la empresa.
 
-- `CONTEXT.md` es un placeholder y debe sustituirse por el contexto de la empresa asignada.
-- No existe todavía un `AGENTS.md` en la raíz.
-- Existe metadata del paquete compartido en `packages/shared/package.json` (`@repo/shared-types`), pero aún no hay runner de workspace en raíz.
+- **Lógica de negocio (Hito 2)** en `src/`; `uis/backoffice` la importa (nunca la copia).
+- **Interfaces** en `uis/`: `uis/website` (web pública, :3000), `uis/backoffice` (app interna, :3002) y `uis/talent-pipeline-tracker`
+  (Hito 3). Ver [`uis/README.es.md`](./uis/README.es.md).
+- **APIs** en `services/` (todavía ninguna).
+- **Configuración de agentes de código**: [`AGENTS.md`](./AGENTS.md), `memory-bank/` y `.agents/` (reglas y skills).
+- **Scripts de la raíz**: `npm run verify` (tipos + lint + build), `npm run dev:website`, `npm run dev:backoffice`. Cada app instala sus
+  propias dependencias (sin runner de workspaces).
 
 ---
 
@@ -35,7 +39,11 @@ Actualmente el repositorio ofrece una **estructura base de carpetas y documentac
 ai-engineering-company-project-monorepo/
 ├── README.md
 ├── README.es.md
-├── CONTEXT.md                # Placeholder a reemplazar con el contexto asignado
+├── CONTEXT.md                # Briefing de la empresa TrackFlow
+├── AGENTS.md                 # Protocolo de agentes de código (+ CLAUDE.md)
+├── .agents/                  # Reglas y skills de agentes de código
+├── memory-bank/              # Contexto persistente para agentes de código
+├── src/                      # Lógica de negocio del Hito 2 (TypeScript)
 ├── agents/                   # Patrones/plantillas de agentes y documentación de tools
 ├── data/                     # raw, process, pipelines, eval
 ├── docs/                     # Documentación de proyecto y arquitectura
@@ -48,7 +56,7 @@ ai-engineering-company-project-monorepo/
 ├── services/                 # APIs y workers en segundo plano
 ├── shared/                   # Recursos/convenciones compartidas a nivel repo
 ├── skills/                   # Skills reutilizables para agentes
-├── uis/                      # Interfaces de usuario (React, Next.js, Streamlit, HTML)
+├── uis/                      # Interfaces: website, backoffice, talent-pipeline-tracker
 └── workflows/                # Documentación de automatizaciones/orquestación
 ```
 

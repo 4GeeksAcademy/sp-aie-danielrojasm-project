@@ -1,12 +1,18 @@
 {
-  "name": "trackflow-public-site",
+  "name": "trackflow-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "Landing page publica de TrackFlow",
+  "description": "Monorepo de TrackFlow Tech: lógica de negocio (src/), interfaces (uis/) y servicios (services/).",
   "scripts": {
-    "dev": "npx serve . -l 4173",
-    "check:ts": "npx -y tsc --noEmit -p tsconfig.json",
-    "run:ts": "npx -y tsx"
+    "check:ts": "tsc --noEmit -p tsconfig.json",
+    "run:ts": "npx -y tsx",
+    "install:uis": "npm --prefix uis/website install && npm --prefix uis/backoffice install",
+    "dev:website": "npm --prefix uis/website run dev",
+    "dev:backoffice": "npm --prefix uis/backoffice run dev",
+    "typecheck:uis": "npm --prefix uis/website run typecheck && npm --prefix uis/backoffice run typecheck",
+    "lint:uis": "npm --prefix uis/website run lint && npm --prefix uis/backoffice run lint",
+    "build:uis": "npm --prefix uis/website run build && npm --prefix uis/backoffice run build",
+    "verify": "npm run check:ts && npm run typecheck:uis && npm run lint:uis && npm run build:uis"
   },
   "dependencies": {
     "typescript": "^6.0.3"

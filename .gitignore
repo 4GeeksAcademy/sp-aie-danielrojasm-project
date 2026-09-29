@@ -1,0 +1,17 @@
+# Dependencias (cada app instala las suyas)
+node_modules/
+
+# Next.js / builds
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Entorno
+.env*
+!.env.example
+
+# Sistema / logs
+.DS_Store
+npm-debug.log*
