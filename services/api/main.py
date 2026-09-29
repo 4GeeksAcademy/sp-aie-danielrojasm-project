@@ -1,18 +1,30 @@
 import csv
 import io
+import logging
 import os
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from services.api.incidents_analyzer import InvalidCsvError, analyze_csv, result_rows
 from services.api.routes.auth import router as auth_router
+from services.api.routes.incidents import (
+    IncidentValidationError,
+    handle_incident_validation_error,
+    handle_request_validation_error,
+    is_incidents_path,
+)
+from services.api.routes.incidents import router as incidents_router
 from services.api.routes.profiles import router as profiles_router
 from services.api.routes.suppliers import router as suppliers_router
 from services.api.routes.users import router as users_router
 from services.api.security import get_current_user
 
+
+logger = logging.getLogger("trackflow.api")
 
 allowed_origins = {os.getenv("BACKOFFICE_ORIGIN", "http://localhost:3002")}
 codespace_name = os.getenv("CODESPACE_NAME")
@@ -33,6 +45,31 @@ app.include_router(auth_router)
 app.include_router(users_router)
 app.include_router(profiles_router)
 app.include_router(suppliers_router)
+app.include_router(incidents_router)
+app.add_exception_handler(IncidentValidationError, handle_incident_validation_error)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(
+    request: Request, error: RequestValidationError
+) -> JSONResponse:
+    # Las rutas de incidencias responden 400 con el campo afectado; el resto
+    # de la API conserva el 422 estándar de FastAPI que ya consumen sus clientes.
+    if is_incidents_path(request):
+        return await handle_request_validation_error(request, error)
+    return await request_validation_exception_handler(request, error)
+
+
+@app.exception_handler(Exception)
+async def unhandled_error_handler(request: Request, error: Exception) -> JSONResponse:
+    logger.exception("Error no controlado en %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Se produjo un error interno. Inténtalo de nuevo en unos minutos."
+        },
+    )
+
 
 latest_analysis: dict[str, object] | None = None
 

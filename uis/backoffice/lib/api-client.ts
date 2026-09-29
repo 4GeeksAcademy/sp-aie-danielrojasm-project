@@ -2,6 +2,8 @@ const TOKEN_STORAGE_KEY = "trackflow_access_token";
 
 interface ApiErrorBody {
   detail?: string | { loc?: (string | number)[]; msg?: string }[];
+  /** Errores por campo (400 de `/api/incidents`). */
+  errors?: { field: string; message: string }[];
 }
 
 export class ApiError extends Error {

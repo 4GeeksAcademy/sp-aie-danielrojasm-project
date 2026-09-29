@@ -67,6 +67,36 @@ directamente.
   responde `404`.
 - `GET /`: informa que el servicio está activo.
 
+### Gestor de incidencias (`/api/incidents`)
+
+Persistencia en TinyDB (`services/api/incidents.json`, configurable con
+`INCIDENTS_DB_PATH`, no versionado). Todas las rutas requieren bearer token.
+Los valores permitidos y el ciclo de vida vienen de
+`packages/shared/incidents/domain.py`.
+
+- `POST /api/incidents`: crea una incidencia (`title` ≤ 120, `description`,
+  `category`, `origin`, `branch`). El estado inicial es siempre `open`;
+  `reported_by` se toma del usuario autenticado. Responde `201`.
+- `GET /api/incidents`: listado (más recientes primero) con filtros opcionales
+  `status`, `origin`, `branch` y `category`.
+- `GET /api/incidents/{id}`: detalle; `404` si no existe.
+- `PATCH /api/incidents/{id}/status`: `open → in_progress | discarded`,
+  `in_progress → resolved | discarded`; `resolved` y `discarded` son finales.
+- `GET /api/incidents/summary`: `total`, `by_status`, `by_category`,
+  `by_origin` y `by_branch`, con todas las claves a cero si no hay datos.
+
+Los errores de validación de estas rutas responden `400` con
+`{"detail": "...", "errors": [{"field": "title", "message": "..."}]}`. El resto
+de la API mantiene el `422` estándar de FastAPI. Cualquier excepción no
+controlada responde `500` con un mensaje genérico y se registra en el log
+`trackflow.api`, sin exponer la traza.
+
+Carga del histórico CSV (idempotente, desde la raíz):
+
+```bash
+uv run python scripts/seed_incidents.py [ruta.csv]
+```
+
 En `/docs`, registra un usuario, abre **Authorize** y usa su email como
 `username` y su contraseña. Swagger obtiene el token desde `/auth/login` y lo
 envía en las rutas protegidas.
@@ -76,6 +106,7 @@ envía en las rutas protegidas.
 ```bash
 uv run python -m unittest services.api.test_auth_api -v
 uv run python -m unittest services.api.test_incidents_analyzer -v
+uv run python -m unittest services.api.test_incidents_api -v
 ```
 
 El resumen más reciente vive en memoria del proceso y se reemplaza tras cada

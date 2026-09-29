@@ -18,3 +18,15 @@ def get_auth_db() -> TinyDB:
     database_path = Path(os.getenv("AUTH_DB_PATH", str(DEFAULT_AUTH_DB_PATH)))
     database_path.parent.mkdir(parents=True, exist_ok=True)
     return TinyDB(database_path)
+
+DEFAULT_INCIDENTS_DB_PATH = Path(__file__).with_name("incidents.json")
+INCIDENTS_TABLE = "incidents"
+SEED_IMPORTS_TABLE = "seed_imports"
+
+
+def get_incidents_db() -> TinyDB:
+    database_path = Path(
+        os.getenv("INCIDENTS_DB_PATH", str(DEFAULT_INCIDENTS_DB_PATH))
+    )
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    return TinyDB(database_path)

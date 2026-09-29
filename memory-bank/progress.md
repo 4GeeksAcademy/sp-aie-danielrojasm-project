@@ -7,7 +7,30 @@
 Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y qué viene después. Cada cambio relevante (una feature, una
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
-**Rama actual:** `password-reset`
+
+### Milestone 09 — Gestor de incidencias centralizado
+
+- Validación del CSV extraída a `packages/shared/incidents/` (Python) y
+   reutilizada por el analizador, la API y el seed; el analizador sigue dando
+   100 / 95 válidos / 5 inválidos.
+- API `/api/incidents` (TinyDB `incidents.json`): alta, listado con filtros,
+   detalle, cambio de estado con ciclo de vida y `/summary`. Validación `400`
+   con campo afectado y `500` genérico sin traza.
+- `scripts/seed_incidents.py`: 95 insertadas y 5 descartadas (reportadas por
+   línea) en la primera ejecución, 0 en la segunda. Summary tras el seed:
+   open 29 / resolved 52 / discarded 14; lost_parcel 14 / carrier_issue 45 /
+   delivery_failure 19 / returns_issue 17, igual que el CONTEXT.
+- Backoffice: `/incidents` (resumen + listado con filtros y cambio de estado
+   optimista con reversión), `/incidents/new` (formulario táctil, sede
+   destacada si el origen es `branch`). El analizador CSV pasa a
+   `/incidents/analyzer`.
+- Verificado: 28 pruebas Python (11 nuevas), `npm run verify` con código 0
+   (tras `npm ci` en la raíz) y HTTP por rewrites (201/400/404/401 y 500 con la
+   API caída). Rutas `/`, `/incidents`, `/incidents/new`, `/incidents/analyzer`
+   y `/suppliers` → 200 sin valores crudos en el HTML.
+- Los `__pycache__/*.pyc` dejan de versionarse (`.gitignore`).
+- Siguiente paso: revisión visual en navegador del formulario y del listado
+   y ejecutar `uv run python scripts/seed_incidents.py` en cada entorno.
 
 ### Milestone 09 — AUTH-03 Recuperación de contraseña
 
@@ -106,6 +129,12 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### 2026-09-29 — Gestor de incidencias centralizado
+
+Registro, seguimiento y métricas de incidencias persistidas, con el histórico
+CSV cargado como incidencias de cliente. La validación del analizador vive
+ahora en `packages/shared/incidents/` y no se duplica.
 
 ### 2026-09-28 — AUTH-03
 
