@@ -7,7 +7,33 @@
 Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y qué viene después. Cada cambio relevante (una feature, una
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
-**Rama actual:** `auth-02`
+**Rama actual:** `password-reset`
+
+### Milestone 09 — AUTH-03 Recuperación de contraseña
+
+- API de recuperación con token firmado de 30 minutos y hash persistido en TinyDB;
+   consumo único y cambio autenticado de contraseña.
+- Resend envía enlaces configurados por entorno; el remitente de onboarding solo
+   admite el email de la cuenta hasta verificar un dominio.
+- Backoffice añade recuperación y restablecimiento públicos, y cambio desde el perfil.
+- Pruebas HTTP automatizadas cubren firma, expiración, reutilización y cambio;
+   el envío real sigue pendiente: Resend rechazó el destinatario de prueba con
+   `validation_error` (el remitente onboarding solo permite el email de la cuenta).
+   Siguiente paso: usar esa dirección registrada o verificar un dominio y cambiar
+   el remitente. El SDK oficial sustituye al cliente HTTP que recibió el bloqueo
+   Cloudflare 1010 previo al servicio.
+- El cliente HTTP se sustituyó por el SDK oficial de Resend y se confirmó un
+   envío de diagnóstico aceptado por el proveedor al destinatario autorizado.
+   La dirección autorizada ya está registrada y activa: `/auth/forgot-password`
+   respondió 200, el SDK no notificó error y el token quedó persistido. Falta
+   confirmar la recepción en el buzón y completar el formulario con el enlace.
+- Un enlace emitido con `localhost:3002` devolvió 404 fuera del contenedor. En
+   Codespaces se genera ahora la URL HTTPS del puerto reenviado; se envió un
+   enlace nuevo para invalidar el token expuesto y se permitió abrir reset con
+   sesión activa. El usuario completó el formulario: la API registró
+   `POST /auth/reset-password` con 200 y el token pendiente desapareció. El
+   usuario confirmó el acceso posterior y la API registró `POST /auth/login` y
+   `GET /auth/me` con 200: flujo completo verificado sin compartir contraseñas.
 
 ### Milestone 09 — Flujos de autenticación frontend
 
@@ -80,6 +106,11 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### 2026-09-28 — AUTH-03
+
+Recuperación por correo y cambio autenticado de contraseña con consumo único del
+token. Pendiente de confirmar el envío real con `RESEND_API_KEY` configurada.
 
 ### 2026-09-28 — AUTH-02
 

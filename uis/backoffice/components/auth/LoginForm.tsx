@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { LogIn } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
 
 export function LoginForm() {
@@ -70,6 +71,9 @@ export function LoginForm() {
           aria-describedby={error ? "login-error" : undefined}
           className="mt-2 block w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-cyan-700 focus:ring-2 focus:ring-cyan-100"
         />
+        <Link href="/forgot-password" className="mt-2 block text-right text-sm font-medium text-cyan-800 hover:underline">
+          ¿Olvidaste tu contraseña?
+        </Link>
       </div>
 
       <button

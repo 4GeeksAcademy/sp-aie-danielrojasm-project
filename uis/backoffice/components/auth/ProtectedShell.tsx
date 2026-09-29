@@ -6,21 +6,23 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { useAuth } from "@/components/auth/AuthProvider";
 
-const publicRoutes = new Set(["/login", "/register"]);
+const publicRoutes = new Set(["/login", "/register", "/forgot-password", "/reset-password"]);
+const guestOnlyRoutes = new Set(["/login", "/register"]);
 
 export function ProtectedShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, isLoading } = useAuth();
   const isPublicRoute = publicRoutes.has(pathname);
+  const isGuestOnlyRoute = guestOnlyRoutes.has(pathname);
 
   useEffect(() => {
     if (isLoading) return;
     if (!isPublicRoute && !isAuthenticated) router.replace("/login");
-    if (isPublicRoute && isAuthenticated) router.replace("/");
-  }, [isAuthenticated, isLoading, isPublicRoute, router]);
+    if (isGuestOnlyRoute && isAuthenticated) router.replace("/");
+  }, [isAuthenticated, isLoading, isPublicRoute, isGuestOnlyRoute, router]);
 
-  if (isLoading || (isPublicRoute && isAuthenticated)) {
+  if (isLoading || (isGuestOnlyRoute && isAuthenticated)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-sm text-slate-300">
         Verificando sesión...
