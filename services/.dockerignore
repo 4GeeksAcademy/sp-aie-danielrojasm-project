@@ -1,0 +1,16 @@
+# Caché de Python
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+
+# Secretos y configuración local
+**/.env*
+
+# Bases TinyDB locales: en desarrollo llegan por bind mount
+api/auth.json
+api/incidents.json
+
+# Tests y logs
+tests/
+**/tests/
+**/*.log
