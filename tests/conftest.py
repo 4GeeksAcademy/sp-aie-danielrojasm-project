@@ -20,6 +20,7 @@ def isolated_environment(tmp_path, monkeypatch):
     monkeypatch.setenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
     # Variables del Codespace o del .env que cambiarían el comportamiento.
     for variable in (
+        "DATABASE_URL",
         "RESEND_API_KEY",
         "RESEND_FROM_EMAIL",
         "PASSWORD_RESET_URL",

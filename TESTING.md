@@ -23,6 +23,7 @@ uv run pytest                    # toda la batería de Python
 uv run pytest --cov              # con informe de cobertura (líneas no cubiertas incluidas)
 uv run pytest tests/auth         # solo AUTH-088
 uv run pytest tests/backoffice   # solo API-042
+uv run pytest tests/inventory    # solo inventario
 ```
 
 Frontend, de forma independiente (`uis/backoffice`, configurado en `jest.config.js`):
@@ -44,6 +45,7 @@ las variables de Resend y Codespaces; los tests de Jest sustituyen `fetch` y `wi
 | --- | --- |
 | `tests/auth/` | AUTH-088, un módulo por endpoint o pieza: `test_register.py`, `test_login.py`, `test_token.py`, `test_session.py`, `test_users.py`, `test_password_reset.py`, `test_passwords.py`, `test_reset_email.py`. |
 | `tests/backoffice/` | API-042: `test_suppliers.py` y `test_incidents.py`. |
+| `tests/inventory/` | Inventario (`/inventory`) con SQLite en memoria: stock por almacén, rechazo de salidas sin stock, `tracking_number`, `user_uuid` y restricciones de la base de datos. |
 | `tests/http/` | Pruebas de integración anteriores a este ticket (con `TestClient`), movidas desde `services/api/`. Cubren el contrato HTTP y el manejo global de errores, que las unitarias no tocan a propósito. |
 | `tests/conftest.py`, `tests/helpers.py` | Aislamiento del entorno, fixture `make_user`, `FakeRequest` para el login y `run()` para los handlers async. |
 | `uis/backoffice/__tests__/` | Jest: `api-client.test.ts`, `registration.test.ts`, `incidents.test.ts`, `labels.test.ts`. |

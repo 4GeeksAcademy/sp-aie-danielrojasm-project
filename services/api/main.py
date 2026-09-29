@@ -2,12 +2,18 @@ import csv
 import io
 import logging
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from sqlalchemy.exc import OperationalError
+from sqlmodel import SQLModel
 
+from services.api import models  # noqa: F401  registra las tablas de inventario
+from services.api.database import DatabaseNotConfiguredError, get_engine
 from services.api.errors import internal_error_response, unprocessable_response
 from services.api.incidents_analyzer import InvalidCsvError, analyze_csv, result_rows
 from services.api.routes.auth import router as auth_router
@@ -18,6 +24,7 @@ from services.api.routes.incidents import (
     is_incidents_path,
 )
 from services.api.routes.incidents import router as incidents_router
+from services.api.routes.inventory import router as inventory_router
 from services.api.routes.profiles import router as profiles_router
 from services.api.routes.suppliers import router as suppliers_router
 from services.api.routes.users import router as users_router
@@ -34,7 +41,27 @@ if codespace_name:
     )
     allowed_origins.add(f"https://{codespace_name}-3002.{forwarding_domain}")
 
-app = FastAPI(title="TrackFlow API", version="1.0.0")
+INVENTORY_UNAVAILABLE_DETAIL = (
+    "El inventario no está disponible ahora mismo. Inténtalo de nuevo en unos minutos."
+)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    # Crea en Supabase las tablas que falten. Si la base de datos no está
+    # configurada o no responde, la API arranca igual: la autenticación y el
+    # resto de módulos (TinyDB) siguen funcionando y el inventario responde 503.
+    try:
+        SQLModel.metadata.create_all(get_engine())
+        logger.info("Esquema de inventario listo en PostgreSQL.")
+    except DatabaseNotConfiguredError as error:
+        logger.warning("Inventario desactivado: %s", error)
+    except OperationalError:
+        logger.exception("No se pudo conectar con PostgreSQL al arrancar; el inventario responderá 503.")
+    yield
+
+
+app = FastAPI(title="TrackFlow API", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(allowed_origins),
@@ -46,6 +73,7 @@ app.include_router(users_router)
 app.include_router(profiles_router)
 app.include_router(suppliers_router)
 app.include_router(incidents_router)
+app.include_router(inventory_router)
 app.add_exception_handler(IncidentValidationError, handle_incident_validation_error)
 
 
@@ -59,6 +87,21 @@ async def validation_error_handler(
     if is_incidents_path(request):
         return await handle_request_validation_error(request, error)
     return unprocessable_response(error)
+
+
+@app.exception_handler(DatabaseNotConfiguredError)
+async def database_not_configured_handler(
+    request: Request, error: DatabaseNotConfiguredError
+) -> JSONResponse:
+    logger.error("%s %s: %s", request.method, request.url.path, error)
+    return JSONResponse(status_code=503, content={"detail": INVENTORY_UNAVAILABLE_DETAIL})
+
+
+@app.exception_handler(OperationalError)
+async def database_unavailable_handler(request: Request, error: OperationalError) -> JSONResponse:
+    # La traza (con host y usuario de la conexión) solo va al log.
+    logger.exception("PostgreSQL no disponible en %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=503, content={"detail": INVENTORY_UNAVAILABLE_DETAIL})
 
 
 @app.exception_handler(Exception)

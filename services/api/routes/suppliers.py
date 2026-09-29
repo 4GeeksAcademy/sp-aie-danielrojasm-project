@@ -3,8 +3,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
-from services.api.database import get_db
-from services.api.models import (
+from services.api.database import get_suppliers_db
+from services.api.supplier_models import (
     Country,
     RateUpdate,
     StatusUpdate,
@@ -28,7 +28,7 @@ def supplier_from_document(document: Any) -> Supplier:
 
 @router.post("", response_model=Supplier, status_code=status.HTTP_201_CREATED)
 def create_supplier(payload: SupplierCreate) -> Supplier:
-    with get_db() as db:
+    with get_suppliers_db() as db:
         document_id = db.insert(
             {
                 **payload.model_dump(),
@@ -44,7 +44,7 @@ def list_suppliers(
     country: Country | None = None,
     category: SupplierCategory | None = Query(default=None),
 ) -> list[Supplier]:
-    with get_db() as db:
+    with get_suppliers_db() as db:
         documents = db.all()
     suppliers = [supplier_from_document(document) for document in documents]
     if country is not None:
@@ -58,7 +58,7 @@ def list_suppliers(
 
 @router.get("/{supplier_id}", response_model=Supplier)
 def get_supplier(supplier_id: int) -> Supplier:
-    with get_db() as db:
+    with get_suppliers_db() as db:
         document = db.get(doc_id=supplier_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
@@ -82,7 +82,7 @@ def update_supplier_status(supplier_id: int, payload: StatusUpdate) -> Supplier:
 
 
 def _update_supplier(supplier_id: int, updates: dict[str, object]) -> Supplier:
-    with get_db() as db:
+    with get_suppliers_db() as db:
         if db.get(doc_id=supplier_id) is None:
             raise HTTPException(status_code=404, detail="Proveedor no encontrado")
         db.update(updates, doc_ids=[supplier_id])
@@ -92,7 +92,7 @@ def _update_supplier(supplier_id: int, updates: dict[str, object]) -> Supplier:
 
 @router.delete("/{supplier_id}")
 def delete_supplier(supplier_id: int) -> dict[str, str]:
-    with get_db() as db:
+    with get_suppliers_db() as db:
         if db.get(doc_id=supplier_id) is None:
             raise HTTPException(status_code=404, detail="Proveedor no encontrado")
         db.remove(doc_ids=[supplier_id])
