@@ -26,3 +26,7 @@ services/api/incidents.json
 __pycache__/
 *.py[cod]
 *.egg-info/
+
+# Cobertura de pytest
+.coverage
+htmlcov/

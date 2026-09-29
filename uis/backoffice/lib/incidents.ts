@@ -276,5 +276,8 @@ const dateTimeFormatter = new Intl.DateTimeFormat("es-ES", {
 });
 
 export function formatIncidentDate(value: string): string {
-  return dateTimeFormatter.format(new Date(value));
+  const date = new Date(value);
+  // Intl lanza RangeError con fechas inválidas y tumbaría todo el listado.
+  if (Number.isNaN(date.getTime())) return "Fecha no disponible";
+  return dateTimeFormatter.format(date);
 }

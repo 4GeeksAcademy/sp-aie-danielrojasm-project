@@ -26,4 +26,19 @@ include = ["services*"]
 [dependency-groups]
 dev = [
     "httpx2>=2.13.1",
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+# importlib permite nombres de módulo repetidos entre subcarpetas de tests/.
+addopts = "--import-mode=importlib"
+
+[tool.coverage.run]
+source = ["services/api", "packages/shared"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true

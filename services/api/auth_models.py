@@ -1,7 +1,22 @@
 from datetime import datetime
 from enum import Enum
+from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field
+
+from services.api.passwords import MAX_PASSWORD_BYTES, exceeds_bcrypt_limit
+
+
+def _fits_bcrypt(password: str) -> str:
+    if exceeds_bcrypt_limit(password):
+        raise ValueError(
+            f"La contraseña no puede superar {MAX_PASSWORD_BYTES} bytes: "
+            "acórtala o usa menos caracteres acentuados."
+        )
+    return password
+
+
+NewPassword = Annotated[str, Field(min_length=8, max_length=72), AfterValidator(_fits_bcrypt)]
 
 
 class UserRole(str, Enum):
@@ -18,12 +33,12 @@ class ProfileFields(BaseModel):
 
 class UserCreate(ProfileFields):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=72)
+    password: NewPassword
 
 
 class UserUpdate(BaseModel):
     email: EmailStr | None = None
-    password: str | None = Field(default=None, min_length=8, max_length=72)
+    password: NewPassword | None = None
     role: UserRole | None = None
     is_active: bool | None = None
 
@@ -69,12 +84,12 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str
-    new_password: str = Field(min_length=8, max_length=72)
+    new_password: NewPassword
 
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
-    new_password: str = Field(min_length=8, max_length=72)
+    new_password: NewPassword
 
 
 class TokenResponse(BaseModel):
