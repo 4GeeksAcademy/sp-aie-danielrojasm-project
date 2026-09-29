@@ -1,4 +1,7 @@
+import sys
 from datetime import datetime, timezone
+
+from pydantic import ValidationError
 
 from services.api.database import get_db
 from services.api.models import SupplierCreate
@@ -23,23 +26,70 @@ SUPPLIERS_SEED = [
 ]
 
 
-def main() -> None:
-    inserted = 0
-    with get_db() as db:
+def _validated_suppliers() -> list[SupplierCreate] | None:
+    """Valida todo el seed antes de tocar la base de datos."""
+    suppliers: list[SupplierCreate] = []
+    invalid = False
+    for raw_supplier in SUPPLIERS_SEED:
+        try:
+            suppliers.append(SupplierCreate.model_validate(raw_supplier))
+        except ValidationError as error:
+            invalid = True
+            fields = ", ".join(
+                str(item["loc"][-1]) if item.get("loc") else "registro"
+                for item in error.errors()
+            )
+            print(
+                f"Error: el proveedor '{raw_supplier.get('name', '(sin nombre)')}' "
+                f"del seed no es válido (campos: {fields}).",
+                file=sys.stderr,
+            )
+    return None if invalid else suppliers
+
+
+def main() -> int:
+    suppliers = _validated_suppliers()
+    if suppliers is None:
+        print("No se ha insertado ningún proveedor. Corrige el seed y vuelve a ejecutarlo.", file=sys.stderr)
+        return 1
+
+    try:
+        db = get_db()
         existing = {(document["name"], document["country"]) for document in db.all()}
-        for raw_supplier in SUPPLIERS_SEED:
-            supplier = SupplierCreate.model_validate(raw_supplier)
+    except OSError as error:
+        print(f"Error: no se pudo abrir la base de datos de proveedores ({error.strerror}).", file=sys.stderr)
+        return 1
+    except ValueError:
+        print(
+            "Error: la base de datos de proveedores está dañada (JSON no válido). "
+            "Restáurala o elimínala antes de volver a ejecutar el seed.",
+            file=sys.stderr,
+        )
+        return 1
+
+    inserted = 0
+    with db:
+        for supplier in suppliers:
             identity = (supplier.name, supplier.country)
             if identity in existing:
                 continue
-            db.insert({
-                **supplier.model_dump(),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            })
+            try:
+                db.insert({
+                    **supplier.model_dump(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                })
+            except OSError as error:
+                print(
+                    f"Error: no se pudo guardar '{supplier.name}' ({error.strerror}). "
+                    f"Proveedores insertados antes del fallo: {inserted}.",
+                    file=sys.stderr,
+                )
+                return 1
             existing.add(identity)
             inserted += 1
     print(f"Proveedores insertados: {inserted}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

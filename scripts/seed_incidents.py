@@ -14,12 +14,13 @@ control ``seed_imports`` y no se vuelve a insertar.
 import argparse
 import sys
 from pathlib import Path
+from typing import TextIO
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT))
 
-from tinydb import Query  # noqa: E402
+from tinydb import Query, TinyDB  # noqa: E402
 
 from packages.shared.incidents.csv_validation import (  # noqa: E402
     INVALID_REASONS,
@@ -40,15 +41,53 @@ from services.api.database import (  # noqa: E402
 DEFAULT_CSV_PATH = REPOSITORY_ROOT / "scripts" / "incidents-trackflow.csv"
 
 
+class SeedError(Exception):
+    """Fallo crítico del seed con un mensaje apto para la consola."""
+
+
+def check_csv_path(csv_path: Path) -> None:
+    """Comprobaciones previas: el CSV existe, es un fichero y no está vacío."""
+    if not csv_path.exists():
+        raise SeedError(f"No existe el fichero CSV: {csv_path}")
+    if not csv_path.is_file():
+        raise SeedError(f"La ruta indicada no es un fichero: {csv_path}")
+    if csv_path.stat().st_size == 0:
+        raise SeedError(f"El fichero CSV está vacío: {csv_path}")
+
+
+def _open_csv(csv_path: Path) -> TextIO:
+    try:
+        return csv_path.open("r", encoding="utf-8-sig", newline="")
+    except OSError as error:
+        raise SeedError(f"No se pudo abrir el CSV {csv_path} ({error.strerror}).") from error
+
+
+def _open_database() -> tuple[TinyDB, set[str]]:
+    try:
+        db = get_incidents_db()
+        imported_ids = {document["incident_id"] for document in db.table(SEED_IMPORTS_TABLE).all()}
+    except OSError as error:
+        raise SeedError(
+            f"No se pudo abrir la base de datos de incidencias ({error.strerror})."
+        ) from error
+    except ValueError as error:
+        raise SeedError(
+            "La base de datos de incidencias está dañada (JSON no válido). "
+            "Restáurala o elimínala antes de volver a ejecutar el seed."
+        ) from error
+    return db, imported_ids
+
+
 def seed(csv_path: Path) -> dict[str, object]:
+    check_csv_path(csv_path)
     inserted = 0
     already_imported = 0
     rejected: list[tuple[int, str, str]] = []
 
-    with csv_path.open("r", encoding="utf-8-sig", newline="") as source, get_incidents_db() as db:
+    db, imported_ids = _open_database()
+    with db, _open_csv(csv_path) as source:
         incidents = db.table(INCIDENTS_TABLE)
         imports = db.table(SEED_IMPORTS_TABLE)
-        imported_ids = {document["incident_id"] for document in imports.all()}
 
         for line_number, row, issues in iter_validated_rows(source):
             source_id = (row.get("incident_id") or "").strip()
@@ -65,11 +104,18 @@ def seed(csv_path: Path) -> dict[str, object]:
                 rejected.append((line_number, source_id, str(error)))
                 continue
 
-            document_id = incidents.insert(incident)
-            imports.upsert(
-                {"incident_id": source_id, "incident_doc_id": document_id},
-                Query().incident_id == source_id,
-            )
+            try:
+                document_id = incidents.insert(incident)
+                imports.upsert(
+                    {"incident_id": source_id, "incident_doc_id": document_id},
+                    Query().incident_id == source_id,
+                )
+            except OSError as error:
+                raise SeedError(
+                    f"No se pudo guardar la incidencia {source_id} ({error.strerror}). "
+                    f"Insertadas antes del fallo: {inserted}; vuelve a ejecutar el seed "
+                    "para completar la carga sin duplicados."
+                ) from error
             imported_ids.add(source_id)
             inserted += 1
 
@@ -91,7 +137,7 @@ def main() -> int:
 
     try:
         result = seed(arguments.csv_path)
-    except (OSError, InvalidCsvError) as error:
+    except (SeedError, InvalidCsvError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
 
