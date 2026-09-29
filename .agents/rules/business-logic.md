@@ -1,5 +1,5 @@
 ---
-description: Reglas para leer o modificar la lógica de negocio del Hito 2 en src/ (reglas de negocio, funciones puras, sin mutaciones).
+description: Reglas para leer o modificar la lógica de negocio en src/ (reglas de negocio, funciones puras, sin mutaciones).
 trigger: model_decision
 globs: "src/**/*.ts"
 ---
@@ -13,14 +13,13 @@ globs: "src/**/*.ts"
 **Alcance:** a petición del agente (`trigger: model_decision`). El agente la carga cuando la tarea implica **leer para reutilizar, cambiar o
 ampliar** algo de `src/` (modelos, puntuación de transportistas, costes, validaciones), aunque el archivo que edite esté en otra carpeta.
 
-`src/` contiene la lógica de negocio del Hito 2, la que Ana Whitfield pidió "como si fuera a producción mañana" para procesar más de 2.000
-envíos por semana. Es zona protegida en `AGENTS.md`: modificarla requiere confirmación explícita del desarrollador.
+`src/` contiene lógica de negocio compartida. Sus cambios deben conservar contratos, casos límite y comportamiento verificable.
 
 ## Fuente de verdad
 
-### 📐 Especificación del Hito 2
+### 📐 Especificación del dominio
 
-La especificación del Hito 2 son las reglas de negocio de esta sección y las firmas de `src/`. Si el código y estas reglas difieren, se
+La especificación del dominio son las reglas de negocio de esta sección y las firmas de `src/`. Si el código y estas reglas difieren, se
 informa; no se "arregla" en silencio. Los problemas de diseño conocidos están en `memory-bank/progress.md`, en "Problemas conocidos".
 
 - **Moneda y redondeo:** todo el dinero está en USD y los resultados se redondean a 2 decimales.

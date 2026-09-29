@@ -1,5 +1,5 @@
 ---
-description: Estructura del monorepo TrackFlow, dónde vive cada tipo de código y cómo se reutiliza la lógica del Hito 2.
+description: Estructura del monorepo TrackFlow, dónde vive cada tipo de código y cómo se reutiliza la lógica compartida.
 trigger: always_on
 globs: "**/*"
 ---
@@ -13,7 +13,7 @@ globs: "**/*"
 **Alcance:** siempre activa (`trigger: always_on`). Aplica a cualquier archivo que el agente cree, mueva o borre.
 
 El monorepo de TrackFlow Tech va a crecer con APIs, agentes y automatizaciones en los próximos hitos. Esta regla evita que cada pieza acabe en
-un sitio distinto: fija dónde vive cada tipo de código y cómo se reutiliza la lógica de negocio del Hito 2 sin duplicarla.
+un sitio distinto: fija dónde vive cada tipo de código y cómo se reutiliza la lógica compartida sin duplicarla.
 
 ## Lo obligatorio
 
@@ -32,7 +32,7 @@ Toda API o worker va en `services/<nombre>/`. Están prohibidos `app/api/**`, `r
 
 ---
 
-### 🔗 La lógica del Hito 2 se importa, nunca se copia
+### 🔗 La lógica compartida se importa, nunca se copia
 
 La lógica de negocio vive en `src/`. En el backoffice se importa así:
 

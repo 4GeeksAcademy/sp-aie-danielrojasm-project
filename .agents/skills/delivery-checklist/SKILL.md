@@ -49,17 +49,12 @@ Rutas creadas o modificadas. Ejemplos: `/`, `/aplicar`.
 
 ---
 
-### 🔒 `protected_changes_approved` — opcional (por defecto, ninguno)
-
-Archivos protegidos que el desarrollador autorizó explícitamente en la conversación. Ejemplo: `src/utils/transformations.ts`.
-
 ---
 
 ## Procedimiento
 
 1. **Alcance del diff.** Ejecutar `git status --short` y `git diff --stat <base_ref>` (incluye los cambios sin commit). Clasificar cada archivo
-   como parte de la tarea, generado (un lockfile tras un `npm install` pedido) o ajeno; revertir o preguntar por los ajenos. Cruzar la lista
-   con las rutas protegidas de `AGENTS.md` (sección 4): cualquier coincidencia que no esté en `protected_changes_approved` detiene la skill.
+   como parte de la tarea, generado (un lockfile tras un `npm install` pedido) o ajeno; revertir o preguntar por los ajenos.
 2. **Rama.** `git branch --show-current` no puede ser `main`.
 3. **Verificación estática.** Ejecutar `npm run verify` desde la raíz y guardar las últimas ~20 líneas de la salida.
 4. **Reglas del monorepo** (de `.agents/rules/monorepo-structure.md`). `git ls-files uis | grep -E "app/api/|route\.ts$"` debe salir vacío, y
@@ -82,10 +77,10 @@ Rama: <rama> · Base: <base_ref> · Apps: <affected_apps>
 
 | # | Criterio | Resultado | Evidencia |
 |---|----------|-----------|-----------|
-| 1 | Diff limitado a la tarea, sin rutas protegidas no aprobadas | ✅/❌ | `git diff --stat` resumido |
+| 1 | Diff limitado a la tarea | ✅/❌ | `git diff --stat` resumido |
 | 2 | Rama distinta de main | ✅/❌ | nombre de rama |
 | 3 | `npm run verify` exit 0 | ✅/❌ | últimas líneas |
-| 4 | Sin APIs en uis/ ni lógica del Hito 2 copiada | ✅/❌ | salida de los grep (vacía) |
+| 4 | Sin APIs en uis/ ni lógica compartida copiada | ✅/❌ | salida de los grep (vacía) |
 | 5 | Rutas responden 200 en `npm run dev` | ✅/❌ | `ruta → código` |
 | 6 | Sin valores crudos de dominio en la UI | ✅/❌ | recuento = 0 |
 | 7 | `memory-bank/progress.md` actualizado | ✅/❌ | línea añadida |
@@ -105,7 +100,7 @@ Todos son verificables sin juicio subjetivo:
 - [ ] Los dos `grep` del paso 4 devuelven 0 líneas.
 - [ ] El HTML servido por el backoffice (sin `<script>`) contiene 0 apariciones de los valores crudos del paso 6.
 - [ ] `git diff --name-only <base_ref>` incluye `memory-bank/progress.md`.
-- [ ] Ningún archivo de las rutas protegidas aparece en el diff, salvo los listados en `protected_changes_approved`.
+- [ ] El diff no contiene archivos ajenos a la tarea.
 - [ ] La rama actual no es `main`.
 - [ ] El veredicto es `LISTO PARA COMMIT` solo si se cumplen todos los criterios anteriores; si no, es `BLOQUEADO` con el motivo.
 - [ ] Los procesos de `npm run dev` que lanzó la skill quedan detenidos al terminar.

@@ -14,7 +14,7 @@ globs: "uis/**/*.{ts,tsx,css}"
 aplica a `src/` ni a la documentación.
 
 Las interfaces de TrackFlow las usan marcas, operarios y directores en dos países. Esta regla asegura que todas las apps sigan la misma
-estructura, muestren siempre etiquetas legibles en español y no rompan la integración con la lógica del Hito 2.
+estructura, muestren siempre etiquetas legibles en español y no rompan la integración con la lógica compartida.
 
 ## Antes de escribir código
 
@@ -95,7 +95,7 @@ Cada `input` y `select` tiene su `<label>`. Los errores llevan `role="alert"` y 
 
 ### 🔢 Puertos
 
-La web usa el 3000 y el backoffice el 3002. No se usa el 3001, que es la API por defecto del tracker del Hito 3.
+La web usa el 3000 y el backoffice el 3002. Los servicios deben declarar sus puertos explícitamente para evitar colisiones.
 
 ---
 

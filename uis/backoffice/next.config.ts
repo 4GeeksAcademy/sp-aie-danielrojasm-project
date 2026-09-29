@@ -8,6 +8,9 @@ const monorepoRoot = path.join(__dirname, "..", "..");
 const incidentsApiOrigin = (
   process.env.INCIDENTS_API_INTERNAL_URL ?? "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
+const suppliersApiOrigin = (
+  process.env.SUPPLIERS_API_INTERNAL_URL ?? incidentsApiOrigin
+).replace(/\/$/, "");
 
 const nextConfig: NextConfig = {
   turbopack: {
@@ -19,6 +22,10 @@ const nextConfig: NextConfig = {
       {
         source: "/api/incidents/:path*",
         destination: `${incidentsApiOrigin}/api/incidents/:path*`,
+      },
+      {
+        source: "/api/suppliers/:path*",
+        destination: `${suppliersApiOrigin}/suppliers/:path*`,
       },
     ];
   },
