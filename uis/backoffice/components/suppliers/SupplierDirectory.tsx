@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api-client";
 
 type Country = "USA" | "Spain";
 type Status = "active" | "suspended";
@@ -97,7 +98,7 @@ export function SupplierDirectory() {
       if (country !== "all") params.set("country", country);
       if (category !== "all") params.set("category", category);
       try {
-        const response = await fetch(`/api/suppliers?${params.toString()}`);
+        const response = await apiFetch(`/api/suppliers?${params.toString()}`);
         if (!response.ok) throw new Error(await apiError(response, "No se pudo cargar el directorio."));
         setSuppliers(await response.json());
       } catch (loadError) {
@@ -129,7 +130,7 @@ export function SupplierDirectory() {
     setError("");
     setNotice("");
     try {
-      const response = await fetch("/api/suppliers", {
+      const response = await apiFetch("/api/suppliers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -154,7 +155,7 @@ export function SupplierDirectory() {
 
   async function updateRate(id: number) {
     try {
-      const response = await fetch(`/api/suppliers/${id}/rate`, {
+      const response = await apiFetch(`/api/suppliers/${id}/rate`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rate_per_shipment: Number(rateValue) }),
@@ -172,7 +173,7 @@ export function SupplierDirectory() {
   async function toggleStatus(supplier: Supplier) {
     const nextStatus: Status = supplier.status === "active" ? "suspended" : "active";
     try {
-      const response = await fetch(`/api/suppliers/${supplier.id}/status`, {
+      const response = await apiFetch(`/api/suppliers/${supplier.id}/status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),

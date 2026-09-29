@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { Sidebar } from "@/components/layout/Sidebar";
-import { TopBar } from "@/components/layout/TopBar";
+import { AuthProvider } from "@/components/auth/AuthProvider";
+import { ProtectedShell } from "@/components/auth/ProtectedShell";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,13 +36,9 @@ export default function BackofficeLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-slate-100 text-slate-900">
-        <div className="flex min-h-screen flex-col lg:flex-row">
-          <Sidebar />
-          <div className="flex min-w-0 flex-1 flex-col">
-            <TopBar />
-            <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
-          </div>
-        </div>
+        <AuthProvider>
+          <ProtectedShell>{children}</ProtectedShell>
+        </AuthProvider>
       </body>
     </html>
   );

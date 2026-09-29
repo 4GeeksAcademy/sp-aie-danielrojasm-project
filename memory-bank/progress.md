@@ -7,7 +7,18 @@
 Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y qué viene después. Cada cambio relevante (una feature, una
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
-**Rama actual:** `feature/auth`
+**Rama actual:** `auth-02`
+
+### Milestone 09 — Flujos de autenticación frontend
+
+- Añadidas las vistas `/login`, `/register` y `/account/profile` al backoffice.
+- El JWT se guarda en `localStorage`; `apiFetch` lo adjunta a proveedores,
+   incidencias, perfil y autenticación, y expulsa la sesión ante cualquier `401`.
+- `AuthProvider` concentra usuario, carga, login, registro automático y logout;
+   `ProtectedShell` protege las vistas internas exclusivamente en cliente.
+- El website público permanece sin cambios y sin comprobaciones de sesión.
+- Verificado: typecheck, lint, build y flujo HTTP por rewrites (`201`, `200`,
+   actualización de perfil y `401` con bearer inválido).
 
 ### Milestone 09 — Autenticación y restricción de rutas
 
@@ -69,6 +80,12 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### 2026-09-28 — AUTH-02
+
+El backoffice cierra el ciclo JWT con registro, login, guard cliente, cliente API
+autenticado, cierre global por `401` y edición del perfil. El website público no
+se modifica.
 
 ### 2026-09-28 — AUTH-01
 

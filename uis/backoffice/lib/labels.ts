@@ -10,6 +10,13 @@ import type {
   ShipmentStatus,
   WarehouseLocation,
 } from "@trackflow/logic/types/models";
+import type { UserRole } from "@/types/auth";
+
+export const userRoleLabels: Record<UserRole, string> = {
+  admin: "Administrador",
+  manager: "Responsable",
+  user: "Usuario",
+};
 
 export const shipmentStatusLabels: Record<ShipmentStatus, string> = {
   Pending: "Pendiente",

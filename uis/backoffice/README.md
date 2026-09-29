@@ -11,6 +11,10 @@ barra superior), independiente de la web pública.
 Su ruta `/` es el **panel de operaciones**, que muestra en pantalla la salida de la lógica de negocio del **Hito 2**. Esa lógica se importa
 desde `<repo>/src`, su ubicación original, sin copias.
 
+El acceso al backoffice requiere una sesión JWT. `/login` y `/register` son las
+únicas rutas públicas; el guard cliente protege `/`, `/incidents`, `/suppliers`
+y `/account/profile`. La web de `uis/website` mantiene su acceso público.
+
 **Tecnología:** Next.js 16.2.10 · React 19 · TypeScript 5 · Tailwind CSS 4
 **Puerto de desarrollo:** 3002. No usa el 3001 porque el tracker del Hito 3 lo usa como API por defecto.
 
@@ -69,10 +73,28 @@ Informe de los productos, envíos y transportistas que no superan las reglas de 
 ## Cómo ejecutarlo
 
 ```bash
-cd uis/backoffice
-npm install
-npm run dev        # http://localhost:3002
+# Terminal 1, desde la raíz
+uv run uvicorn services.api.main:app --reload --port 8000 --env-file .env
+
+# Terminal 2
+npm --prefix uis/backoffice run dev
 ```
+
+Abre `http://localhost:3002/register` para crear una cuenta. Tras el registro,
+el backoffice inicia sesión automáticamente y guarda el JWT en `localStorage`.
+Todas las llamadas a la API incluyen `Authorization: Bearer <token>`; una
+respuesta `401` o el cierre de sesión eliminan el token y redirigen a `/login`.
+
+## Autenticación
+
+- **`components/auth/AuthProvider.tsx`** — estado de usuario, restauración de
+  sesión, registro, login, logout y recarga del perfil.
+- **`components/auth/ProtectedShell.tsx`** — guard exclusivamente cliente; no
+  existe `middleware.ts`.
+- **`lib/api-client.ts`** — cliente central que añade el JWT e intercepta `401`.
+- **`/account/profile`** — consulta `GET /auth/me` y actualiza el contacto con
+  `PUT /profiles/me`.
+- **`next.config.ts`** — rewrites del mismo origen hacia la API FastAPI.
 
 ---
 
@@ -92,7 +114,10 @@ import type { Product } from "@trackflow/logic/types/models";
 
 ## Estructura
 
-- **`app/`** — layout interno y panel (`/`).
+- **`app/`** — panel y rutas `/login`, `/register`, `/account/profile`,
+  `/incidents` y `/suppliers`.
+- **`components/auth/`** — contexto, guard y formularios de autenticación.
+- **`components/account/`** — edición del perfil autenticado.
 - **`components/layout/`** — `Sidebar` y `TopBar`.
 - **`components/dashboard/`** — `CarrierSimulator` y `RecordLookup` (cliente), `InventoryTable`, `CarrierEvaluationTable` y
   `ValidationReport`.
@@ -100,6 +125,7 @@ import type { Product } from "@trackflow/logic/types/models";
 - **`lib/sample-data.ts`** — dataset de referencia del Hito 2 ampliado. Se sustituirá por la API de `services/`.
 - **`lib/labels.ts`** — etiquetas en español de los valores de dominio.
 - **`lib/carrier-evaluation.ts`** — adaptador de puntuación y coste para la tabla, con los avisos de restricciones duras.
+- **`lib/api-client.ts`** — peticiones autenticadas y manejo global de `401`.
 
 ---
 

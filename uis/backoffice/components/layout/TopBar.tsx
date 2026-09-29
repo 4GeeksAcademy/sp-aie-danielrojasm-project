@@ -1,4 +1,12 @@
+"use client";
+
+import Link from "next/link";
+import { LogOut, UserRound } from "lucide-react";
+import { useAuth } from "@/components/auth/AuthProvider";
+
 export function TopBar() {
+  const { user, logout } = useAuth();
+
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-6 py-4">
       <div>
@@ -9,9 +17,24 @@ export function TopBar() {
           Responsable: Ana Whitfield, Directora de Operaciones de Almacén
         </p>
       </div>
-      <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
-        Datos de ejemplo en paneles operativos
-      </span>
+      <div className="flex items-center gap-2">
+        <Link
+          href="/account/profile"
+          className="flex h-10 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm text-slate-700 hover:bg-slate-50"
+        >
+          <UserRound aria-hidden="true" className="h-4 w-4" />
+          <span className="hidden sm:inline">{user?.profile.name || user?.email}</span>
+        </Link>
+        <button
+          type="button"
+          onClick={logout}
+          title="Cerrar sesión"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-950"
+        >
+          <LogOut aria-hidden="true" className="h-4 w-4" />
+          <span className="sr-only">Cerrar sesión</span>
+        </button>
+      </div>
     </header>
   );
 }
