@@ -7,7 +7,17 @@
 Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y qué viene después. Cada cambio relevante (una feature, una
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
-**Rama actual:** `proveedores`
+**Rama actual:** `feature/auth`
+
+### Milestone 09 — Autenticación y restricción de rutas
+
+- Implementados usuarios y perfiles uno a uno exclusivamente en TinyDB, con
+   UUID, roles validados y contraseñas bcrypt.
+- Añadidos login JWT, `get_current_user`, CRUD protegido de usuarios y perfil
+   propio; el acceso cruzado responde `403`.
+- Protegidas las seis operaciones de proveedores y las dos rutas de incidencias.
+- Verificado con nueve pruebas HTTP: registro, login JSON/OAuth2, perfil,
+   permisos, cascada, token ausente, mal formado y expirado.
 
 ### Milestone 09 — Directorio de proveedores
 
@@ -59,6 +69,12 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### 2026-09-28 — AUTH-01
+
+La API incorpora autenticación JWT stateless bajo `/auth`, CRUD de credenciales
+bajo `/users` y perfiles bajo `/profiles`. La persistencia de identidad queda
+aislada en TinyDB y las rutas operativas existentes requieren bearer token.
 
 ### Analizador interno de incidencias
 
