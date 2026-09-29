@@ -8,6 +8,24 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Auditoría de gestión de errores
+
+- Backend: el 422 ya no devuelve `input` (contraseñas y tokens) y sus mensajes
+   están en español (`services/api/errors.py`, compartido con incidencias).
+   Sin `JWT_SECRET_KEY` responde 500 genérico en vez de 401. Resend se aísla
+   en `EmailDeliveryError`, cuyo mensaje no incluye el destinatario ni el enlace.
+- Scripts: `analyze.py`, `seed_incidents.py`, `services/api/seed.py` y
+   `pandas_clean.py` comprueban la entrada antes de procesar, acotan
+   `try/except` a CSV, BD o exportación, escriben en `stderr` y salen con 1.
+- Frontend: `api-client` (backoffice) y `recordsApi` (tracker) nunca muestran
+   el cuerpo crudo, `Failed to fetch` ni errores de parseo. Proveedores,
+   análisis CSV y tracker tienen carga, error con «Reintentar» y `finally`.
+   Un fallo de red al restaurar la sesión ya no cierra la sesión en silencio.
+   Las tres apps tienen `error.tsx`, `global-error.tsx` y `not-found.tsx`.
+- Verificado: 33 pruebas Python (5 nuevas), `npm run verify` con código 0,
+   build del tracker y rutas 200/404 en las tres apps con `npm run dev`.
+- Siguiente paso: revisión visual de los estados de error en el navegador.
+
 ### Milestone 09 — Gestor de incidencias centralizado
 
 - Validación del CSV extraída a `packages/shared/incidents/` (Python) y
@@ -129,6 +147,12 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### 2026-09-29 — Auditoría de gestión de errores
+
+Estrategia común de errores en frontend, backend y scripts: mensajes legibles
+con salida clara, sin datos sensibles en respuestas y códigos de salida
+correctos en los scripts.
 
 ### 2026-09-29 — Gestor de incidencias centralizado
 

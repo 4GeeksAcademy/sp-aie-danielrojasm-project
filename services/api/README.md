@@ -107,6 +107,7 @@ envía en las rutas protegidas.
 uv run python -m unittest services.api.test_auth_api -v
 uv run python -m unittest services.api.test_incidents_analyzer -v
 uv run python -m unittest services.api.test_incidents_api -v
+uv run python -m unittest services.api.test_error_handling -v
 ```
 
 El resumen más reciente vive en memoria del proceso y se reemplaza tras cada

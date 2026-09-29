@@ -172,6 +172,7 @@ Todos se ejecutan desde la raíz del monorepo:
 - **API de incidencias** — instalar `services/api/requirements.txt` y ejecutar `uvicorn services.api.main:app --reload --port 8000`.
 - **API completa** — `uv sync` y `uv run uvicorn services.api.main:app --reload --port 8000 --env-file .env`.
 - **Auth API** — `uv run python -m unittest services.api.test_auth_api -v`.
+- **Gestión de errores** — `uv run python -m unittest services.api.test_error_handling -v`.
 - **Gestor de incidencias** — `uv run python -m unittest services.api.test_incidents_api -v`; seed con
   `uv run python scripts/seed_incidents.py`.
 
@@ -180,6 +181,12 @@ Todos se ejecutan desde la raíz del monorepo:
 ## Restricciones técnicas
 
 - **Tests automatizados** — `python -m unittest services.api.test_incidents_analyzer`; `npm run verify` cubre tipos, lint y build de las UIs.
+- **Errores de API** — la validación responde con `loc`, `msg` en español y `type`, nunca con `input` ni `ctx`
+  (`services/api/errors.py`). Los 500 son genéricos y la traza solo va al log `trackflow.api`. Las llamadas externas se
+  envuelven en una excepción propia sin datos personales (`EmailDeliveryError`).
+- **Errores en la UI** — solo se muestran mensajes de `ApiError` (backoffice) o `RecordsApiError` (tracker), a través de
+  `getUserMessage`; cualquier otro error usa un texto propio. Cada app tiene `error.tsx`, `global-error.tsx` (Next 16:
+  `unstable_retry`) y `not-found.tsx`, que registran solo `error.digest`.
 - **`src/` aislado** — no puede importar nada de `uis/` ni paquetes npm; debe compilar con el `tsconfig.json` raíz.
 - **Imágenes remotas** — solo desde `images.unsplash.com` (`images.remotePatterns`). Next 16 solo permite `quality` 75 por defecto.
 - **Windows** — tras instalar Node, `npm` y `node` pueden no estar en el PATH de las terminales ya abiertas: hay que reiniciarlas.

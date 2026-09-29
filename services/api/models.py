@@ -48,7 +48,7 @@ class SupplierFields(BaseModel):
         expected_currency = Currency.USD if self.country == Country.USA else Currency.EUR
         if self.currency != expected_currency:
             raise ValueError(
-                f"Los proveedores de {self.country} deben usar {expected_currency}"
+                f"Los proveedores de {self.country} deben usar {expected_currency.value}"
             )
         return self
 

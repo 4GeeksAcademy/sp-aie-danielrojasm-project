@@ -23,7 +23,7 @@ export function TopBar() {
           className="flex h-10 items-center gap-2 rounded-md border border-slate-200 px-3 text-sm text-slate-700 hover:bg-slate-50"
         >
           <UserRound aria-hidden="true" className="h-4 w-4" />
-          <span className="hidden sm:inline">{user?.profile.name || user?.email}</span>
+          <span className="hidden sm:inline">{user?.profile?.name || user?.email || "Mi cuenta"}</span>
         </Link>
         <button
           type="button"

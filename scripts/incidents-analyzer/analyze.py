@@ -59,26 +59,61 @@ def export_results(summary: dict[str, Any], destination: Path) -> None:
         writer.writerows(result_rows(summary))
 
 
+def check_csv_path(csv_path: Path) -> str | None:
+    """Devuelve un mensaje de error si la ruta no es un CSV legible."""
+    if not csv_path.exists():
+        return f"No existe el fichero CSV: {csv_path}"
+    if not csv_path.is_file():
+        return f"La ruta indicada no es un fichero: {csv_path}"
+    if csv_path.stat().st_size == 0:
+        return f"El fichero CSV está vacío: {csv_path}"
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Analiza un CSV de incidencias de TrackFlow.")
     parser.add_argument("csv_path", type=Path, help="Ruta al fichero CSV de incidencias")
     arguments = parser.parse_args()
 
-    try:
-        with arguments.csv_path.open("r", encoding="utf-8-sig", newline="") as source:
-            summary = analyze_csv(source)
-    except (OSError, InvalidCsvError) as error:
-        print(f"Error: {error}", file=sys.stderr)
+    path_error = check_csv_path(arguments.csv_path)
+    if path_error:
+        print(f"Error: {path_error}", file=sys.stderr)
         return 1
+
+    try:
+        source = arguments.csv_path.open("r", encoding="utf-8-sig", newline="")
+    except OSError as error:
+        print(
+            f"Error: no se pudo abrir {arguments.csv_path} ({error.strerror}).",
+            file=sys.stderr,
+        )
+        return 1
+    with source:
+        try:
+            summary = analyze_csv(source)
+        except InvalidCsvError as error:
+            print(f"Error: {error}", file=sys.stderr)
+            return 1
 
     print_summary(summary, arguments.csv_path.name)
     try:
         choice = input("¿Deseas exportar los resultados a CSV? [s / n] ").strip().lower()
     except EOFError:
         choice = "n"
+    except KeyboardInterrupt:
+        print("\nExportación cancelada.", file=sys.stderr)
+        return 130
     if choice in {"s", "y"}:
         destination = Path("results.csv")
-        export_results(summary, destination)
+        try:
+            export_results(summary, destination)
+        except OSError as error:
+            print(
+                f"Error: no se pudieron exportar los resultados a {destination} "
+                f"({error.strerror}). El análisis anterior sigue siendo válido.",
+                file=sys.stderr,
+            )
+            return 1
         print(f"Resultados exportados a {destination.resolve()}")
     return 0
 

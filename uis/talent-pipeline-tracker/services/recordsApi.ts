@@ -16,26 +16,78 @@ const API_BASE_URL = (
   DEFAULT_API_BASE_URL
 ).replace(/\/$/, "");
 
+/** Error de la API de candidaturas con un mensaje apto para mostrar al usuario. */
+export class RecordsApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "RecordsApiError";
+  }
+}
+
+const NETWORK_ERROR_STATUS = 0;
+
+/**
+ * Mensaje por código de estado. El cuerpo de la respuesta no se muestra nunca:
+ * puede ser HTML, JSON técnico o una traza del servidor.
+ */
+function messageForStatus(status: number): string {
+  if (status === 400 || status === 422) {
+    return "Algunos datos no son válidos. Revisa el formulario e inténtalo de nuevo.";
+  }
+  if (status === 404) {
+    return "No encontramos esta candidatura. Puede que se haya eliminado.";
+  }
+  if (status === 409) {
+    return "Ya existe una candidatura con estos datos.";
+  }
+  if (status >= 500) {
+    return "El servicio de candidaturas no está disponible ahora mismo. Inténtalo de nuevo en unos minutos.";
+  }
+  return "No se pudo completar la solicitud. Inténtalo de nuevo.";
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {}),
-    },
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers || {}),
+      },
+      cache: "no-store",
+    });
+  } catch {
+    throw new RecordsApiError(
+      "No se pudo conectar con el servicio de candidaturas. Comprueba tu conexión e inténtalo de nuevo.",
+      NETWORK_ERROR_STATUS,
+    );
+  }
 
   if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || "No se pudo completar la solicitud.");
+    throw new RecordsApiError(messageForStatus(response.status), response.status);
   }
 
   if (response.status === 204) {
     return undefined as T;
   }
 
-  return (await response.json()) as T;
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new RecordsApiError(
+      "El servicio respondió con datos que no se pudieron interpretar. Inténtalo de nuevo.",
+      response.status,
+    );
+  }
+}
+
+/** Texto seguro para la UI a partir de cualquier error capturado. */
+export function getUserMessage(error: unknown, fallback: string): string {
+  return error instanceof RecordsApiError ? error.message : fallback;
 }
 
 function pickString(source: unknown, keys: string[], fallback = ""): string {

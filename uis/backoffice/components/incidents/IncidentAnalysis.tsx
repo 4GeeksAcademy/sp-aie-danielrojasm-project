@@ -10,7 +10,7 @@ import {
   type IncidentCategory,
   type IncidentStatus,
 } from "@/lib/incident-analysis";
-import { apiFetch } from "@/lib/api-client";
+import { getUserMessage, requestBlob, requestJson } from "@/lib/api-client";
 
 const SATISFACTION_LABELS = [
   "Muy insatisfecho",
@@ -20,13 +20,7 @@ const SATISFACTION_LABELS = [
   "Muy satisfecho",
 ];
 
-function getErrorMessage(payload: unknown): string {
-  if (typeof payload === "object" && payload !== null && "detail" in payload) {
-    const detail = payload.detail;
-    if (typeof detail === "string") return detail;
-  }
-  return "No se pudo completar la solicitud al servicio de análisis.";
-}
+const EMPTY_BREAKDOWN = { count: 0, percentage: 0 };
 
 export function IncidentAnalysis() {
   const [file, setFile] = useState<File | null>(null);
@@ -61,21 +55,15 @@ export function IncidentAnalysis() {
     formData.append("file", file);
 
     try {
-      const response = await apiFetch("/api/incidents/analyze", {
-        method: "POST",
-        body: formData,
-      });
-      if (!response.ok) {
-        throw new Error(getErrorMessage(await response.json().catch(() => null)));
-      }
-      setSummary((await response.json()) as IncidentAnalysisSummary);
+      const result = await requestJson<IncidentAnalysisSummary>(
+        "/api/incidents/analyze",
+        { method: "POST", body: formData },
+        "No se pudo analizar el fichero. Comprueba que sea un CSV de incidencias.",
+      );
+      setSummary(result);
     } catch (requestError) {
       setError(
-        requestError instanceof TypeError
-          ? "No se pudo conectar con la API. Comprueba que el servicio esté activo."
-          : requestError instanceof Error
-            ? requestError.message
-            : "No se pudo analizar el fichero.",
+        getUserMessage(requestError, "No se pudo analizar el fichero. Inténtalo de nuevo."),
       );
     } finally {
       setIsAnalyzing(false);
@@ -85,29 +73,24 @@ export function IncidentAnalysis() {
   async function handleExport() {
     setIsExporting(true);
     setExportError(null);
+    let objectUrl: string | null = null;
     try {
-      const response = await apiFetch(
+      const fileBlob = await requestBlob(
         "/api/incidents/results/export",
+        {},
+        "No se pudieron descargar los resultados.",
       );
-      if (!response.ok) {
-        throw new Error(getErrorMessage(await response.json().catch(() => null)));
-      }
-      const fileBlob = await response.blob();
-      const objectUrl = URL.createObjectURL(fileBlob);
+      objectUrl = URL.createObjectURL(fileBlob);
       const downloadLink = document.createElement("a");
       downloadLink.href = objectUrl;
       downloadLink.download = "incidents-results.csv";
       downloadLink.click();
-      URL.revokeObjectURL(objectUrl);
     } catch (requestError) {
       setExportError(
-        requestError instanceof TypeError
-          ? "No se pudo conectar con la API para descargar los resultados."
-          : requestError instanceof Error
-            ? requestError.message
-            : "No se pudieron descargar los resultados.",
+        getUserMessage(requestError, "No se pudieron descargar los resultados. Inténtalo de nuevo."),
       );
     } finally {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       setIsExporting(false);
     }
   }
@@ -128,7 +111,7 @@ export function IncidentAnalysis() {
         title="Cargar fichero CSV"
         description="El análisis se realiza internamente. No se muestran ni exportan datos personales."
       >
-        <form className="space-y-4" onSubmit={handleAnalyze}>
+        <form id="incident-analysis-form" className="space-y-4" onSubmit={handleAnalyze}>
           <label
             htmlFor="incident-csv"
             onDragEnter={(event) => {
@@ -175,9 +158,22 @@ export function IncidentAnalysis() {
           </button>
         </form>
         {error ? (
-          <p role="alert" className="mt-4 text-sm font-medium text-rose-700">
-            {error}
-          </p>
+          <div role="alert" className="mt-4 flex flex-wrap items-center gap-3 text-sm font-medium text-rose-700">
+            <span>{error}</span>
+            {file ? (
+              <button
+                type="submit"
+                form="incident-analysis-form"
+                disabled={isAnalyzing}
+                className="min-h-9 border border-rose-300 bg-white px-3 font-semibold text-rose-800 hover:bg-rose-50"
+              >
+                Reintentar
+              </button>
+            ) : null}
+            <span className="font-normal text-slate-600">
+              o selecciona otro fichero.
+            </span>
+          </div>
         ) : null}
       </Panel>
 
@@ -203,35 +199,43 @@ export function IncidentAnalysis() {
               </button>
             </div>
             {exportError ? (
-              <p role="alert" className="text-sm font-medium text-rose-700">
-                {exportError}
-              </p>
+              <div role="alert" className="flex flex-wrap items-center gap-3 text-sm font-medium text-rose-700">
+                <span>{exportError}</span>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={isExporting}
+                  className="min-h-9 border border-rose-300 bg-white px-3 font-semibold text-rose-800 hover:bg-rose-50"
+                >
+                  Reintentar descarga
+                </button>
+              </div>
             ) : null}
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               <KpiCard
                 label="Registros totales"
-                value={String(summary.total_records)}
+                value={String(summary.total_records ?? 0)}
                 hint="Filas procesadas"
               />
               <KpiCard
                 label="Registros válidos"
-                value={String(summary.valid_records)}
+                value={String(summary.valid_records ?? 0)}
                 hint="Incluidos en los desgloses"
               />
               <KpiCard
                 label="Registros inválidos"
-                value={String(summary.invalid_records)}
+                value={String(summary.invalid_records ?? 0)}
                 hint="Excluidos de las métricas"
-                tone={summary.invalid_records > 0 ? "warning" : "default"}
+                tone={(summary.invalid_records ?? 0) > 0 ? "warning" : "default"}
               />
               <KpiCard
                 label="Satisfacción media"
                 value={
-                  summary.average_satisfaction === null
+                  typeof summary.average_satisfaction !== "number"
                     ? "N/D"
                     : `${summary.average_satisfaction.toFixed(2)} / 5`
                 }
-                hint={`${summary.scored_closed_incidents} casos cerrados con puntuación`}
+                hint={`${summary.scored_closed_incidents ?? 0} casos cerrados con puntuación`}
               />
             </div>
           </section>
@@ -241,7 +245,7 @@ export function IncidentAnalysis() {
               <ul className="space-y-4">
                 {(Object.keys(INCIDENT_CATEGORY_LABELS) as IncidentCategory[]).map(
                   (category) => {
-                    const value = summary.categories[category];
+                    const value = summary.categories?.[category] ?? EMPTY_BREAKDOWN;
                     return (
                       <li key={category}>
                         <div className="flex justify-between gap-3 text-sm">
@@ -290,10 +294,10 @@ export function IncidentAnalysis() {
                       </dt>
                       <dd className="text-right tabular-nums">
                         <span className="block font-semibold">
-                          {summary.statuses[status].count}
+                          {summary.statuses?.[status]?.count ?? 0}
                         </span>
                         <span className="text-xs text-slate-500">
-                          {summary.statuses[status].percentage.toFixed(1)}%
+                          {(summary.statuses?.[status]?.percentage ?? 0).toFixed(1)}%
                         </span>
                       </dd>
                     </div>
@@ -304,7 +308,7 @@ export function IncidentAnalysis() {
 
             <Panel title="Puntuaciones en casos cerrados">
               <p className="mb-4 text-sm text-slate-600">
-                {summary.scored_closed_incidents} de {summary.closed_incidents} casos
+                {summary.scored_closed_incidents ?? 0} de {summary.closed_incidents ?? 0} casos
                 cerrados tienen puntuación registrada.
               </p>
               <ol className="divide-y divide-slate-100">
@@ -320,7 +324,7 @@ export function IncidentAnalysis() {
                         {label}
                       </span>
                       <span className="tabular-nums text-slate-600">
-                        {summary.satisfaction_scores[score]}
+                        {summary.satisfaction_scores?.[score] ?? 0}
                       </span>
                     </li>
                   );
@@ -330,23 +334,26 @@ export function IncidentAnalysis() {
 
             <Panel title="Incidencias por país">
               <dl className="divide-y divide-slate-100">
-                {(["US", "ES"] as const).map((country) => (
+                {(["US", "ES"] as const).map((country) => {
+                  const value = summary.countries?.[country] ?? EMPTY_BREAKDOWN;
+                  return (
                   <div
                     key={country}
                     className="flex justify-between gap-4 py-3 text-sm first:pt-0 last:pb-0"
                   >
                     <dt className="font-medium">{country}</dt>
                     <dd className="tabular-nums text-slate-600">
-                      {summary.countries[country].count} · {summary.countries[country].percentage.toFixed(1)}%
+                      {value.count} · {value.percentage.toFixed(1)}%
                     </dd>
                   </div>
-                ))}
+                  );
+                })}
               </dl>
             </Panel>
           </div>
 
           <Panel title="Calidad de los registros">
-            {summary.invalid_records === 0 ? (
+            {(summary.invalid_records ?? 0) === 0 ? (
               <p className="text-sm font-medium text-emerald-800">
                 No se detectaron registros inválidos.
               </p>
@@ -357,7 +364,7 @@ export function IncidentAnalysis() {
                   Un mismo registro puede activar más de una regla.
                 </p>
                 <ul className="grid gap-x-8 sm:grid-cols-2">
-                  {Object.entries(summary.invalid_breakdown)
+                  {Object.entries(summary.invalid_breakdown ?? {})
                     .filter(([, value]) => value.count > 0)
                     .map(([key, value]) => (
                       <li

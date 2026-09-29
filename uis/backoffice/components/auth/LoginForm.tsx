@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { LogIn } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { getUserMessage } from "@/lib/api-client";
 
 export function LoginForm() {
   const { login } = useAuth();
@@ -22,11 +23,8 @@ export function LoginForm() {
         password: String(formData.get("password") ?? ""),
       });
     } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "No se pudo iniciar sesión.",
-      );
+      setError(getUserMessage(requestError, "No se pudo iniciar sesión. Inténtalo de nuevo."));
+    } finally {
       setIsSubmitting(false);
     }
   }

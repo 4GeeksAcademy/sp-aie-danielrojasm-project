@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { apiFetch } from "@/lib/api-client";
+import { getUserMessage, requestJson } from "@/lib/api-client";
 
 type Country = "USA" | "Spain";
 type Status = "active" | "suspended";
@@ -70,13 +70,7 @@ const emptyForm: FormState = {
   notes: "",
 };
 
-function apiError(response: Response, fallback: string) {
-  return response.json().then((body: { detail?: string | { msg: string }[] }) => {
-    if (typeof body.detail === "string") return body.detail;
-    if (Array.isArray(body.detail)) return body.detail.map((item) => item.msg).join(" ");
-    return fallback;
-  });
-}
+const JSON_HEADERS = { "Content-Type": "application/json" };
 
 export function SupplierDirectory() {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -84,31 +78,40 @@ export function SupplierDirectory() {
   const [category, setCategory] = useState<"all" | Category>("all");
   const [form, setForm] = useState<FormState>(emptyForm);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [pendingId, setPendingId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [editingRate, setEditingRate] = useState<number | null>(null);
   const [rateValue, setRateValue] = useState("");
 
   useEffect(() => {
+    let active = true;
     const loadSuppliers = async () => {
       setLoading(true);
-      setError("");
+      setLoadError("");
       const params = new URLSearchParams();
       if (country !== "all") params.set("country", country);
       if (category !== "all") params.set("category", category);
       try {
-        const response = await apiFetch(`/api/suppliers?${params.toString()}`);
-        if (!response.ok) throw new Error(await apiError(response, "No se pudo cargar el directorio."));
-        setSuppliers(await response.json());
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "No se pudo cargar el directorio.");
+        const loaded = await requestJson<Supplier[]>(`/api/suppliers?${params.toString()}`);
+        if (active) setSuppliers(Array.isArray(loaded) ? loaded : []);
+      } catch (requestError) {
+        if (active) {
+          setSuppliers([]);
+          setLoadError(getUserMessage(requestError, "No se pudo cargar el directorio de proveedores."));
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     };
     void loadSuppliers();
-  }, [country, category]);
+    return () => {
+      active = false;
+    };
+  }, [country, category, loadAttempt]);
 
   function updateForm(field: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -130,9 +133,9 @@ export function SupplierDirectory() {
     setError("");
     setNotice("");
     try {
-      const response = await apiFetch("/api/suppliers", {
+      const created = await requestJson<Supplier>("/api/suppliers", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: JSON_HEADERS,
         body: JSON.stringify({
           ...form,
           rate_per_shipment: Number(form.rate_per_shipment),
@@ -140,49 +143,58 @@ export function SupplierDirectory() {
           contact_email: form.contact_email || null,
           notes: form.notes || null,
         }),
-      });
-      if (!response.ok) throw new Error(await apiError(response, "La API rechazó el proveedor."));
-      const created: Supplier = await response.json();
+      }, "No se pudo registrar el proveedor. Revisa los datos.");
       setSuppliers((current) => [...current, created]);
       setForm(emptyForm);
       setNotice("Proveedor registrado correctamente.");
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "No se pudo registrar el proveedor.");
+      setError(getUserMessage(createError, "No se pudo registrar el proveedor. Inténtalo de nuevo."));
     } finally {
       setSaving(false);
     }
   }
 
   async function updateRate(id: number) {
+    const rate = Number(rateValue);
+    setError("");
+    setNotice("");
+    if (!Number.isFinite(rate) || rate <= 0) {
+      setError("La tarifa debe ser un número mayor que 0.");
+      return;
+    }
+    setPendingId(id);
     try {
-      const response = await apiFetch(`/api/suppliers/${id}/rate`, {
+      const updated = await requestJson<Supplier>(`/api/suppliers/${id}/rate`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rate_per_shipment: Number(rateValue) }),
-      });
-      if (!response.ok) throw new Error(await apiError(response, "No se pudo actualizar la tarifa."));
-      const updated: Supplier = await response.json();
+        headers: JSON_HEADERS,
+        body: JSON.stringify({ rate_per_shipment: rate }),
+      }, "No se pudo actualizar la tarifa.");
       setSuppliers((current) => current.map((supplier) => supplier.id === id ? updated : supplier));
       setEditingRate(null);
       setNotice("Tarifa actualizada y fechada correctamente.");
     } catch (rateError) {
-      setError(rateError instanceof Error ? rateError.message : "No se pudo actualizar la tarifa.");
+      setError(getUserMessage(rateError, "No se pudo actualizar la tarifa. Inténtalo de nuevo."));
+    } finally {
+      setPendingId(null);
     }
   }
 
   async function toggleStatus(supplier: Supplier) {
     const nextStatus: Status = supplier.status === "active" ? "suspended" : "active";
+    setError("");
+    setNotice("");
+    setPendingId(supplier.id);
     try {
-      const response = await apiFetch(`/api/suppliers/${supplier.id}/status`, {
+      const updated = await requestJson<Supplier>(`/api/suppliers/${supplier.id}/status`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
+        headers: JSON_HEADERS,
         body: JSON.stringify({ status: nextStatus }),
-      });
-      if (!response.ok) throw new Error(await apiError(response, "No se pudo cambiar el estado."));
-      const updated: Supplier = await response.json();
+      }, "No se pudo cambiar el estado.");
       setSuppliers((current) => current.map((item) => item.id === supplier.id ? updated : item));
     } catch (statusError) {
-      setError(statusError instanceof Error ? statusError.message : "No se pudo cambiar el estado.");
+      setError(getUserMessage(statusError, `No se pudo cambiar el estado de ${supplier.name}. Inténtalo de nuevo.`));
+    } finally {
+      setPendingId(null);
     }
   }
 
@@ -202,29 +214,41 @@ export function SupplierDirectory() {
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h2 id="supplier-list-title" className="text-lg font-semibold text-slate-900">Proveedores operativos</h2>
-              <p className="mt-1 text-sm text-slate-500">{loading ? "Cargando..." : `${suppliers.length} proveedores en la vista actual`}</p>
+              <p className="mt-1 text-sm text-slate-500">{loading ? "Cargando proveedores..." : loadError ? "Sin datos" : `${suppliers.length} proveedores en la vista actual`}</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <label className="text-xs font-medium text-slate-600">País<select value={country} onChange={(event) => setCountry(event.target.value as "all" | Country)} className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"><option value="all">Todos</option><option value="USA">USA</option><option value="Spain">Spain</option></select></label>
               <label className="text-xs font-medium text-slate-600">Categoría<select value={category} onChange={(event) => setCategory(event.target.value as "all" | Category)} className="mt-1 block max-w-52 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"><option value="all">Todas</option>{categories.map((item) => <option key={item} value={item}>{categoryLabels[item]}</option>)}</select></label>
             </div>
           </div>
-          <div className="mt-5 overflow-x-auto">
+          {loading ? (
+            <div aria-busy="true" className="mt-5 space-y-2">
+              <p className="sr-only" role="status">Cargando proveedores...</p>
+              {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-14 animate-pulse rounded-lg bg-slate-100" />)}
+            </div>
+          ) : null}
+          {!loading && loadError ? (
+            <div role="alert" className="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-5 text-center text-sm text-rose-800">
+              <p>{loadError}</p>
+              <button type="button" onClick={() => setLoadAttempt((value) => value + 1)} className="mt-3 rounded-md border border-rose-300 bg-white px-4 py-2 font-semibold hover:bg-rose-100">Reintentar</button>
+            </div>
+          ) : null}
+          {!loading && !loadError ? <div className="mt-5 overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Proveedor</th><th className="px-3 py-3">País</th><th className="px-3 py-3">Categorías</th><th className="px-3 py-3">Tarifa</th><th className="px-3 py-3">Estado</th><th className="px-3 py-3">Acciones</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {suppliers.map((supplier) => <tr key={supplier.id} className={supplier.status === "suspended" ? "bg-slate-50 text-slate-500" : ""}>
                   <td className="px-3 py-4"><p className="font-semibold text-slate-900">{supplier.name}</p><p className="mt-1 text-xs">{supplier.service_zone || "Cobertura no indicada"}</p></td>
                   <td className="px-3 py-4">{supplier.country}</td>
-                  <td className="max-w-56 px-3 py-4"><div className="flex flex-wrap gap-1">{supplier.categories.map((item) => <span key={item} className="rounded bg-cyan-50 px-2 py-1 text-xs text-cyan-800">{categoryLabels[item]}</span>)}</div></td>
-                  <td className="whitespace-nowrap px-3 py-4 font-semibold tabular-nums">{editingRate === supplier.id ? <div className="flex items-center gap-1"><input aria-label={`Nueva tarifa de ${supplier.name}`} type="number" min="0.01" step="0.01" value={rateValue} onChange={(event) => setRateValue(event.target.value)} className="w-24 rounded border border-slate-300 px-2 py-1" /><button type="button" onClick={() => void updateRate(supplier.id)} className="rounded bg-slate-900 px-2 py-1 text-xs text-white">Guardar</button></div> : <button type="button" onClick={() => { setEditingRate(supplier.id); setRateValue(String(supplier.rate_per_shipment)); }} className="underline decoration-dotted underline-offset-4">{money.format(supplier.rate_per_shipment)} {supplier.currency}</button>}</td>
+                  <td className="max-w-56 px-3 py-4"><div className="flex flex-wrap gap-1">{(supplier.categories ?? []).map((item) => <span key={item} className="rounded bg-cyan-50 px-2 py-1 text-xs text-cyan-800">{categoryLabels[item]}</span>)}</div></td>
+                  <td className="whitespace-nowrap px-3 py-4 font-semibold tabular-nums">{editingRate === supplier.id ? <div className="flex items-center gap-1"><input aria-label={`Nueva tarifa de ${supplier.name}`} type="number" min="0.01" step="0.01" value={rateValue} onChange={(event) => setRateValue(event.target.value)} className="w-24 rounded border border-slate-300 px-2 py-1" /><button type="button" disabled={pendingId === supplier.id} onClick={() => void updateRate(supplier.id)} className="rounded bg-slate-900 px-2 py-1 text-xs text-white disabled:cursor-wait disabled:opacity-60">{pendingId === supplier.id ? "Guardando..." : "Guardar"}</button></div> : <button type="button" onClick={() => { setEditingRate(supplier.id); setRateValue(String(supplier.rate_per_shipment)); }} className="underline decoration-dotted underline-offset-4">{money.format(supplier.rate_per_shipment)} {supplier.currency}</button>}</td>
                   <td className="px-3 py-4"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${supplier.status === "active" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{supplier.status === "active" ? "Activo" : "Suspendido"}</span></td>
-                  <td className="px-3 py-4"><button type="button" onClick={() => void toggleStatus(supplier)} className="whitespace-nowrap rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-100">{supplier.status === "active" ? "Suspender" : "Reactivar"}</button></td>
+                  <td className="px-3 py-4"><button type="button" disabled={pendingId === supplier.id} onClick={() => void toggleStatus(supplier)} className="whitespace-nowrap rounded-md border border-slate-300 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60">{pendingId === supplier.id ? "Guardando..." : supplier.status === "active" ? "Suspender" : "Reactivar"}</button></td>
                 </tr>)}
               </tbody>
             </table>
-            {!loading && suppliers.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">No hay proveedores para estos filtros.</p> : null}
-          </div>
+            {suppliers.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">{country === "all" && category === "all" ? "Todavía no hay proveedores registrados. Usa el formulario para dar de alta el primero." : "No hay proveedores para estos filtros."}</p> : null}
+          </div> : null}
         </section>
 
         <section aria-labelledby="new-supplier-title" className="rounded-xl border border-slate-200 bg-slate-950 p-5 text-white shadow-sm">

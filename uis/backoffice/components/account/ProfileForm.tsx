@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { Save } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { requestJson } from "@/lib/api-client";
+import { getUserMessage, requestJson } from "@/lib/api-client";
 import { userRoleLabels } from "@/lib/labels";
 import type { Profile } from "@/types/auth";
 
@@ -37,7 +37,7 @@ export function ProfileForm() {
       await refreshUser();
       setNotice("Perfil actualizado correctamente.");
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "No se pudo actualizar el perfil.");
+      setError(getUserMessage(requestError, "No se pudo actualizar el perfil. Inténtalo de nuevo."));
     } finally {
       setIsSaving(false);
     }
@@ -69,15 +69,15 @@ export function ProfileForm() {
         <form className="mt-5 grid gap-5 sm:grid-cols-2" onSubmit={handleSubmit}>
           <div>
             <label htmlFor="profile-name" className="text-sm font-medium text-slate-800">Nombre visible</label>
-            <input id="profile-name" name="name" defaultValue={user.profile.name ?? ""} autoComplete="name" className="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-cyan-700 focus:ring-2 focus:ring-cyan-100" />
+            <input id="profile-name" name="name" defaultValue={user.profile?.name ?? ""} autoComplete="name" className="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-cyan-700 focus:ring-2 focus:ring-cyan-100" />
           </div>
           <div>
             <label htmlFor="profile-phone" className="text-sm font-medium text-slate-800">Teléfono</label>
-            <input id="profile-phone" name="phone" type="tel" defaultValue={user.profile.phone ?? ""} autoComplete="tel" className="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-cyan-700 focus:ring-2 focus:ring-cyan-100" />
+            <input id="profile-phone" name="phone" type="tel" defaultValue={user.profile?.phone ?? ""} autoComplete="tel" className="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-cyan-700 focus:ring-2 focus:ring-cyan-100" />
           </div>
           <div className="sm:col-span-2">
             <label htmlFor="profile-address" className="text-sm font-medium text-slate-800">Dirección</label>
-            <input id="profile-address" name="address" defaultValue={user.profile.address ?? ""} autoComplete="street-address" className="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-cyan-700 focus:ring-2 focus:ring-cyan-100" />
+            <input id="profile-address" name="address" defaultValue={user.profile?.address ?? ""} autoComplete="street-address" className="mt-2 block w-full rounded-md border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-cyan-700 focus:ring-2 focus:ring-cyan-100" />
           </div>
           <div className="sm:col-span-2">
             <button type="submit" disabled={isSaving} className="flex h-10 items-center justify-center gap-2 rounded-md bg-slate-950 px-4 text-sm font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60">

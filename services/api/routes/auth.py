@@ -11,7 +11,7 @@ from services.api.auth_models import (
     LoginRequest, ResetPasswordRequest, TokenResponse, User,
 )
 from services.api.passwords import verify_password
-from services.api.reset_email import send_reset_email
+from services.api.reset_email import EmailDeliveryError, send_reset_email
 from services.api.security import create_access_token, get_current_user
 from services.api.user_service import (
     change_user_password, get_profile_by_user_id, get_user_by_email,
@@ -44,8 +44,10 @@ def forgot_password(payload: ForgotPasswordRequest) -> dict[str, str]:
         link = f"{base_url}?token={quote(token, safe='')}"
         try:
             send_reset_email(user.email, link)
-        except Exception:
-            logger.exception("No se pudo enviar el restablecimiento de contraseña")
+        except EmailDeliveryError as error:
+            # La respuesta sigue siendo genérica para no revelar si la cuenta
+            # existe; el log no incluye el email, el enlace ni el token.
+            logger.error("No se pudo enviar el restablecimiento de contraseña: %s", error)
     return {"message": "Si esa dirección está registrada, recibirás un enlace en breve"}
 
 
