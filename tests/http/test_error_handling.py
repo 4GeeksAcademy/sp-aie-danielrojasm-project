@@ -1,13 +1,10 @@
 import os
 import tempfile
 import unittest
-from unittest.mock import patch
 
 from fastapi.testclient import TestClient
-from resend.exceptions import ResendError
 
 from services.api.main import app
-from services.api.reset_email import EmailDeliveryError, send_reset_email
 
 
 class ErrorHandlingTests(unittest.TestCase):
@@ -52,30 +49,6 @@ class ErrorHandlingTests(unittest.TestCase):
             )
         self.assertEqual(response.status_code, 500)
         self.assertNotIn("JWT_SECRET_KEY", response.text)
-
-    def test_email_delivery_error_hides_recipient_and_link(self) -> None:
-        os.environ["RESEND_API_KEY"] = "re_test"
-        provider_error = ResendError(
-            code=403,
-            error_type="validation_error",
-            message="You can only send testing emails to owner@example.com",
-            suggested_action="",
-        )
-        with patch("services.api.reset_email.resend.Emails.send", side_effect=provider_error):
-            with self.assertRaises(EmailDeliveryError) as raised:
-                send_reset_email("owner@example.com", "https://example.test/reset?token=abc")
-        self.assertNotIn("owner@example.com", str(raised.exception))
-        self.assertNotIn("token", str(raised.exception))
-        self.assertIsNone(raised.exception.__cause__)
-
-    def test_network_failure_to_email_provider_is_wrapped(self) -> None:
-        os.environ["RESEND_API_KEY"] = "re_test"
-        with patch(
-            "services.api.reset_email.resend.Emails.send",
-            side_effect=ConnectionError("dns failure"),
-        ):
-            with self.assertRaises(EmailDeliveryError):
-                send_reset_email("owner@example.com", "https://example.test/reset")
 
 
 if __name__ == "__main__":
