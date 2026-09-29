@@ -144,6 +144,12 @@ la API arranca y `/inventory` responde 503. Para liberar los nombres, el antiguo
 `supplier_models.py` y el `get_db` de TinyDB a `get_suppliers_db`. No hay migraciones: `create_all` solo crea tablas que falten, así
 que cambiar una columna existente exigirá introducir Alembic.
 
+El backoffice consume el inventario desde `uis/backoffice/lib/inventory.ts`, único módulo que llama a `/inventory` (vía
+`requestJson`, con Bearer y 401 → `/login`). El rewrite `/api/inventory/*` apunta a `NEXT_PUBLIC_INVENTORY_API_URL` (en `.env.local`,
+ignorado por git) o, si falta, al origen general de la API. Las vistas cuelgan de `/inventory/*` dentro de `ProtectedShell`. El
+umbral de stock bajo (`LOW_STOCK_THRESHOLD = 50`) vive en ese módulo; el aviso de cantidad superior al stock es solo UX y la regla
+real la aplica la API con su 400.
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el
