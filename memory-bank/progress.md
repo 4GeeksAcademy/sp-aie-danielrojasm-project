@@ -23,7 +23,7 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
 
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 
-- 2026-09-29: `uis/Dockerfile` + `uis/start.sh` (website :3000 y backoffice
+- `uis/Dockerfile` + `uis/start.sh` (website :3000 y backoffice
    :3001 en un único contenedor), `services/Dockerfile` (FastAPI con
    `--reload`), `.dockerignore` en ambas carpetas y `docker-compose.yml` con la
    red `trackflow-dev`. Variables nuevas en `.env.example`
@@ -41,7 +41,7 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
 
 ### Hito 5 — Backoffice: interfaz de inventario (TRK-0341)
 
-- Cuatro vistas en `uis/backoffice` (2026-09-29): `/inventory/products` (stock
+- Cuatro vistas en `uis/backoffice`: `/inventory/products` (stock
    por SKU con nivel saludable ≥ 50 / bajo 1–49 / sin stock 0 y enlaces de
    entrada/salida por fila), `/inventory/orders/inbound`,
    `/inventory/orders/outbound` (stock del SKU consultado al seleccionarlo,
@@ -71,7 +71,7 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    CLT-SNK-W-42-Z 87, CSM-SRM-030 126, TEC-CHG-065 40).
 - Verificado: `uv run pytest` en verde (20 tests nuevos en
    `tests/inventory`), prueba HTTP completa con `uvicorn` y seed contra SQLite.
-- Supabase (2026-09-29): la API crea el esquema al arrancar; el seed insertó
+- Supabase: la API crea el esquema al arrancar; el seed insertó
    6 SKUs y 11 movimientos, y la segunda ejecución no duplicó nada.
    `GET /inventory/products` devuelve el stock neto esperado,
    `GET /inventory/orders` 11 órdenes con SKU y `user_uuid`, y una salida de
@@ -236,40 +236,40 @@ endpoint en `services/` (Hito 5).
 
 ## Historial
 
-### 2026-09-29 — Inventario con ORM y doble base de datos
+### Inventario con ORM y doble base de datos
 
 API de inventario unificada por SKU y almacén: el stock solo cambia con
 recepciones y salidas trazables al usuario que las registra.
 
-### 2026-09-29 — Batería de pruebas
+### Batería de pruebas
 
 Pruebas unitarias de la lógica de autenticación, backoffice y utilidades del
 frontend tras la regresión de caducidad de tokens; tres bugs corregidos.
 
-### 2026-09-29 — Auditoría de gestión de errores
+### Auditoría de gestión de errores
 
 Estrategia común de errores en frontend, backend y scripts: mensajes legibles
 con salida clara, sin datos sensibles en respuestas y códigos de salida
 correctos en los scripts.
 
-### 2026-09-29 — Gestor de incidencias centralizado
+### Gestor de incidencias centralizado
 
 Registro, seguimiento y métricas de incidencias persistidas, con el histórico
 CSV cargado como incidencias de cliente. La validación del analizador vive
 ahora en `packages/shared/incidents/` y no se duplica.
 
-### 2026-09-28 — AUTH-03
+### AUTH-03
 
 Recuperación por correo y cambio autenticado de contraseña con consumo único del
 token. Pendiente de confirmar el envío real con `RESEND_API_KEY` configurada.
 
-### 2026-09-28 — AUTH-02
+### AUTH-02
 
 El backoffice cierra el ciclo JWT con registro, login, guard cliente, cliente API
 autenticado, cierre global por `401` y edición del perfil. El website público no
 se modifica.
 
-### 2026-09-28 — AUTH-01
+### AUTH-01
 
 La API incorpora autenticación JWT stateless bajo `/auth`, CRUD de credenciales
 bajo `/users` y perfiles bajo `/profiles`. La persistencia de identidad queda
