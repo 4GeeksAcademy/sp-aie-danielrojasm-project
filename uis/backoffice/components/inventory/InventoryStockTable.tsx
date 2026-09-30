@@ -68,7 +68,9 @@ export function InventoryStockTable() {
         className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
       >
         <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
+          {/* En móvil el título ocupa la fila: si no, el selector cabe junto a «Cargando…»
+              pero salta de fila con el resumen más largo y desplaza la leyenda (CLS). */}
+          <div className="basis-full sm:basis-auto">
             <h2 id="stock-list-title" className="text-lg font-semibold text-slate-900">
               SKUs en almacén
             </h2>

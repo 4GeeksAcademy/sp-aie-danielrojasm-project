@@ -27,8 +27,12 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    Jest 59 (6 nuevos, hook al 100 % de líneas), typecheck y lint; en la app,
    datos, filtros (Spain → 6 proveedores), 503 con «Reintentar» y sin errores
    de consola.
-- Siguiente paso: reservar el alto de la línea de estado del inventario
-   (CLS 0,03) y volver a medir.
+- CLS del inventario: el `<select>` de almacén saltaba de fila al llegar el
+   resumen (380–640 px). Con el título a fila completa en móvil, CLS 0,03 → 0
+   y Performance móvil 94 → 99 (`audit/experiments/p2-inventory-cls/`).
+- Riesgo nuevo: `/suppliers` tiene CLS de hasta 0,18 entre 360 y 1279 px;
+   el formulario de alta va bajo la lista y esta crece de 4 a 14 filas.
+- Siguiente paso: decidir la corrección del CLS de proveedores.
 
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 

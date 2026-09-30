@@ -115,10 +115,19 @@ Ordenados por impacto en usuarios reales, primero los Core Web Vitals.
   que ni la barra lateral ni la cabecera se pintan hasta tener la respuesta de `/auth/me`. Es una decisión de arquitectura documentada en
   `memory-bank/techContext.md` (sin `middleware.ts`). Cambiarla a autenticación en servidor sería una reestructuración, y la tarea la
   excluye expresamente, así que se deja como riesgo.
-- **Causa raíz (inventario, CLS 0,03).** `layout-shifts` señala como elemento desplazado la leyenda de niveles (`p.mt-3` de
-  `InventoryStockTable`), no la tabla. La empuja la línea de estado que tiene encima (`aria-live`): mientras carga dice «Cargando
-  inventario...» (una línea) y al llegar los datos pasa a «6 SKUs · 0 sin stock · 1 con stock bajo», que en 412 px ocupa **dos
-  líneas**. El esqueleto de la tabla ya reserva su espacio; lo que no tiene alto reservado es ese texto.
+- **Causa raíz (inventario, CLS 0,03).** `layout-shifts` señala la leyenda de niveles (`p.mt-3` de `InventoryStockTable`). Un
+  `PerformanceObserver` de `layout-shift` en el navegador muestra quién la empuja: el `<select>` de almacén baja de y=591 a y=659.
+  La cabecera de la tabla es una fila `flex-wrap` con el título y el selector. Mientras carga, el texto de estado («Cargando
+  inventario...») es corto y el selector cabe al lado; al llegar los datos, «6 SKUs · 0 sin stock · 1 con stock bajo» ensancha la
+  columna del título, el selector salta a una segunda fila y todo lo de debajo baja 68 px. Solo ocurre entre ~380 y 640 px de ancho.
+
+### P7 — CLS de proveedores entre 360 y 1279 px (hasta 0,18)
+
+- **Evidencia.** La vista `/suppliers` no estaba entre las auditadas, pero el mismo `PerformanceObserver` la mide al revisar el patrón
+  de P2: CLS 0,11 a 360 px, 0,05 a 412, 0,09 a 640, 0,14 a 768 y **0,18 a 1024** (umbral 0,1). A partir de 1280 px es 0.
+- **Causa raíz.** Por debajo de `xl` (1280 px) el formulario de alta va **debajo** de la lista. La lista carga con un esqueleto de 4
+  filas y al llegar los datos se convierte en una tabla de 14 filas: el formulario, visible en pantalla, se desplaza cientos de píxeles.
+  El esqueleto no reserva el alto real porque el número de proveedores no se conoce hasta que responde la API.
 
 ### P3 — CSS bloqueante en el website (≈150 ms estimados en móvil)
 
@@ -272,7 +281,8 @@ por commit.
 |---|----------|--------------|------|
 | 1 | P1 — Verificar el LCP con throttling real; migrar `priority` → `preload` | LCP real móvil home | Verificación + deprecación de Next 16 |
 | 2 | Caso 1 — `useApiList` | Menos código repetido, mismo comportamiento | Refactor requerido por la tarea |
-| 3 | P2 — Reservar el alto de la línea de estado del inventario | CLS inventario 0,03 → 0 | Corrección (layout shift) |
+| 3 | P2 — Cabecera del inventario estable en móvil | CLS inventario 0,03 → 0 | Corrección (layout shift) |
+| 3b | P7 — CLS de proveedores | CLS proveedores < 0,1 | Corrección (Core Web Vital fuera de umbral) |
 | 4 | Caso 2 — `ErrorFallback` en cada app | Mantenibilidad | Refactor |
 | 5 | P6 — `link-name` del TopBar y contraste de `<th>` | A11y backoffice | Corrección requerida (WCAG A/AA) |
 | 6 | P5 — Contraste, tamaño de objetivos y *label in name* del website | A11y website | Corrección requerida (WCAG AA) |
