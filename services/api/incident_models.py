@@ -36,6 +36,8 @@ class IncidentCreate(BaseModel):
 
 
 class Incident(BaseModel):
+    """Detalle: respuesta del alta, del detalle y del cambio de estado."""
+
     model_config = ConfigDict(use_enum_values=True)
 
     id: int
@@ -48,6 +50,25 @@ class Incident(BaseModel):
     reported_by: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class IncidentListItem(BaseModel):
+    """Fila del tablero de incidencias.
+
+    Omite `reported_by` (email del empleado que la registró) y `updated_at`:
+    el tablero no los muestra y el listado no debe repartir emails internos.
+    """
+
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
+    id: int
+    title: str
+    description: str
+    category: IncidentCategory
+    status: IncidentStatus
+    origin: IncidentOrigin
+    branch: Branch
+    created_at: datetime
 
 
 class IncidentStatusUpdate(BaseModel):
@@ -72,3 +93,31 @@ class FieldError(BaseModel):
 class ValidationErrorResponse(BaseModel):
     detail: str
     errors: list[FieldError] = Field(default_factory=list)
+
+
+# ---------------------------------------------------------------------------
+# Analizador CSV (`POST /api/incidents/analyze`): solo métricas agregadas.
+# ---------------------------------------------------------------------------
+
+class BreakdownValue(BaseModel):
+    count: int
+    percentage: float
+
+
+class InvalidReasonCount(BaseModel):
+    label: str
+    count: int
+
+
+class IncidentAnalysisSummary(BaseModel):
+    total_records: int
+    valid_records: int
+    invalid_records: int
+    invalid_breakdown: dict[str, InvalidReasonCount]
+    categories: dict[str, BreakdownValue]
+    statuses: dict[str, BreakdownValue]
+    countries: dict[str, BreakdownValue]
+    closed_incidents: int
+    scored_closed_incidents: int
+    average_satisfaction: float | None
+    satisfaction_scores: dict[str, int]

@@ -21,8 +21,8 @@ from services.api.models import SKU, StockEntry, StockExit, Warehouse
 from services.api.schemas import (
     InventoryOrderRead,
     SKUCreate,
+    SKUListItem,
     SKURead,
-    SKUSummary,
     StockEntryCreate,
     StockEntryRead,
     StockExitCreate,
@@ -71,9 +71,8 @@ def stock_by_warehouse(session: Session, sku_ids: list[int] | None = None) -> St
     return stock
 
 
-def _sku_read(sku: SKU, stock: StockTable) -> SKURead:
-    by_warehouse = stock[sku.id]
-    return SKURead(
+def _sku_list_item(sku: SKU, stock: StockTable) -> SKUListItem:
+    return SKUListItem(
         id=sku.id,
         name=sku.name,
         sku=sku.sku,
@@ -81,18 +80,13 @@ def _sku_read(sku: SKU, stock: StockTable) -> SKURead:
         category=sku.category,
         warehouse=sku.warehouse,
         # Un SKU se da de alta en un almacén; su stock "actual" es el de ese almacén.
-        current_stock=by_warehouse[Warehouse(sku.warehouse)],
-        stock_by_warehouse=by_warehouse,
+        current_stock=stock[sku.id][Warehouse(sku.warehouse)],
     )
 
 
-def _sku_summary(sku: SKU) -> SKUSummary:
-    return SKUSummary(
-        id=sku.id,
-        name=sku.name,
-        sku=sku.sku,
-        client_name=sku.client_name,
-        warehouse=sku.warehouse,
+def _sku_read(sku: SKU, stock: StockTable) -> SKURead:
+    return SKURead(
+        **_sku_list_item(sku, stock).model_dump(), stock_by_warehouse=stock[sku.id]
     )
 
 
@@ -112,19 +106,19 @@ def _get_sku(session: Session, sku_id: int, *, lock: bool = False) -> SKU:
 # SKUs
 # ---------------------------------------------------------------------------
 
-@router.get("/products", response_model=list[SKURead])
+@router.get("/products", response_model=list[SKUListItem])
 def list_products(
     warehouse: Warehouse | None = Query(
         default=None, description="Solo los SKUs dados de alta en este almacén."
     ),
     session: Session = Depends(get_db),
-) -> list[SKURead]:
+) -> list[SKUListItem]:
     query = select(SKU).order_by(SKU.id)
     if warehouse is not None:
         query = query.where(SKU.warehouse == warehouse.value)
     skus = session.exec(query).all()
     stock = stock_by_warehouse(session, [sku.id for sku in skus])
-    return [_sku_read(sku, stock) for sku in skus]
+    return [_sku_list_item(sku, stock) for sku in skus]
 
 
 @router.post("/products", response_model=SKURead, status_code=status.HTTP_201_CREATED)
@@ -248,7 +242,9 @@ def list_orders(
         InventoryOrderRead(
             order_type="inbound",
             id=entry.id,
-            sku=_sku_summary(sku),
+            sku_code=sku.sku,
+            sku_name=sku.name,
+            client_name=sku.client_name,
             quantity=entry.quantity,
             warehouse=entry.warehouse,
             created_at=entry.created_at,
@@ -261,7 +257,9 @@ def list_orders(
         InventoryOrderRead(
             order_type="outbound",
             id=exit_record.id,
-            sku=_sku_summary(sku),
+            sku_code=sku.sku,
+            sku_name=sku.name,
+            client_name=sku.client_name,
             quantity=exit_record.quantity,
             warehouse=exit_record.warehouse,
             created_at=exit_record.created_at,

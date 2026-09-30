@@ -22,11 +22,15 @@ def test_register_creates_active_user_with_hashed_password_and_profile():
         )
     )
 
-    assert user.email == "ana.whitfield@trackflow.example"  # normalizado
+    # La respuesta no reenvía el email ni ninguna credencial.
+    assert set(user.model_dump()) == {"id", "role", "created_at"}
     assert user.role == "user"  # nunca se registra como admin
-    assert user.is_active is True
-    assert user.hashed_password != "warehouse-2026"
-    assert verify_password("warehouse-2026", user.hashed_password)
+
+    stored = get_user_by_email("ana.whitfield@trackflow.example")  # normalizado
+    assert stored is not None and stored.id == user.id
+    assert stored.is_active is True
+    assert stored.hashed_password != "warehouse-2026"
+    assert verify_password("warehouse-2026", stored.hashed_password)
 
     profile = get_profile_by_user_id(user.id)
     assert profile is not None
@@ -40,8 +44,8 @@ def test_register_creates_active_user_with_hashed_password_and_profile():
 # --- Casos límite -----------------------------------------------------------
 
 def test_password_of_exactly_eight_characters_is_accepted():
-    user = register_user(UserCreate(email="min@example.com", password="12345678"))
-    assert verify_password("12345678", user.hashed_password)
+    register_user(UserCreate(email="min@example.com", password="12345678"))
+    assert verify_password("12345678", get_user_by_email("min@example.com").hashed_password)
 
 
 def test_password_of_seven_characters_is_rejected():
@@ -73,8 +77,8 @@ def test_profile_fields_are_optional():
 def test_multibyte_password_within_72_bytes_is_accepted():
     # 36 «ñ» = 72 bytes UTF-8: justo el límite de bcrypt.
     password = "ñ" * 36
-    user = register_user(UserCreate(email="es@example.com", password=password))
-    assert verify_password(password, user.hashed_password)
+    register_user(UserCreate(email="es@example.com", password=password))
+    assert verify_password(password, get_user_by_email("es@example.com").hashed_password)
 
 
 # --- Modos de fallo ---------------------------------------------------------

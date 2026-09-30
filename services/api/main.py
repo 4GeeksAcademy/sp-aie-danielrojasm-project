@@ -13,8 +13,10 @@ from sqlalchemy.exc import OperationalError
 from sqlmodel import SQLModel
 
 from services.api import models  # noqa: F401  registra las tablas de inventario
+from services.api.common_models import HealthResponse
 from services.api.database import DatabaseNotConfiguredError, get_engine
 from services.api.errors import internal_error_response, unprocessable_response
+from services.api.incident_models import IncidentAnalysisSummary
 from services.api.incidents_analyzer import InvalidCsvError, analyze_csv, result_rows
 from services.api.routes.auth import router as auth_router
 from services.api.routes.incidents import (
@@ -113,13 +115,17 @@ async def unhandled_error_handler(request: Request, error: Exception) -> JSONRes
 latest_analysis: dict[str, object] | None = None
 
 
-@app.get("/", include_in_schema=False)
-def health_check() -> dict[str, str]:
-    return {"service": "TrackFlow Incidents API", "status": "ok"}
+@app.get("/", response_model=HealthResponse, include_in_schema=False)
+def health_check() -> HealthResponse:
+    return HealthResponse(service="TrackFlow Incidents API", status="ok")
 
 
-@app.post("/api/incidents/analyze", dependencies=[Depends(get_current_user)])
-def analyze_incidents(file: UploadFile = File(...)) -> dict[str, object]:
+@app.post(
+    "/api/incidents/analyze",
+    response_model=IncidentAnalysisSummary,
+    dependencies=[Depends(get_current_user)],
+)
+def analyze_incidents(file: UploadFile = File(...)) -> IncidentAnalysisSummary:
     global latest_analysis
     try:
         text_stream = io.TextIOWrapper(file.file, encoding="utf-8-sig", newline="")
@@ -135,11 +141,16 @@ def analyze_incidents(file: UploadFile = File(...)) -> dict[str, object]:
         file.file.close()
 
     latest_analysis = summary
-    return summary
+    return IncidentAnalysisSummary.model_validate(summary)
 
 
+# Descarga CSV, no JSON: no hay modelo que serializar. Se declara el tipo de
+# contenido para que `/docs` documente la respuesta real.
 @app.get(
     "/api/incidents/results/export",
+    response_model=None,
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/csv": {}}, "description": "Métricas agregadas en CSV."}},
     dependencies=[Depends(get_current_user)],
 )
 async def export_latest_results() -> StreamingResponse:

@@ -19,7 +19,8 @@ export type SKUCategory = "fashion" | "electronics" | "cosmetics";
 export type ExitType = "dispatch" | "loss";
 export type OrderType = "inbound" | "outbound";
 
-export interface SKU {
+/** Fila de `GET /inventory/products` (tabla de stock y selectores). */
+export interface SKUListItem {
   id: number;
   name: string;
   sku: string;
@@ -28,21 +29,20 @@ export interface SKU {
   warehouse: Warehouse;
   /** Entradas − salidas en el almacén del SKU; la API lo calcula, nunca se guarda. */
   current_stock: number;
+}
+
+/** Detalle de `GET /inventory/products/{id}`: añade el desglose por almacén. */
+export interface SKU extends SKUListItem {
   stock_by_warehouse: Record<Warehouse, number>;
 }
 
-export interface SKUSummary {
-  id: number;
-  name: string;
-  sku: string;
-  client_name: string;
-  warehouse: Warehouse;
-}
-
+/** Movimiento del historial; el SKU llega aplanado. */
 export interface InventoryOrder {
   order_type: OrderType;
   id: number;
-  sku: SKUSummary;
+  sku_code: string;
+  sku_name: string;
+  client_name: string;
   quantity: number;
   warehouse: Warehouse;
   created_at: string;
@@ -209,8 +209,8 @@ export function getOverdraftWarning(quantity: string, available: number | null):
 // Llamadas a la API
 // ---------------------------------------------------------------------------
 
-export function listSKUs(): Promise<SKU[]> {
-  return requestJson<SKU[]>(
+export function listSKUs(): Promise<SKUListItem[]> {
+  return requestJson<SKUListItem[]>(
     `${INVENTORY_API}/products`,
     {},
     "No se pudo cargar el inventario.",
@@ -270,7 +270,7 @@ export function formatOrderDate(value: string): string {
 }
 
 /** Etiqueta para los selectores: código, descripción y almacén. */
-export function formatSKUOption(sku: SKU): string {
+export function formatSKUOption(sku: SKUListItem): string {
   return `${sku.sku} · ${sku.name} · ${sku.warehouse}`;
 }
 

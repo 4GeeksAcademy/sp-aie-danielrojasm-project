@@ -3,6 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
+from services.api.common_models import MessageResponse
 from services.api.database import get_suppliers_db
 from services.api.supplier_models import (
     Country,
@@ -11,6 +12,7 @@ from services.api.supplier_models import (
     Supplier,
     SupplierCategory,
     SupplierCreate,
+    SupplierListItem,
 )
 from services.api.security import get_current_user
 
@@ -39,11 +41,11 @@ def create_supplier(payload: SupplierCreate) -> Supplier:
     return supplier_from_document(document)
 
 
-@router.get("", response_model=list[Supplier])
+@router.get("", response_model=list[SupplierListItem])
 def list_suppliers(
     country: Country | None = None,
     category: SupplierCategory | None = Query(default=None),
-) -> list[Supplier]:
+) -> list[SupplierListItem]:
     with get_suppliers_db() as db:
         documents = db.all()
     suppliers = [supplier_from_document(document) for document in documents]
@@ -53,7 +55,7 @@ def list_suppliers(
         suppliers = [
             supplier for supplier in suppliers if category in supplier.categories
         ]
-    return suppliers
+    return [SupplierListItem.model_validate(supplier) for supplier in suppliers]
 
 
 @router.get("/{supplier_id}", response_model=Supplier)
@@ -90,10 +92,10 @@ def _update_supplier(supplier_id: int, updates: dict[str, object]) -> Supplier:
     return supplier_from_document(document)
 
 
-@router.delete("/{supplier_id}")
-def delete_supplier(supplier_id: int) -> dict[str, str]:
+@router.delete("/{supplier_id}", response_model=MessageResponse)
+def delete_supplier(supplier_id: int) -> MessageResponse:
     with get_suppliers_db() as db:
         if db.get(doc_id=supplier_id) is None:
             raise HTTPException(status_code=404, detail="Proveedor no encontrado")
         db.remove(doc_ids=[supplier_id])
-    return {"message": "Proveedor eliminado"}
+    return MessageResponse(message="Proveedor eliminado")

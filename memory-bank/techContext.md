@@ -150,6 +150,17 @@ ignorado por git) o, si falta, al origen general de la API. Las vistas cuelgan d
 umbral de stock bajo (`LOW_STOCK_THRESHOLD = 50`) vive en ese módulo; el aviso de cantidad superior al stock es solo UX y la regla
 real la aplica la API con su 400.
 
+### Serialización de la API — Milestone 09
+
+Todo endpoint JSON declara un `response_model` Pydantic con nombre y el handler construye ese esquema explícitamente
+(nunca devuelve `User`, `Profile` ni filas del ORM). Convención: `*Create`/`*Update`/`*Request` con `extra="forbid"`
+para la entrada; `*Read` (o el modelo de detalle) para el detalle y las escrituras; `*ListItem` con solo las columnas
+de la tabla para los listados; `MessageResponse` y `HealthResponse` en `services/api/common_models.py`. Las
+relaciones se aplanan si la UI solo lee unos campos (historial de inventario). Excepciones declaradas con
+`response_model=None`: `DELETE /users/{id}` (204) y la exportación CSV. `tests/http/test_serialization.py` recorre
+`app.openapi()` y falla si una ruta nueva no cumple (en FastAPI 0.141 los routers incluidos no aparecen como
+`APIRoute` en `app.routes`). Detalle por endpoint en `docs/serialization-audit.md`.
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el

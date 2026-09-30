@@ -1,14 +1,14 @@
 export type UserRole = "admin" | "manager" | "user";
 
+/** Datos de contacto editables; la API no expone las claves internas del perfil. */
 export interface Profile {
-  id: string;
-  user_id: string;
   name: string | null;
   phone: string | null;
   address: string | null;
 }
 
 export interface AuthUser {
+  id: string;
   email: string;
   role: UserRole;
   profile: Profile;

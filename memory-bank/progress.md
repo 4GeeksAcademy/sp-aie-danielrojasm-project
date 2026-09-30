@@ -8,6 +8,30 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Auditoría de serialización del backend
+
+- `docs/serialization-audit.md` recoge las 32 rutas de `services/api` con su
+   estado original (14 ✅, 11 ⚠️, 7 ❌), el payload objetivo y la decisión en
+   cada relación. Las 32 quedan en ✅.
+- Auth: el registro devuelve `UserRegistered` (sin email); forgot, reset y
+   change devuelven `MessageResponse`; `/auth/me` expone `id` y el perfil sale
+   sin `id`/`user_id`. Los handlers de usuarios ya no devuelven el `User`
+   interno (con `hashed_password`). Entradas con `extra="forbid"` (422).
+- Listados propios: `SupplierListItem` (−44,5 % con los 15 proveedores),
+   `IncidentListItem` sin `reported_by` (−16,9 % con 95 incidencias),
+   `SKUListItem` sin `stock_by_warehouse` e historial con el SKU aplanado.
+- Backoffice adaptado: `user.id` en vez de `profile.user_id`, tipos
+   `*ListItem` y campos planos del historial.
+- Verificado: `uv run pytest` 179 en verde (13 nuevos en
+   `tests/http/test_serialization.py`, 8 adaptados); Jest 59; `npm run verify`
+   exit 0. Uvicorn con TinyDB temporal y Supabase (solo GET): `/docs` 200 y
+   las respuestas coinciden con los esquemas en registro, `/auth/me`, perfil,
+   proveedores, incidencias, análisis CSV y los tres GET de inventario.
+   Backoffice en `npm run dev`: 8 rutas → 200, sin errores de consola del
+   servidor. No se probó en navegador con sesión (pendiente).
+- Siguiente paso: revisión del PR y prueba visual del historial de
+   inventario («Tú») y del tablero de incidencias con sesión.
+
 ### Auditoría de rendimiento frontend — medición inicial
 
 - Línea base con Lighthouse 12 CLI (build de producción,
@@ -278,6 +302,12 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### Auditoría de serialización
+
+Cada ruta de la API declara un esquema Pydantic de salida y, si escribe, otro
+de entrada separado y estricto. Los flujos de auth sin sesión no reenvían el
+email y ninguna respuesta lleva hashes ni claves internas del perfil.
 
 ### Inventario con ORM y doble base de datos
 
