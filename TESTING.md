@@ -120,8 +120,6 @@ las variables de Resend y Codespaces; los tests de Jest sustituyen `fetch` y `wi
 
 ## Resultados
 
-Medido el 2026-09-29.
-
 - `uv run pytest`: 146 tests en verde (89 en `tests/auth`, 26 en `tests/backoffice`, 31 en `tests/http`).
 - `npm test` en `uis/backoffice`: 40 tests en 4 suites, en verde.
 
