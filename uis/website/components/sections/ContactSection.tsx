@@ -28,18 +28,10 @@ export function ContactSection({
         </h2>
         <p className="mt-4 max-w-3xl text-slate-200">{description}</p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <ButtonLink
-            href={applicationHref}
-            variant="light"
-            ariaLabel="Ir al formulario de aplicación de TrackFlow"
-          >
+          <ButtonLink href={applicationHref} variant="light">
             Ir al formulario de aplicación
           </ButtonLink>
-          <ButtonLink
-            href={`mailto:${email}`}
-            variant="ghost-light"
-            ariaLabel="Enviar correo al equipo de TrackFlow"
-          >
+          <ButtonLink href={`mailto:${email}`} variant="ghost-light">
             {email}
           </ButtonLink>
         </div>

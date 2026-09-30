@@ -7,6 +7,12 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.join(__dirname),
   },
+  // CSS de Tailwind (~6 KB) en <style> en lugar de <link>: sin la petición bloqueante,
+  // FCP/LCP móvil con throttling real 1,7 s → 1,0 s. Coste: HTML ~19 KB mayor y sin
+  // caché del CSS para visitas recurrentes (ver audit/AUDIT.md, P3).
+  experimental: {
+    inlineCss: true,
+  },
   images: {
     remotePatterns: [
       {

@@ -26,7 +26,7 @@ export function HeroSection({ content, applicationHref }: HeroSectionProps) {
             {content.description}
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <ButtonLink href={applicationHref} ariaLabel="Comenzar aplicación">
+            <ButtonLink href={applicationHref}>
               Comenzar aplicación
             </ButtonLink>
             <ButtonLink href="/#beneficios" variant="outline">

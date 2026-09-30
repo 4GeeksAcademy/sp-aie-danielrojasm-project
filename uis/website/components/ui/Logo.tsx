@@ -6,12 +6,12 @@ interface LogoProps {
 
 export function Logo({ subtitle }: LogoProps) {
   return (
-    <Link
-      href="/"
-      className="inline-flex items-center gap-3"
-      aria-label="Ir al inicio de TrackFlow"
-    >
-      <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-300 font-black text-slate-950">
+    <Link href="/" className="inline-flex items-center gap-3">
+      {/* Decorativo: el nombre del enlace es «TrackFlow» + subtítulo, tal como se lee. */}
+      <span
+        aria-hidden="true"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-300 font-black text-slate-950"
+      >
         TF
       </span>
       <span>

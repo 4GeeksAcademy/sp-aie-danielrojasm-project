@@ -15,13 +15,14 @@ export function SiteFooter() {
           <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-cyan-200">
             Contacto
           </h2>
+          {/* py-1: objetivos táctiles de 28 px (WCAG 2.5.8 pide 24 px como mínimo). */}
           <p className="mt-3 text-sm text-slate-300">
-            <a href={`tel:${company.phone}`} className="hover:text-cyan-100">
+            <a href={`tel:${company.phone}`} className="inline-block py-1 hover:text-cyan-100">
               {company.phoneDisplay}
             </a>
           </p>
           <p className="text-sm text-slate-300">
-            <a href={`mailto:${company.email}`} className="hover:text-cyan-100">
+            <a href={`mailto:${company.email}`} className="inline-block py-1 hover:text-cyan-100">
               {company.email}
             </a>
           </p>
@@ -39,7 +40,7 @@ export function SiteFooter() {
           </ul>
         </div>
       </div>
-      <p className="border-t border-slate-900 py-4 text-center text-xs text-slate-500">
+      <p className="border-t border-slate-900 py-4 text-center text-xs text-slate-400">
         © {new Date().getFullYear()} {company.name}. Fundada en{" "}
         {company.foundingYear}.
       </p>

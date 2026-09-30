@@ -8,9 +8,65 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Auditoría de rendimiento frontend — medición inicial
+
+- Línea base con Lighthouse 12 CLI (build de producción,
+   Chromium headless, 3 corridas y mediana; móvil y desktop) en website `/`
+   y `/aplicar` y backoffice `/` e `/inventory/products` con sesión. JSON y
+   PNG en `audit/before/lighthouse/`; script en `audit/lighthouse-runner.mjs`.
+- Desktop: Performance 100 en las cuatro vistas. Móvil: website 96/92,
+   backoffice 98/94. LCP móvil de la home: 2,7 s simulado, pero 1,7 s con
+   throttling real (`THROTTLING=devtools`); quitar el preload del hero no
+   mejora y rompe desktop, así que se mantiene y solo se migra `priority` →
+   `preload` (deprecación de Next 16). Accesibilidad 91–96 con fallos WCAG.
+- `audit/AUDIT.md` recoge causas raíz y dos refactors: hook `useApiList`
+   (backoffice) y `ErrorFallback` por app. Evidencia del experimento del
+   hero en `audit/experiments/p1-hero-preload/`.
+- `useApiList` (`uis/backoffice/lib/use-api-list.ts`) sustituye la carga
+   duplicada en stock, historial, `useSkuCatalog` y proveedores. Verificado:
+   Jest 59 (6 nuevos, hook al 100 % de líneas), typecheck y lint; en la app,
+   datos, filtros (Spain → 6 proveedores), 503 con «Reintentar» y sin errores
+   de consola.
+- CLS del inventario: el `<select>` de almacén saltaba de fila al llegar el
+   resumen (380–640 px). Con el título a fila completa en móvil, CLS 0,03 → 0
+   y Performance móvil 94 → 99 (`audit/experiments/p2-inventory-cls/`).
+- `/suppliers`: CLS de hasta 0,18 entre 360 y 1279 px (el formulario de alta
+   iba bajo una lista que crece de 4 a 14 filas, y en móvil la sección se
+   ensanchaba a 760 px). Lista con alto fijo y scroll bajo `xl` + `min-w-0`:
+   CLS 0 de 360 a 1600 px y sin scroll horizontal (`audit/layout-shift-probe.mjs`).
+- Dashboard `/`: se desbordaba en horizontal en móvil (`scrollWidth` 698 a
+   360 px) por elementos de grid sin `min-w-0`. Corregido en `Panel`, la
+   columna del inventario y `CarrierSimulator`; 11 vistas sin desbordamiento
+   de 320 a 1440 px. El fallo de contraste del `<thead>` era un efecto de esto:
+   A11y móvil del dashboard 93 → 97 (`audit/experiments/p8-dashboard-overflow/`).
+- `ErrorFallback` (`components/ui/`, uno por app) concentra el contenido de
+   `error.tsx` y `global-error.tsx`. Probado con una ruta temporal que falla
+   en cliente (ya borrada): textos, `aria-labelledby`, log sin el mensaje
+   técnico y «Reintentar» en las dos apps.
+- `link-name`: el enlace a «Mi perfil» del TopBar no tenía nombre en móvil
+   (texto con `hidden`); ahora `sr-only` bajo `sm`. A11y del backoffice 100
+   en dashboard e inventario, móvil y desktop (`audit/experiments/p6-topbar-link-name/`).
+- Website, accesibilidad (un commit por problema, evidencia en
+   `audit/experiments/p5a…p5c`): copyright del footer a `slate-400`
+   (4,23:1 → ≈7,5:1), enlaces de teléfono y correo de 18 a 28 px, y sin
+   `aria-label` que sustituyan el texto visible (se retira `ariaLabel` de
+   `ButtonLink`). Accessibility 91/92 → 100 en home y `/aplicar`.
+- `experimental.inlineCss` en el website: FCP/LCP móvil con throttling real
+   1,7 s → 1,0 s (home) y 1,6 s → 1,0 s (`/aplicar`); HTML 7,6 → 26,7 KB.
+   Es experimental en Next 16: vigilar al actualizar Next.
+- Medición final en `audit/after/lighthouse/` y `audit/REPORT.md`. Accessibility
+   100 en las cuatro vistas; inventario móvil Performance 94 → 99. La home
+   del website sale 84 en simulado, pero una comparación intercalada de 5
+   rondas (`audit/experiments/ab-website/`) da original 92 [90–96] frente a
+   actual 91 [84–92]: es ruido del Codespace. Con throttling real FCP = LCP
+   1,67 → 0,94 s.
+- Pendiente fuera de alcance: autenticación en servidor, RUM con `web-vitals`
+   y revisar `inlineCss` al actualizar Next.
+- Siguiente paso: revisión del PR de `feat/frontend-performance`.
+
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 
-- 2026-09-29: `uis/Dockerfile` + `uis/start.sh` (website :3000 y backoffice
+- `uis/Dockerfile` + `uis/start.sh` (website :3000 y backoffice
    :3001 en un único contenedor), `services/Dockerfile` (FastAPI con
    `--reload`), `.dockerignore` en ambas carpetas y `docker-compose.yml` con la
    red `trackflow-dev`. Variables nuevas en `.env.example`
@@ -28,7 +84,7 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
 
 ### Hito 5 — Backoffice: interfaz de inventario (TRK-0341)
 
-- Cuatro vistas en `uis/backoffice` (2026-09-29): `/inventory/products` (stock
+- Cuatro vistas en `uis/backoffice`: `/inventory/products` (stock
    por SKU con nivel saludable ≥ 50 / bajo 1–49 / sin stock 0 y enlaces de
    entrada/salida por fila), `/inventory/orders/inbound`,
    `/inventory/orders/outbound` (stock del SKU consultado al seleccionarlo,
@@ -58,7 +114,7 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    CLT-SNK-W-42-Z 87, CSM-SRM-030 126, TEC-CHG-065 40).
 - Verificado: `uv run pytest` en verde (20 tests nuevos en
    `tests/inventory`), prueba HTTP completa con `uvicorn` y seed contra SQLite.
-- Supabase (2026-09-29): la API crea el esquema al arrancar; el seed insertó
+- Supabase: la API crea el esquema al arrancar; el seed insertó
    6 SKUs y 11 movimientos, y la segunda ejecución no duplicó nada.
    `GET /inventory/products` devuelve el stock neto esperado,
    `GET /inventory/orders` 11 órdenes con SKU y `user_uuid`, y una salida de
@@ -223,40 +279,40 @@ endpoint en `services/` (Hito 5).
 
 ## Historial
 
-### 2026-09-29 — Inventario con ORM y doble base de datos
+### Inventario con ORM y doble base de datos
 
 API de inventario unificada por SKU y almacén: el stock solo cambia con
 recepciones y salidas trazables al usuario que las registra.
 
-### 2026-09-29 — Batería de pruebas
+### Batería de pruebas
 
 Pruebas unitarias de la lógica de autenticación, backoffice y utilidades del
 frontend tras la regresión de caducidad de tokens; tres bugs corregidos.
 
-### 2026-09-29 — Auditoría de gestión de errores
+### Auditoría de gestión de errores
 
 Estrategia común de errores en frontend, backend y scripts: mensajes legibles
 con salida clara, sin datos sensibles en respuestas y códigos de salida
 correctos en los scripts.
 
-### 2026-09-29 — Gestor de incidencias centralizado
+### Gestor de incidencias centralizado
 
 Registro, seguimiento y métricas de incidencias persistidas, con el histórico
 CSV cargado como incidencias de cliente. La validación del analizador vive
 ahora en `packages/shared/incidents/` y no se duplica.
 
-### 2026-09-28 — AUTH-03
+### AUTH-03
 
 Recuperación por correo y cambio autenticado de contraseña con consumo único del
 token. Pendiente de confirmar el envío real con `RESEND_API_KEY` configurada.
 
-### 2026-09-28 — AUTH-02
+### AUTH-02
 
 El backoffice cierra el ciclo JWT con registro, login, guard cliente, cliente API
 autenticado, cierre global por `401` y edición del perfil. El website público no
 se modifica.
 
-### 2026-09-28 — AUTH-01
+### AUTH-01
 
 La API incorpora autenticación JWT stateless bajo `/auth`, CRUD de credenciales
 bajo `/users` y perfiles bajo `/profiles`. La persistencia de identidad queda

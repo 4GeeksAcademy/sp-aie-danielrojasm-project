@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { getUserMessage, requestJson } from "@/lib/api-client";
+import { useApiList } from "@/lib/use-api-list";
 
 type Country = "USA" | "Spain";
 type Status = "active" | "suspended";
@@ -73,13 +74,9 @@ const emptyForm: FormState = {
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
 export function SupplierDirectory() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [country, setCountry] = useState<"all" | Country>("all");
   const [category, setCategory] = useState<"all" | Category>("all");
   const [form, setForm] = useState<FormState>(emptyForm);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [loadAttempt, setLoadAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -87,31 +84,21 @@ export function SupplierDirectory() {
   const [editingRate, setEditingRate] = useState<number | null>(null);
   const [rateValue, setRateValue] = useState("");
 
-  useEffect(() => {
-    let active = true;
-    const loadSuppliers = async () => {
-      setLoading(true);
-      setLoadError("");
-      const params = new URLSearchParams();
-      if (country !== "all") params.set("country", country);
-      if (category !== "all") params.set("category", category);
-      try {
-        const loaded = await requestJson<Supplier[]>(`/api/suppliers?${params.toString()}`);
-        if (active) setSuppliers(Array.isArray(loaded) ? loaded : []);
-      } catch (requestError) {
-        if (active) {
-          setSuppliers([]);
-          setLoadError(getUserMessage(requestError, "No se pudo cargar el directorio de proveedores."));
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    void loadSuppliers();
-    return () => {
-      active = false;
-    };
-  }, [country, category, loadAttempt]);
+  const params = new URLSearchParams();
+  if (country !== "all") params.set("country", country);
+  if (category !== "all") params.set("category", category);
+  const query = params.toString();
+  const {
+    items: suppliers,
+    setItems: setSuppliers,
+    loading,
+    error: loadError,
+    retry: retryLoad,
+  } = useApiList<Supplier>(
+    () => requestJson<Supplier[]>(`/api/suppliers?${query}`),
+    "No se pudo cargar el directorio de proveedores.",
+    query,
+  );
 
   function updateForm(field: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -210,7 +197,7 @@ export function SupplierDirectory() {
       {notice ? <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800" role="status">{notice}</p> : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <section aria-labelledby="supplier-list-title" className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <section aria-labelledby="supplier-list-title" className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h2 id="supplier-list-title" className="text-lg font-semibold text-slate-900">Proveedores operativos</h2>
@@ -221,19 +208,27 @@ export function SupplierDirectory() {
               <label className="text-xs font-medium text-slate-600">Categoría<select value={category} onChange={(event) => setCategory(event.target.value as "all" | Category)} className="mt-1 block max-w-52 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"><option value="all">Todas</option>{categories.map((item) => <option key={item} value={item}>{categoryLabels[item]}</option>)}</select></label>
             </div>
           </div>
+          {/* Alto fijo por debajo de xl, donde el formulario va debajo: pasar del esqueleto a la
+              tabla real no lo desplaza (CLS). En xl el formulario va al lado y la lista crece. */}
+          <div
+            role="region"
+            aria-labelledby="supplier-list-title"
+            tabIndex={0}
+            className="mt-5 h-[28rem] overflow-y-auto xl:h-auto xl:overflow-visible"
+          >
           {loading ? (
-            <div aria-busy="true" className="mt-5 space-y-2">
+            <div aria-busy="true" className="space-y-2">
               <p className="sr-only" role="status">Cargando proveedores...</p>
               {Array.from({ length: 4 }, (_, index) => <div key={index} className="h-14 animate-pulse rounded-lg bg-slate-100" />)}
             </div>
           ) : null}
           {!loading && loadError ? (
-            <div role="alert" className="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-5 text-center text-sm text-rose-800">
+            <div role="alert" className="rounded-lg border border-rose-200 bg-rose-50 p-5 text-center text-sm text-rose-800">
               <p>{loadError}</p>
-              <button type="button" onClick={() => setLoadAttempt((value) => value + 1)} className="mt-3 rounded-md border border-rose-300 bg-white px-4 py-2 font-semibold hover:bg-rose-100">Reintentar</button>
+              <button type="button" onClick={retryLoad} className="mt-3 rounded-md border border-rose-300 bg-white px-4 py-2 font-semibold hover:bg-rose-100">Reintentar</button>
             </div>
           ) : null}
-          {!loading && !loadError ? <div className="mt-5 overflow-x-auto">
+          {!loading && !loadError ? <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><tr><th className="px-3 py-3">Proveedor</th><th className="px-3 py-3">País</th><th className="px-3 py-3">Categorías</th><th className="px-3 py-3">Tarifa</th><th className="px-3 py-3">Estado</th><th className="px-3 py-3">Acciones</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
@@ -249,6 +244,7 @@ export function SupplierDirectory() {
             </table>
             {suppliers.length === 0 ? <p className="py-8 text-center text-sm text-slate-500">{country === "all" && category === "all" ? "Todavía no hay proveedores registrados. Usa el formulario para dar de alta el primero." : "No hay proveedores para estos filtros."}</p> : null}
           </div> : null}
+          </div>
         </section>
 
         <section aria-labelledby="new-supplier-title" className="rounded-xl border border-slate-200 bg-slate-950 p-5 text-white shadow-sm">

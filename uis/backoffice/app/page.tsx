@@ -131,7 +131,8 @@ export default function OperationsDashboardPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-3">
-        <div className="xl:col-span-2">
+        {/* min-w-0: sin él, el grid ensancha la columna al min-width de la tabla y la página se desborda en móvil. */}
+        <div className="min-w-0 xl:col-span-2">
           <Panel
             id="inventario"
             title="Inventario por nivel de stock"

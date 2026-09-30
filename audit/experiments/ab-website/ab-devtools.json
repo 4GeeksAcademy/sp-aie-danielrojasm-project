@@ -1,0 +1,272 @@
+[
+ {
+  "round": 0,
+  "pg": "/",
+  "name": "original",
+  "perf": 97,
+  "fcp": 1656.043,
+  "lcp": 1656.043,
+  "tbt": 156.30999999999995
+ },
+ {
+  "round": 0,
+  "pg": "/",
+  "name": "sin-inline",
+  "perf": 98,
+  "fcp": 1659.784,
+  "lcp": 1659.784,
+  "tbt": 111.68199999999979
+ },
+ {
+  "round": 0,
+  "pg": "/",
+  "name": "actual",
+  "perf": 98,
+  "fcp": 924.032,
+  "lcp": 924.032,
+  "tbt": 153.49100000000044
+ },
+ {
+  "round": 0,
+  "pg": "/aplicar",
+  "name": "original",
+  "perf": 97,
+  "fcp": 1628.752,
+  "lcp": 1628.752,
+  "tbt": 150.4430000000002
+ },
+ {
+  "round": 0,
+  "pg": "/aplicar",
+  "name": "sin-inline",
+  "perf": 97,
+  "fcp": 1665.359,
+  "lcp": 1665.359,
+  "tbt": 149.66399999999976
+ },
+ {
+  "round": 0,
+  "pg": "/aplicar",
+  "name": "actual",
+  "perf": 98,
+  "fcp": 900.929,
+  "lcp": 900.929,
+  "tbt": 157.60300000000007
+ },
+ {
+  "round": 1,
+  "pg": "/",
+  "name": "original",
+  "perf": 98,
+  "fcp": 1695.018,
+  "lcp": 1695.019,
+  "tbt": 115.57600000000002
+ },
+ {
+  "round": 1,
+  "pg": "/",
+  "name": "sin-inline",
+  "perf": 98,
+  "fcp": 1667.366,
+  "lcp": 1667.366,
+  "tbt": 125.47099999999955
+ },
+ {
+  "round": 1,
+  "pg": "/",
+  "name": "actual",
+  "perf": 99,
+  "fcp": 935.881,
+  "lcp": 935.881,
+  "tbt": 135.79800000000023
+ },
+ {
+  "round": 1,
+  "pg": "/aplicar",
+  "name": "original",
+  "perf": 97,
+  "fcp": 1641.409,
+  "lcp": 1641.409,
+  "tbt": 159.02999999999975
+ },
+ {
+  "round": 1,
+  "pg": "/aplicar",
+  "name": "sin-inline",
+  "perf": 98,
+  "fcp": 1549.465,
+  "lcp": 1549.465,
+  "tbt": 133.13099999999986
+ },
+ {
+  "round": 1,
+  "pg": "/aplicar",
+  "name": "actual",
+  "perf": 98,
+  "fcp": 964.355,
+  "lcp": 964.355,
+  "tbt": 160.82399999999961
+ },
+ {
+  "round": 2,
+  "pg": "/",
+  "name": "original",
+  "perf": 98,
+  "fcp": 1665.517,
+  "lcp": 1665.517,
+  "tbt": 145.38200000000006
+ },
+ {
+  "round": 2,
+  "pg": "/",
+  "name": "sin-inline",
+  "perf": 98,
+  "fcp": 1674.858,
+  "lcp": 1674.858,
+  "tbt": 131.55200000000013
+ },
+ {
+  "round": 2,
+  "pg": "/",
+  "name": "actual",
+  "perf": 99,
+  "fcp": 982.779,
+  "lcp": 982.779,
+  "tbt": 144.3499999999999
+ },
+ {
+  "round": 2,
+  "pg": "/aplicar",
+  "name": "original",
+  "perf": 98,
+  "fcp": 1569.247,
+  "lcp": 1569.247,
+  "tbt": 132.4659999997616
+ },
+ {
+  "round": 2,
+  "pg": "/aplicar",
+  "name": "sin-inline",
+  "perf": 97,
+  "fcp": 1646.165,
+  "lcp": 1646.165,
+  "tbt": 168.05100000000016
+ },
+ {
+  "round": 2,
+  "pg": "/aplicar",
+  "name": "actual",
+  "perf": 98,
+  "fcp": 883.272,
+  "lcp": 883.272,
+  "tbt": 159.34500000000003
+ },
+ {
+  "round": 3,
+  "pg": "/",
+  "name": "original",
+  "perf": 98,
+  "fcp": 1661.291,
+  "lcp": 1661.291,
+  "tbt": 127.70199999999977
+ },
+ {
+  "round": 3,
+  "pg": "/",
+  "name": "sin-inline",
+  "perf": 98,
+  "fcp": 1710.763,
+  "lcp": 1710.763,
+  "tbt": 117.2909999997612
+ },
+ {
+  "round": 3,
+  "pg": "/",
+  "name": "actual",
+  "perf": 99,
+  "fcp": 1013.886,
+  "lcp": 1013.886,
+  "tbt": 133.85800000000017
+ },
+ {
+  "round": 3,
+  "pg": "/aplicar",
+  "name": "original",
+  "perf": 98,
+  "fcp": 1712.694,
+  "lcp": 1712.694,
+  "tbt": 129.9319999999998
+ },
+ {
+  "round": 3,
+  "pg": "/aplicar",
+  "name": "sin-inline",
+  "perf": 97,
+  "fcp": 1702.218,
+  "lcp": 1702.218,
+  "tbt": 155.72900000000027
+ },
+ {
+  "round": 3,
+  "pg": "/aplicar",
+  "name": "actual",
+  "perf": 97,
+  "fcp": 948.262,
+  "lcp": 948.262,
+  "tbt": 192.11100000000033
+ },
+ {
+  "round": 4,
+  "pg": "/",
+  "name": "original",
+  "perf": 98,
+  "fcp": 1753.424,
+  "lcp": 1753.424,
+  "tbt": 120.221
+ },
+ {
+  "round": 4,
+  "pg": "/",
+  "name": "sin-inline",
+  "perf": 98,
+  "fcp": 1662.653,
+  "lcp": 1662.653,
+  "tbt": 103.38799999999992
+ },
+ {
+  "round": 4,
+  "pg": "/",
+  "name": "actual",
+  "perf": 99,
+  "fcp": 922,
+  "lcp": 922,
+  "tbt": 134.38299999976198
+ },
+ {
+  "round": 4,
+  "pg": "/aplicar",
+  "name": "original",
+  "perf": 98,
+  "fcp": 1616.684,
+  "lcp": 1616.684,
+  "tbt": 120.60199999976157
+ },
+ {
+  "round": 4,
+  "pg": "/aplicar",
+  "name": "sin-inline",
+  "perf": 98,
+  "fcp": 1605.781,
+  "lcp": 1605.781,
+  "tbt": 122.1909999999998
+ },
+ {
+  "round": 4,
+  "pg": "/aplicar",
+  "name": "actual",
+  "perf": 98,
+  "fcp": 866.354,
+  "lcp": 866.354,
+  "tbt": 180.63700000000017
+ }
+]

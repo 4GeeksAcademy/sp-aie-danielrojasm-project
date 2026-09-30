@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
-import { getUserMessage } from "@/lib/api-client";
 import {
   exitTypeLabels,
   formatOrderDate,
@@ -13,6 +12,7 @@ import {
   type InventoryOrder,
   type OrderType,
 } from "@/lib/inventory";
+import { useApiList } from "@/lib/use-api-list";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { InventoryLinkButton } from "@/components/inventory/InventoryLinkButton";
 import { InventoryPageHeader } from "@/components/inventory/InventoryPageHeader";
@@ -49,34 +49,11 @@ function orderDetail(order: InventoryOrder): string {
 /** Historial de solo lectura: sin acciones de edición ni borrado. */
 export function InventoryOrderHistory() {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<InventoryOrder[]>([]);
+  const { items: orders, loading, error: loadError, retry } = useApiList<InventoryOrder>(
+    listInventoryOrders,
+    "No se pudo cargar el historial de movimientos.",
+  );
   const [typeFilter, setTypeFilter] = useState<OrderTypeFilter>("all");
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setLoading(true);
-      setLoadError("");
-      try {
-        const loaded = await listInventoryOrders();
-        if (active) setOrders(Array.isArray(loaded) ? loaded : []);
-      } catch (error) {
-        if (active) {
-          setOrders([]);
-          setLoadError(getUserMessage(error, "No se pudo cargar el historial de movimientos."));
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [attempt]);
 
   const visible = useMemo(
     () => (typeFilter === "all" ? orders : orders.filter((order) => order.order_type === typeFilter)),
@@ -140,7 +117,7 @@ export function InventoryOrderHistory() {
 
         {!loading && loadError ? (
           <div className="mt-5">
-            <RetryAlert message={loadError} onRetry={() => setAttempt((value) => value + 1)} />
+            <RetryAlert message={loadError} onRetry={retry} />
           </div>
         ) : null}
 

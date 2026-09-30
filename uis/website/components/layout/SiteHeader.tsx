@@ -24,7 +24,6 @@ export function SiteHeader() {
               <Link
                 href={APPLICATION_PATH}
                 className="rounded bg-cyan-300 px-4 py-2 font-semibold text-slate-950 hover:bg-cyan-200"
-                aria-label="Ir al formulario de aplicación"
               >
                 Aplicar
               </Link>
