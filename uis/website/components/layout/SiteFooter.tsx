@@ -39,7 +39,7 @@ export function SiteFooter() {
           </ul>
         </div>
       </div>
-      <p className="border-t border-slate-900 py-4 text-center text-xs text-slate-500">
+      <p className="border-t border-slate-900 py-4 text-center text-xs text-slate-400">
         © {new Date().getFullYear()} {company.name}. Fundada en{" "}
         {company.foundingYear}.
       </p>
