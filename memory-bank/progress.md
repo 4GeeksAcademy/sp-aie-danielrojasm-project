@@ -8,7 +8,7 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
-### Milestone 09 — Auditoría de serialización del backend (2026-09-30)
+### Milestone 09 — Auditoría de serialización del backend
 
 - `docs/serialization-audit.md` recoge las 32 rutas de `services/api` con su
    estado original (14 ✅, 11 ⚠️, 7 ❌), el payload objetivo y la decisión en

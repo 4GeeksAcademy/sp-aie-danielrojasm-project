@@ -1,6 +1,6 @@
 # Auditoría de serialización del backend — `services/api`
 
-**Fecha:** 2026-09-30 · **Rama:** `feat/serialization-audit` · **Alcance:** las 32 rutas de la API FastAPI de TrackFlow
+**Rama:** `feat/serialization-audit` · **Alcance:** las 32 rutas de la API FastAPI de TrackFlow
 (31 publicadas en `/openapi.json` más el health check `GET /`, que queda fuera del esquema).
 
 ## Resumen
@@ -80,7 +80,7 @@ Son las rutas de mayor riesgo y por eso se auditan primero. Reglas aplicadas:
 { "message": "Si esa dirección está registrada, recibirás un enlace en breve" }
 
 // POST /users → UserRegistered (201)
-{ "id": "uuid", "role": "user", "created_at": "2026-09-30T10:00:00Z" }
+{ "id": "uuid", "role": "user", "created_at": "…" }
 
 // GET /auth/me → CurrentUserResponse
 { "id": "uuid", "email": "ana@example.com", "role": "user",
@@ -246,8 +246,8 @@ Los contratos nuevos se reflejan en `uis/backoffice`:
 - **Tests existentes.** `uv run pytest`: 179 en verde (los 166 anteriores más los 13 nuevos). Se adaptaron 8 tests que
   inspeccionaban `hashed_password` o `profile.user_id` en el valor devuelto por los handlers: ahora leen el hash desde TinyDB
   y comprueban que no sale en la respuesta. Jest del backoffice: 59 en verde.
-- **Prueba manual** con Uvicorn, `/docs` y `/openapi.json`: el detalle está en `memory-bank/progress.md` (entrada del
-  2026-09-30).
+- **Prueba manual** con Uvicorn, `/docs` y `/openapi.json`: el detalle está en `memory-bank/progress.md` (entrada
+  «Auditoría de serialización del backend»).
 
 ## Compatibilidad y próximos pasos
 
