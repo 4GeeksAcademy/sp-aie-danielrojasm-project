@@ -22,7 +22,7 @@ export function useSkuCatalog(): SkuCatalog {
   // Los formularios se re-renderizan en cada pulsación (cantidad, referencia,
   // tracking) y el catálogo solo cambia al cargarse. Con los mismos elementos,
   // React se salta el diff de las opciones: con 1.200 SKUs era la mayor parte
-  // del trabajo de cada pulsación (ver CACHING_REPORT.md).
+  // del trabajo de cada pulsación (ver audit/caching/CACHING_REPORT.md).
   const options = useMemo(
     () =>
       items.map((sku) => (

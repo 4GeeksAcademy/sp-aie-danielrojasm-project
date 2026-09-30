@@ -33,7 +33,7 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
 - Verificado: `uv run pytest` 198 (19 nuevos en `tests/cache`); Jest 59;
    invalidación por HTTP (+25 → 7544) y desde la UI (salida de 5 → 7539);
    chunks diferidos comprobados en Chrome headless sin errores de consola.
-   Informe completo en `CACHING_REPORT.md`.
+   Informe completo en `audit/caching/CACHING_REPORT.md`.
 - Riesgo: la caché es por proceso; con varios workers o réplicas el TTL es el
    máximo de desactualización. Siguiente paso: paginar `/inventory/orders` y
    `/api/incidents`, y Redis si la API pasa a varios procesos.

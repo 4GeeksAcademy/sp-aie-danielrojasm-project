@@ -172,7 +172,7 @@ de la caché. Con varios workers o réplicas, cada proceso tiene su copia y el T
 desactualización (Redis sería el siguiente paso). `tests/conftest.py` vacía las cachés entre tests.
 El middleware `timing_middleware` registra cada petición en `trackflow.timing` y añade `Server-Timing`;
 `_configure_logging()` da handler al logger `trackflow`, porque uvicorn solo configura los suyos.
-Decisiones y mediciones en `CACHING_REPORT.md`.
+Decisiones y mediciones en `audit/caching/CACHING_REPORT.md`.
 
 ### 🚫 Sin APIs dentro de `uis/`
 

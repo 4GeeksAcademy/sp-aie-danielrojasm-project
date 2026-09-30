@@ -2,7 +2,7 @@
 
 Qué se ha cacheado en la API (`services/api`) y en el backoffice (`uis/backoffice`), por qué, con qué TTL
 y qué se decidió no cachear. Cada decisión parte de una medición: los scripts y los JSON de resultados
-están en [`audit/caching/`](audit/caching/).
+están en esta misma carpeta, [`audit/caching/`](./).
 
 ---
 
@@ -21,7 +21,7 @@ Para que esas líneas se vean hubo que corregir algo previo: uvicorn solo config
 así que los `logger.info` de `trackflow.*` (inventario, incidencias y ahora timing y caché) se perdían.
 `_configure_logging()` añade un handler al logger `trackflow`.
 
-[`audit/caching/measure_api.py`](audit/caching/measure_api.py) pide cada GET 31 veces seguidas con la
+[`audit/caching/measure_api.py`](measure_api.py) pide cada GET 31 veces seguidas con la
 misma URL (la ráfaga que se buscaría en los logs), descarta la primera como calentamiento y guarda la
 mediana y el p95 del `Server-Timing` (coste dentro de la API) y de la ida y vuelta completa.
 
@@ -40,9 +40,9 @@ filtros trabajen de verdad.
 
 ### Frontend
 
-- **Bundle por ruta:** [`audit/caching/route-js.mjs`](audit/caching/route-js.mjs) suma los `<script>` del HTML
+- **Bundle por ruta:** [`audit/caching/route-js.mjs`](route-js.mjs) suma los `<script>` del HTML
   prerenderizado de cada ruta tras `next build` (lo que el navegador descarga al abrirla).
-- **Coste por pulsación:** [`audit/caching/typing-probe.mjs`](audit/caching/typing-probe.mjs) abre
+- **Coste por pulsación:** [`audit/caching/typing-probe.mjs`](typing-probe.mjs) abre
   `/inventory/orders/outbound` en Chrome headless con la CPU a 4×, espera al catálogo completo (1.203
   `<option>`) y escribe 40 caracteres en el número de seguimiento. Por pulsación mide el tiempo entre la
   captura del evento `input` en `window` y el final de sus microtareas, que es donde React ejecuta

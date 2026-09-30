@@ -7,8 +7,8 @@ que no debe usarse para datos personales o de sesión.
 Cada instancia de la API tiene su propia copia. Con varios workers o réplicas,
 una escritura solo invalida la caché del proceso que la atendió y el resto
 sirve el valor anterior hasta que vence su TTL; ese es el límite de
-desactualización aceptado (ver `CACHING_REPORT.md`). Si la API escala a varios
-procesos, el siguiente paso es Redis con la misma interfaz.
+desactualización aceptado (ver `audit/caching/CACHING_REPORT.md`). Si la API
+escala a varios procesos, el siguiente paso es Redis con la misma interfaz.
 """
 
 import logging

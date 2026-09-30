@@ -47,7 +47,7 @@ las variables de Resend y Codespaces, y vacía las cachés del módulo (`product
 | `tests/auth/` | AUTH-088, un módulo por endpoint o pieza: `test_register.py`, `test_login.py`, `test_token.py`, `test_session.py`, `test_users.py`, `test_password_reset.py`, `test_passwords.py`, `test_reset_email.py`. |
 | `tests/backoffice/` | API-042: `test_suppliers.py` y `test_incidents.py`. |
 | `tests/inventory/` | Inventario (`/inventory`) con SQLite en memoria: stock por almacén, rechazo de salidas sin stock, `tracking_number`, `user_uuid` y restricciones de la base de datos. |
-| `tests/cache/` | Caché TTL (`services/api/cache.py`): expiración, invalidación, LRU y carrera de generación; invalidación tras cada escritura de inventario e incidencias, cambios externos visibles tras el TTL y 401 sin token en las rutas cacheadas (`CACHING_REPORT.md`). |
+| `tests/cache/` | Caché TTL (`services/api/cache.py`): expiración, invalidación, LRU y carrera de generación; invalidación tras cada escritura de inventario e incidencias, cambios externos visibles tras el TTL y 401 sin token en las rutas cacheadas (`audit/caching/CACHING_REPORT.md`). |
 | `tests/http/` | Pruebas de integración anteriores a este ticket (con `TestClient`), movidas desde `services/api/`. Cubren el contrato HTTP y el manejo global de errores, que las unitarias no tocan a propósito. `test_serialization.py` fija la forma de cada respuesta y exige un `response_model` Pydantic en toda ruta JSON (`docs/serialization-audit.md`). |
 | `tests/conftest.py`, `tests/helpers.py` | Aislamiento del entorno, fixture `make_user`, `FakeRequest` para el login y `run()` para los handlers async. |
 | `uis/backoffice/__tests__/` | Jest: `api-client.test.ts`, `registration.test.ts`, `incidents.test.ts`, `labels.test.ts`. |
