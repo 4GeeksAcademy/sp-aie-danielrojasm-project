@@ -43,7 +43,11 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    `error.tsx` y `global-error.tsx`. Probado con una ruta temporal que falla
    en cliente (ya borrada): textos, `aria-labelledby`, log sin el mensaje
    técnico y «Reintentar» en las dos apps.
-- Siguiente paso: `link-name` del TopBar y accesibilidad del website.
+- `link-name`: el enlace a «Mi perfil» del TopBar no tenía nombre en móvil
+   (texto con `hidden`); ahora `sr-only` bajo `sm`. A11y del backoffice 100
+   en dashboard e inventario, móvil y desktop (`audit/experiments/p6-topbar-link-name/`).
+- Siguiente paso: accesibilidad del website (contraste del footer, tamaño
+   de enlaces de contacto y `aria-label` distintos del texto visible).
 
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 
