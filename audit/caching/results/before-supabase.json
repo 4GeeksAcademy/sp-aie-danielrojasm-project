@@ -1,0 +1,116 @@
+{
+  "label": "before-supabase",
+  "note": "Supabase (Transaction pooler) con los datos reales: 6 SKUs, 11-13 movimientos; 95 incidencias; 15 proveedores. Sin caché.",
+  "results": [
+    {
+      "path": "/",
+      "status": 200,
+      "runs": 30,
+      "bytes": 51,
+      "server_ms_median": 1.1,
+      "server_ms_p95": 4.0,
+      "client_ms_median": 15.7,
+      "client_ms_p95": 31.7
+    },
+    {
+      "path": "/auth/me",
+      "status": 200,
+      "runs": 30,
+      "bytes": 142,
+      "server_ms_median": 3.2,
+      "server_ms_p95": 8.1,
+      "client_ms_median": 15.7,
+      "client_ms_p95": 30.5
+    },
+    {
+      "path": "/profiles/me",
+      "status": 200,
+      "runs": 30,
+      "bytes": 41,
+      "server_ms_median": 3.3,
+      "server_ms_p95": 9.3,
+      "client_ms_median": 20.5,
+      "client_ms_p95": 35.0
+    },
+    {
+      "path": "/suppliers",
+      "status": 200,
+      "runs": 30,
+      "bytes": 2511,
+      "server_ms_median": 4.4,
+      "server_ms_p95": 9.9,
+      "client_ms_median": 19.8,
+      "client_ms_p95": 33.7
+    },
+    {
+      "path": "/api/incidents",
+      "status": 200,
+      "runs": 30,
+      "bytes": 25733,
+      "server_ms_median": 5.2,
+      "server_ms_p95": 16.1,
+      "client_ms_median": 30.5,
+      "client_ms_p95": 44.0
+    },
+    {
+      "path": "/api/incidents/summary",
+      "status": 200,
+      "runs": 30,
+      "bytes": 427,
+      "server_ms_median": 3.4,
+      "server_ms_p95": 7.8,
+      "client_ms_median": 16.2,
+      "client_ms_p95": 33.4
+    },
+    {
+      "path": "/api/incidents/1",
+      "status": 200,
+      "runs": 30,
+      "bytes": 329,
+      "server_ms_median": 5.2,
+      "server_ms_p95": 15.0,
+      "client_ms_median": 20.1,
+      "client_ms_p95": 39.5
+    },
+    {
+      "path": "/inventory/products",
+      "status": 200,
+      "runs": 30,
+      "bytes": 988,
+      "server_ms_median": 377.2,
+      "server_ms_p95": 455.1,
+      "client_ms_median": 392.9,
+      "client_ms_p95": 477.0
+    },
+    {
+      "path": "/inventory/products?warehouse=LA",
+      "status": 200,
+      "runs": 30,
+      "bytes": 490,
+      "server_ms_median": 373.5,
+      "server_ms_p95": 395.2,
+      "client_ms_median": 387.8,
+      "client_ms_p95": 411.1
+    },
+    {
+      "path": "/inventory/products/1",
+      "status": 200,
+      "runs": 30,
+      "bytes": 207,
+      "server_ms_median": 374.8,
+      "server_ms_p95": 387.3,
+      "client_ms_median": 392.8,
+      "client_ms_p95": 410.8
+    },
+    {
+      "path": "/inventory/orders",
+      "status": 200,
+      "runs": 30,
+      "bytes": 4316,
+      "server_ms_median": 302.2,
+      "server_ms_p95": 340.3,
+      "client_ms_median": 321.0,
+      "client_ms_p95": 358.7
+    }
+  ]
+}

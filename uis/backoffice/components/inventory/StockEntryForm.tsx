@@ -6,7 +6,6 @@ import { getUserMessage } from "@/lib/api-client";
 import {
   REFERENCE_MAX_LENGTH,
   createStockEntry,
-  formatSKUOption,
   formatUnits,
   parseQuantity,
   validateStockEntry,
@@ -140,11 +139,7 @@ export function StockEntryForm({ initialSkuId }: StockEntryFormProps) {
                   <option value="">
                     {catalog.loading ? "Cargando SKUs..." : "Selecciona un SKU"}
                   </option>
-                  {catalog.skus.map((sku) => (
-                    <option key={sku.id} value={sku.id}>
-                      {formatSKUOption(sku)}
-                    </option>
-                  ))}
+                  {catalog.options}
                 </select>
               )}
             </FormField>

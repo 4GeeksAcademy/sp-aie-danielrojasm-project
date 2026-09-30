@@ -2,6 +2,7 @@ import csv
 import io
 import logging
 import os
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -34,6 +35,23 @@ from services.api.security import get_current_user
 
 
 logger = logging.getLogger("trackflow.api")
+timing_logger = logging.getLogger("trackflow.timing")
+
+
+def _configure_logging() -> None:
+    # Uvicorn solo configura sus propios loggers: sin esto, los INFO de
+    # `trackflow.*` (timing, caché, inventario, incidencias) no llegan a la consola.
+    app_logger = logging.getLogger("trackflow")
+    if app_logger.handlers:
+        return
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(levelname)s:     %(name)s %(message)s"))
+    app_logger.addHandler(handler)
+    app_logger.setLevel(logging.INFO)
+    app_logger.propagate = False
+
+
+_configure_logging()
 
 allowed_origins = {os.getenv("BACKOFFICE_ORIGIN", "http://localhost:3002")}
 codespace_name = os.getenv("CODESPACE_NAME")
@@ -77,6 +95,19 @@ app.include_router(suppliers_router)
 app.include_router(incidents_router)
 app.include_router(inventory_router)
 app.add_exception_handler(IncidentValidationError, handle_incident_validation_error)
+
+
+@app.middleware("http")
+async def timing_middleware(request: Request, call_next):
+    # Una línea por petición: la base para decidir qué cachear con datos y no por intuición.
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - start) * 1000
+    timing_logger.info(
+        "%s %s -> %s | %.1fms", request.method, request.url.path, response.status_code, duration_ms
+    )
+    response.headers["Server-Timing"] = f"app;dur={duration_ms:.1f}"
+    return response
 
 
 @app.exception_handler(RequestValidationError)

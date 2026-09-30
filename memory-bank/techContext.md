@@ -161,6 +161,19 @@ relaciones se aplanan si la UI solo lee unos campos (historial de inventario). E
 `app.openapi()` y falla si una ruta nueva no cumple (en FastAPI 0.141 los routers incluidos no aparecen como
 `APIRoute` en `app.routes`). Detalle por endpoint en `docs/serialization-audit.md`.
 
+### Caché de la API y timing — Milestone 09
+
+`services/api/cache.py` define `TTLCache`, una caché en memoria **por proceso** con TTL obligatorio,
+`invalidate()` y un número de generación que impide guardar un valor leído antes de un commit. Solo se usa
+para respuestas iguales para cualquier usuario autenticado: `products_cache` (`GET /inventory/products`,
+TTL 30 s, clave = filtro de almacén) y `summary_cache` (`GET /api/incidents/summary`, TTL 60 s). Toda
+escritura que cambia esos datos invalida después del commit; la regla de stock de las salidas nunca lee
+de la caché. Con varios workers o réplicas, cada proceso tiene su copia y el TTL es el máximo de
+desactualización (Redis sería el siguiente paso). `tests/conftest.py` vacía las cachés entre tests.
+El middleware `timing_middleware` registra cada petición en `trackflow.timing` y añade `Server-Timing`;
+`_configure_logging()` da handler al logger `trackflow`, porque uvicorn solo configura los suyos.
+Decisiones y mediciones en `CACHING_REPORT.md`.
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el
@@ -228,6 +241,9 @@ Todos se ejecutan desde la raíz del monorepo:
 - **Tests de Python** — `uv run pytest` (o `uv run pytest --cov`) desde la raíz; detalle en `TESTING.md`.
 - **Tests del backoffice** — `npm test` / `npm run test:coverage` en `uis/backoffice` (Jest).
 - **Seed de incidencias** — `uv run python scripts/seed_incidents.py`.
+- **Seed de carga (solo local)** — `uv run python scripts/seed_load_test.py --database-url sqlite:///<ruta> --incidents-db <ruta>`;
+  rechaza URLs que no sean SQLite o PostgreSQL en `localhost`.
+- **Latencia de la API** — `uv run python audit/caching/measure_api.py --email <e> --password <p> --label <nombre>`.
 - **Seed de inventario** — `uv run --env-file .env python scripts/seed_inventory.py --user-email <usuario TinyDB>`.
 
 ---

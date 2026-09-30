@@ -18,7 +18,7 @@ import {
 } from "@/lib/carrier-evaluation";
 import { countryLabels, formatUSD, priorityLabels } from "@/lib/labels";
 
-interface CarrierSimulatorProps {
+export interface CarrierSimulatorProps {
   products: Product[];
   carriers: Carrier[];
   /** Envío de partida (SH-2024-8821, envío de referencia del Hito 2). */

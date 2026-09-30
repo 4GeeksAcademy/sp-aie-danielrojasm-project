@@ -1,0 +1,49 @@
+{
+  "label": "before-usememo",
+  "cpuThrottling": 4,
+  "keystrokes": 40,
+  "runs": [
+    {
+      "options": 1203,
+      "keys": 40,
+      "medianMs": 5,
+      "p95Ms": 9.5,
+      "maxMs": 19.7,
+      "value": 40
+    },
+    {
+      "options": 1203,
+      "keys": 40,
+      "medianMs": 4.6,
+      "p95Ms": 10.6,
+      "maxMs": 10.8,
+      "value": 40
+    },
+    {
+      "options": 1203,
+      "keys": 40,
+      "medianMs": 4,
+      "p95Ms": 7.6,
+      "maxMs": 14.1,
+      "value": 40
+    },
+    {
+      "options": 1203,
+      "keys": 40,
+      "medianMs": 4.9,
+      "p95Ms": 12.6,
+      "maxMs": 14.7,
+      "value": 40
+    },
+    {
+      "options": 1203,
+      "keys": 40,
+      "medianMs": 3.8,
+      "p95Ms": 5.1,
+      "maxMs": 13.9,
+      "value": 40
+    }
+  ],
+  "medianMs": 4.6,
+  "p95Ms": 9.5
+}

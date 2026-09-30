@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from services.api.auth_models import User
+from services.api.cache import TTLCache
 from services.api.database import get_db
 from services.api.models import SKU, StockEntry, StockExit, Warehouse
 from services.api.schemas import (
@@ -44,6 +45,17 @@ router = APIRouter(
 )
 
 StockTable = dict[int, dict[Warehouse, int]]
+
+# Listado de stock: lo piden la tabla de stock y los selectores de SKU de los dos
+# formularios de movimientos, y en Supabase cuesta tres idas y vueltas (~375 ms).
+# Las escrituras de esta API lo invalidan al momento; el TTL solo acota lo que
+# tarda en verse un cambio hecho fuera de este proceso (seed, SQL directo u
+# otra réplica). El stock que decide una salida nunca sale de aquí: se vuelve a
+# calcular con la fila bloqueada en `create_outbound_order`.
+PRODUCTS_CACHE_TTL_SECONDS = 30
+products_cache: TTLCache[list[SKUListItem]] = TTLCache(
+    "inventory.products", PRODUCTS_CACHE_TTL_SECONDS
+)
 
 
 # ---------------------------------------------------------------------------
@@ -113,6 +125,12 @@ def list_products(
     ),
     session: Session = Depends(get_db),
 ) -> list[SKUListItem]:
+    # Mismo resultado para cualquier usuario autenticado: la clave es solo el filtro.
+    key = warehouse.value if warehouse is not None else "all"
+    return list(products_cache.get_or_compute(key, lambda: _load_products(session, warehouse)))
+
+
+def _load_products(session: Session, warehouse: Warehouse | None) -> list[SKUListItem]:
     query = select(SKU).order_by(SKU.id)
     if warehouse is not None:
         query = query.where(SKU.warehouse == warehouse.value)
@@ -139,6 +157,7 @@ def create_product(
         raise HTTPException(
             status_code=409, detail=f"El SKU '{payload.sku}' ya está registrado."
         ) from error
+    products_cache.invalidate("alta de SKU")
     session.refresh(sku)
     logger.info(
         "SKU %s (%s) registrado en %s por %s", sku.id, sku.sku, sku.warehouse, current_user.id
@@ -169,6 +188,7 @@ def create_inbound_order(
     entry = StockEntry(**payload.model_dump(mode="json"), user_uuid=current_user.id)
     session.add(entry)
     session.commit()
+    products_cache.invalidate("recepción")
     session.refresh(entry)
     logger.info(
         "Recepción %s: +%s de %s en %s (ref. %s) por %s",
@@ -213,6 +233,7 @@ def create_outbound_order(
     exit_record = StockExit(**payload.model_dump(mode="json"), user_uuid=current_user.id)
     session.add(exit_record)
     session.commit()
+    products_cache.invalidate("salida")
     session.refresh(exit_record)
     logger.info(
         "Salida %s (%s): -%s de %s en %s por %s",

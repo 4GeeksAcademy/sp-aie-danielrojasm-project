@@ -7,7 +7,6 @@ import {
   TRACKING_NUMBER_MAX_LENGTH,
   createStockExit,
   exitTypeLabels,
-  formatSKUOption,
   formatUnits,
   getOverdraftWarning,
   getSKU,
@@ -211,11 +210,7 @@ export function StockExitForm({ initialSkuId }: StockExitFormProps) {
                   <option value="">
                     {catalog.loading ? "Cargando SKUs..." : "Selecciona un SKU"}
                   </option>
-                  {catalog.skus.map((sku) => (
-                    <option key={sku.id} value={sku.id}>
-                      {formatSKUOption(sku)}
-                    </option>
-                  ))}
+                  {catalog.options}
                 </select>
               )}
             </FormField>

@@ -1,0 +1,116 @@
+{
+  "label": "before-volume",
+  "note": "SQLite local con seed_load_test.py: 1200 SKUs, 43200 recepciones, 28800 salidas; 5000 incidencias; 15 proveedores. Sin caché.",
+  "results": [
+    {
+      "path": "/",
+      "status": 200,
+      "runs": 30,
+      "bytes": 51,
+      "server_ms_median": 1.3,
+      "server_ms_p95": 4.9,
+      "client_ms_median": 15.7,
+      "client_ms_p95": 30.2
+    },
+    {
+      "path": "/auth/me",
+      "status": 200,
+      "runs": 30,
+      "bytes": 142,
+      "server_ms_median": 3.5,
+      "server_ms_p95": 15.9,
+      "client_ms_median": 17.5,
+      "client_ms_p95": 42.7
+    },
+    {
+      "path": "/profiles/me",
+      "status": 200,
+      "runs": 30,
+      "bytes": 41,
+      "server_ms_median": 2.9,
+      "server_ms_p95": 7.5,
+      "client_ms_median": 16.7,
+      "client_ms_p95": 30.9
+    },
+    {
+      "path": "/suppliers",
+      "status": 200,
+      "runs": 30,
+      "bytes": 2511,
+      "server_ms_median": 4.8,
+      "server_ms_p95": 19.8,
+      "client_ms_median": 29.1,
+      "client_ms_p95": 36.0
+    },
+    {
+      "path": "/api/incidents",
+      "status": 200,
+      "runs": 30,
+      "bytes": 1706475,
+      "server_ms_median": 183.4,
+      "server_ms_p95": 249.4,
+      "client_ms_median": 204.1,
+      "client_ms_p95": 275.0
+    },
+    {
+      "path": "/api/incidents/summary",
+      "status": 200,
+      "runs": 30,
+      "bytes": 470,
+      "server_ms_median": 40.3,
+      "server_ms_p95": 49.9,
+      "client_ms_median": 60.5,
+      "client_ms_p95": 71.9
+    },
+    {
+      "path": "/api/incidents/1",
+      "status": 200,
+      "runs": 30,
+      "bytes": 416,
+      "server_ms_median": 30.7,
+      "server_ms_p95": 40.8,
+      "client_ms_median": 48.9,
+      "client_ms_p95": 62.2
+    },
+    {
+      "path": "/inventory/products",
+      "status": 200,
+      "runs": 30,
+      "bytes": 191518,
+      "server_ms_median": 86.5,
+      "server_ms_p95": 139.6,
+      "client_ms_median": 105.4,
+      "client_ms_p95": 159.8
+    },
+    {
+      "path": "/inventory/products?warehouse=LA",
+      "status": 200,
+      "runs": 30,
+      "bytes": 107330,
+      "server_ms_median": 51.9,
+      "server_ms_p95": 67.2,
+      "client_ms_median": 70.1,
+      "client_ms_p95": 93.1
+    },
+    {
+      "path": "/inventory/products/1",
+      "status": 200,
+      "runs": 30,
+      "bytes": 194,
+      "server_ms_median": 4.3,
+      "server_ms_p95": 8.1,
+      "client_ms_median": 18.2,
+      "client_ms_p95": 34.7
+    },
+    {
+      "path": "/inventory/orders",
+      "status": 200,
+      "runs": 30,
+      "bytes": 23823281,
+      "server_ms_median": 3037.0,
+      "server_ms_p95": 4039.8,
+      "client_ms_median": 3125.3,
+      "client_ms_p95": 4153.6
+    }
+  ]
+}

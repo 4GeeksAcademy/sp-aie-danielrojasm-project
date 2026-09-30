@@ -8,6 +8,36 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Optimización de rendimiento: caching
+
+- Middleware de timing en `services/api/main.py` (log `trackflow.timing` y
+   cabecera `Server-Timing`); `_configure_logging()` hace visibles los INFO de
+   `trackflow.*`, que uvicorn descartaba.
+- `scripts/seed_load_test.py` siembra volumen solo en SQLite/PostgreSQL local
+   (1.200 SKUs, 72.000 movimientos, 5.000 incidencias). Medición con
+   `audit/caching/measure_api.py`; resultados en `audit/caching/results/`.
+- `services/api/cache.py` (`TTLCache` en proceso, TTL obligatorio, LRU,
+   generación contra carreras). `GET /inventory/products` (TTL 30 s):
+   377 → 3,3 ms p50 en Supabase y 87 → 4,9 ms con volumen.
+   `GET /api/incidents/summary` (TTL 60 s): 40 → 2,9 ms con 5.000 incidencias.
+   Se invalidan tras alta de SKU, recepción y salida, y tras alta o cambio
+   de estado de incidencia.
+- Backoffice: `next/dynamic` para `IncidentAnalysisResults` (tras analizar) y
+   `LazyCarrierSimulator` (al acercarse al viewport; en móvil está a ~2.000 px).
+   Ahorro inicial pequeño (0,3–0,6 KB gzip); el JS lo domina el framework.
+   `useMemo` de las opciones de SKU en `useSkuCatalog`: 4,6 → 1,5 ms por
+   pulsación (p95 9,5 → 3,0) con 1.203 SKUs y CPU 4×.
+- No cacheado a propósito: `/inventory/orders` (3 s y 23,8 MB con volumen:
+   necesita paginación), `/inventory/products/{id}` (decide la salida),
+   `/api/incidents`, rutas personales y `get_current_user`.
+- Verificado: `uv run pytest` 198 (19 nuevos en `tests/cache`); Jest 59;
+   invalidación por HTTP (+25 → 7544) y desde la UI (salida de 5 → 7539);
+   chunks diferidos comprobados en Chrome headless sin errores de consola.
+   Informe completo en `CACHING_REPORT.md`.
+- Riesgo: la caché es por proceso; con varios workers o réplicas el TTL es el
+   máximo de desactualización. Siguiente paso: paginar `/inventory/orders` y
+   `/api/incidents`, y Redis si la API pasa a varios procesos.
+
 ### Milestone 09 — Auditoría de serialización del backend
 
 - `docs/serialization-audit.md` recoge las 32 rutas de `services/api` con su
@@ -302,6 +332,12 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### Caching
+
+Caché TTL con invalidación en los dos GET más pedidos y costosos (stock e
+indicadores de incidencias), lazy loading de dos componentes del backoffice y
+`useMemo` en los selectores de SKU, todo medido antes y después.
 
 ### Auditoría de serialización
 
