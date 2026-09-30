@@ -4,6 +4,7 @@
 // Requiere website (:3000), backoffice (:3002) y API (:8000) en modo producción,
 // `npm i lighthouse@12 puppeteer-core` en una carpeta aparte y Chromium de Playwright.
 // Uso: AUDIT_EMAIL=... AUDIT_PASSWORD=... node lighthouse-runner.mjs <outDir> [filtro]
+// THROTTLING=devtools aplica throttling real en lugar del simulado (Lantern) por defecto.
 import fs from "node:fs";
 import path from "node:path";
 import lighthouse from "lighthouse";
@@ -49,7 +50,11 @@ async function runOnce(pageDef, mode) {
   });
   try {
     const page = await browser.newPage();
-    const flags = { output: "json", logLevel: "error" };
+    const flags = {
+      output: "json",
+      logLevel: "error",
+      ...(process.env.THROTTLING ? { throttlingMethod: process.env.THROTTLING } : {}),
+    };
     if (pageDef.auth) {
       // Sesión real: JWT en localStorage como hace el login del backoffice.
       await page.goto(new URL("/login", pageDef.url).href, { waitUntil: "networkidle0" });

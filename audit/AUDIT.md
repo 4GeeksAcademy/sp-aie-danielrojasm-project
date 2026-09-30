@@ -28,8 +28,8 @@ igual que hace `/login`. Sin sesión, Lighthouse solo habría medido la pantalla
 - **Móvil**: emulación estándar de Lighthouse (412×823, DPR 1,75, 4G lenta simulada, CPU 4×). **Desktop**: preset `desktop-config`
   (1350×940, sin throttling de CPU).
 - **3 corridas por URL y modo**; se guarda la **mediana** (`computeMedianRun`). El script está en
-  [`audit/lighthouse-runner.mjs`](audit/lighthouse-runner.mjs) y la medición final usa el mismo script.
-- Resultados: [`audit/before/lighthouse/`](audit/before/lighthouse/): informe JSON y captura PNG por vista y modo. El JSON se puede
+  [`audit/lighthouse-runner.mjs`](lighthouse-runner.mjs) y la medición final usa el mismo script.
+- Resultados: [`audit/before/lighthouse/`](before/lighthouse/): informe JSON y captura PNG por vista y modo. El JSON se puede
   abrir en el [Lighthouse Viewer](https://googlechrome.github.io/lighthouse/viewer/) para ver el informe completo.
 
 ---
@@ -59,7 +59,7 @@ inventario 94–99. Una diferencia de ±3 puntos entre antes y después **está 
 
 | Vista | Modo | FCP | LCP | TBT | CLS | Speed Index | TTFB ² |
 |-------|------|----:|----:|----:|----:|----:|----:|
-| Website `/` | Mobile | 0,8 s | **2,7 s** ❌ | 90 ms | 0 | 0,8 s | 10 ms |
+| Website `/` | Mobile | 0,8 s | **2,7 s** ³ | 90 ms | 0 | 0,8 s | 10 ms |
 | Website `/aplicar` | Mobile | 0,8 s | 2,5 s ⚠️ | **260 ms** ⚠️ | 0 | 0,8 s | 10 ms |
 | Backoffice `/` | Mobile | 0,6 s | 1,3 s | 180 ms | 0 | 0,9 s | 10 ms |
 | Backoffice inventario | Mobile | 0,6 s | 1,4 s | **290 ms** ⚠️ | 0,03 | 1,0 s | 0 ms |
@@ -72,8 +72,11 @@ campo, que no existen porque el sitio no tiene tráfico real).
 y comprimidas con gzip, y los chunks con hash llevan `Cache-Control: public, max-age=31536000, immutable`. **No hay un problema de servidor
 que corregir.**
 
+³ Valor simulado (Lantern). Con throttling real la home móvil da LCP 1,7 s (ver P1).
+
 **Lectura:** en desktop las dos apps ya cumplen todos los umbrales. El margen real está en **móvil**, donde la CPU emulada es 4× más
-lenta y la red es 4G lenta: un LCP por encima del umbral en la home del website y un TBT alto en `/aplicar` y en el inventario. En
+lenta y la red es 4G lenta: un TBT alto en `/aplicar` y en el inventario, y un LCP simulado por encima del umbral en la home que la
+medición con throttling real no confirma (P1). En
 accesibilidad hay fallos reales en las dos apps.
 
 ---
@@ -82,20 +85,23 @@ accesibilidad hay fallos reales en las dos apps.
 
 Ordenados por impacto en usuarios reales, primero los Core Web Vitals.
 
-### P1 — LCP móvil de la home del website: 2,7 s (umbral 2,5 s)
+### P1 — LCP móvil de la home del website: 2,7 s simulado, 1,7 s real
 
-- **Evidencia.** En móvil el elemento LCP es el `<h1 id="hero-title">`, un **texto**, no la imagen. En la cascada, justo después del
-  HTML y **antes que el CSS**, se descarga la imagen del hero (95 KB WebP a 750 w) mediante un
-  `<link rel="preload" as="image" imageSrcSet=…>` inyectado en `<head>`. En la simulación de 4G lenta esa descarga compite por el ancho
-  de banda con el CSS (bloqueante, 6 KB) y la fuente Geist (30 KB), que son justo lo que el `<h1>` necesita para pintarse.
-- **Causa raíz.** `HeroSection` pasa `priority` a `FramedImage` (`uis/website/components/ui/FramedImage.tsx`). En Next 16 `priority`
-  está **deprecado** y equivale a `preload`, que inserta el `<link rel="preload">` en `<head>`. La propia guía de Next 16
-  (`node_modules/next/dist/docs/.../image.md`) dice: «In most cases, you should use `loading="eager"` or `fetchPriority="high"`
-  instead of `preload`». Además, en móvil la imagen queda **debajo** del texto del hero (grid de una columna), así que se adelanta un
-  recurso que ni siquiera es el LCP.
-- **Matiz.** En desktop, con dos columnas, la imagen **sí** es el LCP (0,6 s). La corrección no puede quitarle la prioridad: debe
-  eliminar el preload en `<head>` y mantener `fetchPriority="high"` en la propia `<img>`, que el preload scanner descubre en el HTML
-  igualmente.
+- **Evidencia.** En móvil el elemento LCP es el `<h1 id="hero-title">`, un **texto**; en desktop es la imagen del hero (0,6 s). El
+  2,7 s procede del modo por defecto de Lighthouse (`simulate`, modelo Lantern). Al repetir la medición con throttling real
+  (`throttlingMethod: devtools`, misma emulación móvil, 3 corridas) el resultado es **FCP 1,7 s = LCP 1,7 s**: el `<h1>` se pinta en
+  el mismo frame que el primer contenido.
+- **Causa raíz del valor simulado.** Lantern estima el LCP con todas las peticiones que empezaron antes del LCP observado. Contra
+  `localhost`, todo arranca en los primeros ~150 ms: HTML, CSS (6 KB), fuente (30 KB), imagen del hero precargada (95 KB) y 164 KB
+  de JS del runtime de Next/React. Al reproducir esas descargas sobre 4G lenta simulada, el LCP estimado se infla hasta 2,7 s aunque el
+  `<h1>` no dependa de la imagen ni del JS. **No es un problema que sufra el usuario**; en producción, con red real, el orden de
+  llegada sí pesa, y por eso se vigila con la medición con throttling real.
+- **Hipótesis probada y descartada.** Se sospechó del `<link rel="preload">` de la imagen del hero, que se adelanta al CSS. Se probó
+  a quitarlo (`loading="lazy"` + `fetchPriority="high"`; con `loading="eager"` React 19 vuelve a generar el preload en el SSR): en
+  móvil no cambió nada con throttling real (1,7 s → 1,7 s) y en desktop apareció `lcp-lazy-loaded`, porque allí la imagen sí es el
+  LCP. El preload es correcto y se mantiene. Detalle en `REPORT.md`.
+- **Hallazgo colateral.** `FramedImage` usaba `priority`, **deprecado** en Next 16 en favor de `preload`, que tiene el mismo
+  comportamiento. Se migra sin impacto en rendimiento.
 
 ### P2 — TBT móvil alto en `/aplicar` (260 ms) y en el inventario del backoffice (290 ms)
 
@@ -258,7 +264,7 @@ por commit.
 
 | # | Problema | KPI objetivo | Tipo |
 |---|----------|--------------|------|
-| 1 | P1 — Preload del hero en `<head>` | LCP móvil home < 2,5 s | Corrección requerida (Core Web Vital fuera de umbral) |
+| 1 | P1 — Verificar el LCP con throttling real; migrar `priority` → `preload` | LCP real móvil home | Verificación + deprecación de Next 16 |
 | 2 | Caso 1 — `useApiResource` + estado de carga estable del inventario | CLS inventario → 0 y menos código repetido | Refactor requerido por la tarea |
 | 3 | Caso 2 — `ErrorFallback` en cada app | Mantenibilidad | Refactor |
 | 4 | P6 — `link-name` del TopBar y contraste de `<th>` | A11y backoffice | Corrección requerida (WCAG A/AA) |

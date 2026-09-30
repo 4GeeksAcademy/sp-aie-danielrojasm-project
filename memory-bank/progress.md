@@ -15,11 +15,15 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    y `/aplicar` y backoffice `/` e `/inventory/products` con sesión. JSON y
    PNG en `audit/before/lighthouse/`; script en `audit/lighthouse-runner.mjs`.
 - Desktop: Performance 100 en las cuatro vistas. Móvil: website 96/92,
-   backoffice 98/94. Fuera de umbral: LCP móvil de la home (2,7 s) por el
-   preload del hero en `<head>`. Accesibilidad 91–96 con fallos WCAG reales.
-- `AUDIT.md` recoge causas raíz y dos refactors: hook `useApiResource`
-   (backoffice) y `ErrorFallback` por app.
-- Siguiente paso: corregir el preload del hero y volver a medir la home.
+   backoffice 98/94. LCP móvil de la home: 2,7 s simulado, pero 1,7 s con
+   throttling real (`THROTTLING=devtools`); quitar el preload del hero no
+   mejora y rompe desktop, así que se mantiene y solo se migra `priority` →
+   `preload` (deprecación de Next 16). Accesibilidad 91–96 con fallos WCAG.
+- `audit/AUDIT.md` recoge causas raíz y dos refactors: hook `useApiResource`
+   (backoffice) y `ErrorFallback` por app. Evidencia del experimento del
+   hero en `audit/experiments/p1-hero-preload/`.
+- Siguiente paso: extraer `useApiResource` y estabilizar la carga del
+   inventario (CLS 0,03).
 
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 
