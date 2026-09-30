@@ -163,7 +163,17 @@ Ordenados por impacto en usuarios reales, primero los Core Web Vitals.
 | Auditoría | Dónde | Causa raíz |
 |-----------|-------|------------|
 | `link-name` | `components/layout/TopBar.tsx:26`, enlace a «Mi perfil» | El único texto del enlace es un `<span className="hidden sm:inline">`. Por debajo de 640 px queda **sin nombre accesible**: un lector de pantalla anuncia solo «enlace». Afecta a todas las vistas protegidas en móvil. |
-| `color-contrast` | `<thead>` de `components/dashboard/InventoryTable.tsx:19` y `CarrierEvaluationTable.tsx:14` | `text-slate-500` sobre `bg-slate-100` da **4,34:1**, por debajo de 4,5:1. |
+| `color-contrast` | `<thead>` de `components/dashboard/InventoryTable.tsx:19` | Aparente `text-slate-500` sobre `bg-slate-100` (**4,34:1**). El `bg-slate-100` no es el del panel (blanco) sino el **fondo de la página**: la tabla se sale del panel porque la página se desborda en horizontal (P8). Dentro del panel, `slate-500` sobre blanco da 4,76:1 y cumple AA. No es un problema de color. |
+
+### P8 — El dashboard se desborda en horizontal en móvil (`scrollWidth` 698 a 360 px)
+
+- **Evidencia.** Al revisar P7 se recorrieron las 11 vistas protegidas a 320–1440 px buscando elementos que sobresalen del viewport
+  fuera de un contenedor con scroll: solo falla `/`. A 360 px el documento mide 698 px, porque sobresalen la columna del inventario
+  (682 px) y el formulario del simulador de transportistas (520 px).
+- **Causa raíz.** El mismo patrón de P7: elementos de grid con `min-width: auto`. `Panel` y el envoltorio `xl:col-span-2` adoptan el
+  ancho mínimo de `InventoryTable` (`min-w-[640px]`), y el `<form>` de `CarrierSimulator` el del `<select>` de productos, cuyo ancho
+  mínimo es el de su opción más larga. El `overflow-x-auto` de las tablas nunca llega a actuar.
+- **Efecto colateral.** Es la causa del fallo de contraste del `<thead>` en P6.
 
 ### Descartados tras el análisis
 
@@ -288,7 +298,8 @@ por commit.
 | 3 | P2 — Cabecera del inventario estable en móvil | CLS inventario 0,03 → 0 | Corrección (layout shift) |
 | 3b | P7 — Lista de proveedores con alto fijo bajo `xl` + `min-w-0` | CLS proveedores 0,18 → 0 y sin scroll horizontal | Corrección (Core Web Vital fuera de umbral) |
 | 4 | Caso 2 — `ErrorFallback` en cada app | Mantenibilidad | Refactor |
-| 5 | P6 — `link-name` del TopBar y contraste de `<th>` | A11y backoffice | Corrección requerida (WCAG A/AA) |
+| 3c | P8 — `min-w-0` en los elementos de grid del dashboard | Sin scroll horizontal; resuelve el contraste de P6 | Corrección (layout) |
+| 5 | P6 — `link-name` del TopBar | A11y backoffice | Corrección requerida (WCAG A) |
 | 6 | P5 — Contraste, tamaño de objetivos y *label in name* del website | A11y website | Corrección requerida (WCAG AA) |
 | 7 | P3 — CSS inline (`experimental.inlineCss`) | FCP/LCP móvil | Hipótesis: se aplica solo si la medición lo confirma |
 | — | P2 (auth en cliente), P4 (JS del framework) | — | Documentados, fuera de alcance (reestructuración o framework) |

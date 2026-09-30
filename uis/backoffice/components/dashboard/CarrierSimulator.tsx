@@ -63,7 +63,7 @@ export function CarrierSimulator({
 
   return (
     <div className="grid gap-6 xl:grid-cols-[280px_1fr]">
-      <form className="space-y-3" onSubmit={(event) => event.preventDefault()}>
+      <form className="min-w-0 space-y-3" onSubmit={(event) => event.preventDefault()}>
         <label className="block text-sm font-medium text-slate-700">
           Producto
           <select value={sku} onChange={(e) => setSku(e.target.value)} className={fieldClass}>
@@ -108,7 +108,7 @@ export function CarrierSimulator({
         </div>
       </form>
 
-      <div aria-live="polite">
+      <div aria-live="polite" className="min-w-0">
         {!validation.valid ? (
           <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
             <p className="font-semibold">El envío no es válido (validateShipment):</p>

@@ -34,9 +34,12 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    iba bajo una lista que crece de 4 a 14 filas, y en móvil la sección se
    ensanchaba a 760 px). Lista con alto fijo y scroll bajo `xl` + `min-w-0`:
    CLS 0 de 360 a 1600 px y sin scroll horizontal (`audit/layout-shift-probe.mjs`).
-- Riesgo nuevo: el dashboard `/` se desborda en horizontal a 360 px
-   (`scrollWidth` 698).
-- Siguiente paso: corregir el desbordamiento del dashboard.
+- Dashboard `/`: se desbordaba en horizontal en móvil (`scrollWidth` 698 a
+   360 px) por elementos de grid sin `min-w-0`. Corregido en `Panel`, la
+   columna del inventario y `CarrierSimulator`; 11 vistas sin desbordamiento
+   de 320 a 1440 px. El fallo de contraste del `<thead>` era un efecto de esto:
+   A11y móvil del dashboard 93 → 97 (`audit/experiments/p8-dashboard-overflow/`).
+- Siguiente paso: refactor `ErrorFallback` y `link-name` del TopBar.
 
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 
