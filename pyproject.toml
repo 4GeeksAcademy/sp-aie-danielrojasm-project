@@ -28,6 +28,7 @@ include = ["services*"]
 [dependency-groups]
 dev = [
     "httpx2>=2.13.1",
+    "jsonschema>=4.23",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
 ]

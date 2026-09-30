@@ -10,7 +10,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
-from services.api.models import ExitType, SKUCategory, Warehouse
+from services.api.models import DetectionMethod, ExitType, SKUCategory, Warehouse
 
 
 def _text(max_length: int) -> StringConstraints:
@@ -117,6 +117,12 @@ class StockExitRead(BaseModel):
     user_uuid: str
 
 
+class DirectStockEditRejected(BaseModel):
+    """405 de las rutas que intentan editar el stock fuera de una orden."""
+
+    detail: str
+
+
 class InventoryOrderRead(BaseModel):
     """Un movimiento del historial, sea recepción o salida.
 
@@ -136,3 +142,28 @@ class InventoryOrderRead(BaseModel):
     reference: str | None = None
     exit_type: ExitType | None = None
     tracking_number: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Conteos físicos
+# ---------------------------------------------------------------------------
+
+class InventoryCountCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sku_id: int
+    warehouse: Warehouse
+    counted_quantity: int = Field(ge=0, description="Unidades contadas; 0 si no queda ninguna.")
+    detection_method: DetectionMethod
+
+
+class InventoryCountRead(BaseModel):
+    id: int
+    sku_id: int
+    warehouse: Warehouse
+    counted_quantity: int
+    system_quantity: int = Field(description="Stock calculado por el sistema al contar.")
+    difference: int = Field(description="counted_quantity − system_quantity; negativo = falta mercancía.")
+    detection_method: DetectionMethod
+    created_at: datetime
+    user_uuid: str
