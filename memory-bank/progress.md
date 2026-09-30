@@ -8,6 +8,19 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Auditoría de rendimiento frontend — medición inicial
+
+- Línea base con Lighthouse 12 CLI (build de producción,
+   Chromium headless, 3 corridas y mediana; móvil y desktop) en website `/`
+   y `/aplicar` y backoffice `/` e `/inventory/products` con sesión. JSON y
+   PNG en `audit/before/lighthouse/`; script en `audit/lighthouse-runner.mjs`.
+- Desktop: Performance 100 en las cuatro vistas. Móvil: website 96/92,
+   backoffice 98/94. Fuera de umbral: LCP móvil de la home (2,7 s) por el
+   preload del hero en `<head>`. Accesibilidad 91–96 con fallos WCAG reales.
+- `AUDIT.md` recoge causas raíz y dos refactors: hook `useApiResource`
+   (backoffice) y `ErrorFallback` por app.
+- Siguiente paso: corregir el preload del hero y volver a medir la home.
+
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 
 - 2026-09-29: `uis/Dockerfile` + `uis/start.sh` (website :3000 y backoffice
