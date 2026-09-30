@@ -5,6 +5,8 @@ from urllib.parse import quote, urlparse
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import ValidationError
 
+from services.api import telemetry
+
 from services.api.auth_models import (
     ChangePasswordRequest, CurrentUserResponse, ForgotPasswordRequest,
     LoginRequest, ProfileRead, ResetPasswordRequest, TokenResponse, User,
@@ -115,17 +117,53 @@ async def _login_payload(request: Request) -> LoginRequest:
     },
 )
 async def login(request: Request) -> TokenResponse:
-    payload = await _login_payload(request)
+    try:
+        payload = await _login_payload(request)
+    except HTTPException:
+        _emit_login_failed(request, "malformed_request", None)
+        raise
     user = get_user_by_email(str(payload.email))
-    if user is None or not user.is_active or not verify_password(
-        payload.password, user.hashed_password
-    ):
+    # La respuesta es idéntica en todos los casos; la causa solo va a telemetría.
+    reason = (
+        "unknown_account" if user is None
+        else "inactive_account" if not user.is_active
+        else None if verify_password(payload.password, user.hashed_password)
+        else "wrong_password"
+    )
+    if reason is not None or user is None:
+        _emit_login_failed(request, reason or "unknown_account", str(payload.email))
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email o contraseña incorrectos",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    telemetry.emit(
+        "user_login_succeeded",
+        {
+            "login_method": _login_method(request),
+            "user_role": user.role,
+            "ua_family": telemetry.ua_family(request.headers.get("user-agent")),
+        },
+        user_id=user.id,
+    )
     return TokenResponse(access_token=create_access_token(user.id))
+
+
+def _login_method(request: Request) -> str:
+    return "json" if request.headers.get("content-type", "").startswith("application/json") else "form"
+
+
+def _emit_login_failed(request: Request, reason: str, email: str | None) -> None:
+    # Ni el email ni la contraseña: HMAC del email con clave e IP truncada.
+    telemetry.emit(
+        "user_login_failed",
+        {
+            "reason": reason,
+            "email_hash": telemetry.email_hash(email) if email else None,
+            "ip_prefix": telemetry.ip_prefix(request.client.host if request.client else None),
+            "ua_family": telemetry.ua_family(request.headers.get("user-agent")),
+        },
+    )
 
 
 @router.get("/me", response_model=CurrentUserResponse)

@@ -95,3 +95,12 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     if user is None or not user.is_active:
         raise _unauthorized()
     return user
+
+
+def user_from_token(token: str) -> User | None:
+    """Usuario de un token válido o `None`, para código fuera de las dependencias
+    (p. ej. un handler de errores que necesita el rol para la telemetría)."""
+    try:
+        return get_current_user(token)
+    except (HTTPException, RuntimeError):
+        return None

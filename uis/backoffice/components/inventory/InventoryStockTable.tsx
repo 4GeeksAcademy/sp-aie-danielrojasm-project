@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { History, PackageMinus, PackagePlus } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ClipboardCheck, History, PackageMinus, PackagePlus } from "lucide-react";
 import {
   LOW_STOCK_THRESHOLD,
   getStockLevel,
@@ -13,6 +13,8 @@ import {
   type Warehouse,
 } from "@/lib/inventory";
 import { useApiList } from "@/lib/use-api-list";
+import { telemetryWarehouse } from "@/lib/inventory-telemetry";
+import { track } from "@/lib/telemetry";
 import { InventoryLinkButton } from "@/components/inventory/InventoryLinkButton";
 import { InventoryPageHeader } from "@/components/inventory/InventoryPageHeader";
 import { RetryAlert } from "@/components/inventory/RetryAlert";
@@ -21,6 +23,8 @@ import { StockLevelBadge } from "@/components/inventory/StockLevelBadge";
 type WarehouseFilter = "all" | Warehouse;
 
 const warehouses = Object.keys(warehouseLabels) as Warehouse[];
+/** Cambios rápidos del selector: solo cuenta el almacén en el que se queda. */
+const FILTER_DEBOUNCE_MS = 500;
 
 export function InventoryStockTable() {
   const { items: skus, loading, error: loadError, retry } = useApiList<SKUListItem>(
@@ -33,6 +37,20 @@ export function InventoryStockTable() {
     () => (warehouse === "all" ? skus : skus.filter((sku) => sku.warehouse === warehouse)),
     [skus, warehouse],
   );
+
+  // Solo cambios hechos por el operador, no la carga inicial con «Todos».
+  const filterChanged = useRef(false);
+  useEffect(() => {
+    if (!filterChanged.current || loading || loadError) return;
+    const timer = setTimeout(() => {
+      track("inventory_filter_applied", {
+        view: "stock_table",
+        warehouse: warehouse === "all" ? "all" : telemetryWarehouse(warehouse),
+        result_count: visible.length,
+      });
+    }, FILTER_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [warehouse, visible.length, loading, loadError]);
 
   const levelCounts = useMemo(() => {
     const counts: Record<StockLevel, number> = { out: 0, low: 0, healthy: 0 };
@@ -54,6 +72,10 @@ export function InventoryStockTable() {
             <InventoryLinkButton href="/inventory/orders/outbound">
               <PackageMinus aria-hidden="true" className="h-4 w-4" />
               Registrar salida
+            </InventoryLinkButton>
+            <InventoryLinkButton href="/inventory/counts">
+              <ClipboardCheck aria-hidden="true" className="h-4 w-4" />
+              Conteo físico
             </InventoryLinkButton>
             <InventoryLinkButton href="/inventory/orders">
               <History aria-hidden="true" className="h-4 w-4" />
@@ -87,7 +109,10 @@ export function InventoryStockTable() {
             <select
               id="stock-warehouse"
               value={warehouse}
-              onChange={(event) => setWarehouse(event.target.value as WarehouseFilter)}
+              onChange={(event) => {
+                filterChanged.current = true;
+                setWarehouse(event.target.value as WarehouseFilter);
+              }}
               className="mt-1 block rounded-md border border-slate-300 bg-white px-3 py-2 text-sm"
             >
               <option value="all">Todos</option>

@@ -12,9 +12,11 @@ DEFAULT_PASSWORD = "correct-password"
 class FakeRequest:
     """Sustituto mínimo de `starlette.Request` para `_login_payload`.
 
-    Solo implementa lo que la lógica de login lee (cabecera content-type,
+    Solo implementa lo que la lógica de login lee (cabeceras, cliente,
     `json()` y `form()`), sin pasar por el servidor HTTP.
     """
+
+    client = None  # sin conexión real: la telemetría usa `ip_prefix = unknown`
 
     def __init__(
         self,

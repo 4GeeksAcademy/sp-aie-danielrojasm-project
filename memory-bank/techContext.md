@@ -174,13 +174,30 @@ El middleware `timing_middleware` registra cada petición en `trackflow.timing` 
 `_configure_logging()` da handler al logger `trackflow`, porque uvicorn solo configura los suyos.
 Decisiones y mediciones en `audit/caching/CACHING_REPORT.md`.
 
-### Telemetría (diseño, pendiente de implementar) — Milestone 09
+### Telemetría: captura implementada, almacenamiento pendiente — Milestone 09
 
 El contrato está en `docs/telemetry/telemetry-plan.md`; `docs/telemetry/event-schemas.json` es la fuente validable (draft-07,
-allowlist con `additionalProperties: false`). Decisiones: los eventos obligatorios de inventario los emite solo la API, con outbox
-transaccional en Supabase; los del navegador pasan por una ingesta en `services/api` (`POST /telemetry/events`) que valida el esquema y
-toma `userId` del token. Correlación por `X-Request-Id` (una por llamada de `apiFetch`) y `X-Session-Id` (una por pestaña). En eventos:
-`LA`/`ZGZ` → `los_angeles`/`zaragoza`, `client_id` = slug de `client_name`, `product_id` = código SKU. Nada implementado todavía.
+allowlist con `additionalProperties: false`). Los eventos obligatorios de inventario los emite solo la API; el navegador aporta
+contexto de UX. Correlación por `X-Request-Id` (una por llamada de `apiFetch`) y `X-Session-Id` (una por pestaña). En eventos:
+`LA`/`ZGZ` → `los_angeles`/`zaragoza`, `client_id` = slug de `client_name` (misma función en Python y TS, con los mismos casos de
+prueba), `product_id` = código SKU.
+
+- **Backoffice:** `lib/telemetry.ts` es el único módulo que llama a la ingesta (`fetch` con `keepalive` y `sendBeacon` como
+  `text/plain`, sin preflight). `track()` está tipado con `lib/telemetry-events.ts`; `lib/telemetry-reporters.ts` aplica los throttles
+  del plan. `TelemetryListener` (layout raíz) captura vistas, errores globales y Web Vitals. `NEXT_PUBLIC_TELEMETRY_ENDPOINT` y
+  `NEXT_PUBLIC_TELEMETRY_ENVIRONMENT` viven en el `.env` raíz: `next.config.ts` copia solo las `NEXT_PUBLIC_TELEMETRY_*` (el resto del
+  archivo trae URLs de Docker) y respeta las que ya estén en el entorno. Sin endpoint, la telemetría queda desactivada. Rewrite
+  `/api/telemetry/*` para Codespaces.
+- **API:** `telemetry.py` lee el allowlist, la versión y el emisor de cada evento de `event-schemas.json` (montado en Docker en
+  `/app/docs/telemetry`) y solo emite eventos cuyo emisor incluye `api`. Sumideros en `SINKS`: hoy, el log `trackflow.telemetry`.
+  `routes/telemetry.py` es un stub que solo valida el envelope (`telemetry_models.TelemetryEvent`). `TELEMETRY_ENDPOINT`,
+  `TELEMETRY_ENVIRONMENT`, `TELEMETRY_HASH_KEY` (HMAC del email) y `STOCK_MIN_THRESHOLDS`.
+- **Inventario:** nueva tabla `inventory_counts` (la crea `create_all`, no modifica tablas existentes) y rutas 405 explícitas contra
+  la edición directa del stock. Las 12 rutas 405 declaran su esquema de error; `tests/http/test_serialization.py` las cuenta aparte.
+- **Restricciones abiertas:** sin outbox, un evento obligatorio se pierde si el proceso cae entre el `commit` y el log. El umbral se
+  dispara comparando stock anterior y resultante en la salida; una recepción concurrente no bloquea la fila del SKU, así que en una
+  carrera `stock_after` puede quedar desfasado hasta que exista `stock_threshold_alerts`. El stub no exige token: cualquiera que
+  alcance la API puede enviar eventos hasta que llegue la ingesta real.
 
 ### 🚫 Sin APIs dentro de `uis/`
 

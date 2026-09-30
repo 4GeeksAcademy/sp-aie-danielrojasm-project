@@ -28,6 +28,11 @@ class ExitType(str, Enum):
     LOSS = "loss"
 
 
+class DetectionMethod(str, Enum):
+    CYCLE_COUNT = "cycle_count"
+    AUDIT = "audit"
+
+
 def _one_of(column: str, values: type[Enum]) -> str:
     allowed = ", ".join(f"'{value.value}'" for value in values)
     return f"{column} IN ({allowed})"
@@ -106,3 +111,30 @@ class StockExit(SQLModel, table=True):
     user_uuid: str = Field(max_length=36, index=True)
 
     sku: SKU = Relationship(back_populates="exits")
+
+
+class InventoryCount(SQLModel, table=True):
+    """Conteo físico de un SKU en un almacén.
+
+    Solo registra lo contado y el stock que calculaba el sistema en ese
+    momento: no cambia el stock. Un descuadre se corrige después con una
+    recepción o una salida `loss`, trazables como cualquier movimiento.
+    """
+
+    __tablename__ = "inventory_counts"
+    __table_args__ = (
+        CheckConstraint("counted_quantity >= 0", name="ck_inventory_counts_counted_quantity"),
+        CheckConstraint(_one_of("warehouse", Warehouse), name="ck_inventory_counts_warehouse"),
+        CheckConstraint(
+            _one_of("detection_method", DetectionMethod), name="ck_inventory_counts_detection_method"
+        ),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    sku_id: int = Field(foreign_key="skus.id", index=True, ondelete="RESTRICT")
+    warehouse: str = Field(max_length=3)
+    counted_quantity: int
+    system_quantity: int
+    detection_method: str = Field(max_length=20)
+    created_at: datetime = Field(default_factory=_utc_now, sa_column=_created_at_column())
+    user_uuid: str = Field(max_length=36, index=True)

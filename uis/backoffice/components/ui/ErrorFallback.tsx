@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { reportFrontendError } from "@/lib/telemetry-reporters";
 
 interface ErrorFallbackProps {
   error: Error & { digest?: string };
@@ -10,6 +11,8 @@ interface ErrorFallbackProps {
   description: string;
   /** Prefijo del log de consola: distingue el error de una vista del error crítico del layout. */
   logLabel: string;
+  /** Límite que capturó el error: el de una vista (`route`) o el del layout (`global`). */
+  boundary: "route" | "global";
   headingId?: string;
 }
 
@@ -23,12 +26,14 @@ export function ErrorFallback({
   title,
   description,
   logLabel,
+  boundary,
   headingId,
 }: ErrorFallbackProps) {
   useEffect(() => {
     // Solo la referencia: el mensaje puede contener datos internos.
     console.error(logLabel, error.digest ?? error.name);
-  }, [error, logLabel]);
+    reportFrontendError(error, boundary);
+  }, [error, logLabel, boundary]);
 
   return (
     <>

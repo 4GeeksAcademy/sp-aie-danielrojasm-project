@@ -98,6 +98,33 @@ respuesta `401` o el cierre de sesión eliminan el token y redirigen a `/login`.
 
 ---
 
+## Telemetría
+
+Todo el tracking pasa por `track(eventType, properties)` de `lib/telemetry.ts`
+(`TelemetryService`): completa el Event Envelope (`eventId`, `timestamp`,
+`sessionId`, `userId`, `schemaVersion`, `requestId`…), acumula los eventos en
+memoria y los envía en lote cada 10 s o al llegar a 20, con `sendBeacon` al
+ocultar o cerrar la pestaña y hasta 3 reintentos con espera exponencial. Los
+eventos y su allowlist están tipados en `lib/telemetry-events.ts`, según
+`docs/telemetry/event-schemas.json`.
+
+La URL de la ingesta se configura en el `.env` de la raíz del monorepo (no se
+versiona), junto a la configuración de la API:
+
+```dotenv
+NEXT_PUBLIC_TELEMETRY_ENDPOINT=http://localhost:8000/telemetry/events
+NEXT_PUBLIC_TELEMETRY_ENVIRONMENT=development
+```
+
+Next solo lee los `.env` de su carpeta, así que `next.config.ts` copia del
+`.env` raíz únicamente las `NEXT_PUBLIC_TELEMETRY_*` (el resto trae URLs de
+Docker). Una variable ya definida en el entorno, como la que pasa Docker
+Compose, tiene prioridad. En Codespaces, donde el navegador no llega al puerto
+8000, usa `NEXT_PUBLIC_TELEMETRY_ENDPOINT=/api/telemetry/events` (rewrite de
+`next.config.ts`). Sin la variable, la telemetría queda desactivada y la
+consola lo avisa. Las `NEXT_PUBLIC_*` se fijan al compilar: después de
+cambiarlas hay que reiniciar `npm run dev`.
+
 ## Cómo se importa `src/`
 
 **Alias en `tsconfig.json`:** `"@trackflow/logic/*": ["../../src/*"]`

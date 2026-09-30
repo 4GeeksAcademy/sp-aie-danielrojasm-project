@@ -1,6 +1,13 @@
+"use client";
+
 import Link from "next/link";
+import { rememberSidebarNavigation } from "@/lib/inventory-telemetry";
+import { track } from "@/lib/telemetry";
+import { deviceClass } from "@/lib/telemetry-helpers";
 
 interface NavItem {
+  /** Clave estable para la telemetría: no cambia si cambia la etiqueta. */
+  key: string;
   label: string;
   href: string;
   /** Módulos previstos en próximos hitos: visibles pero deshabilitados. */
@@ -8,23 +15,34 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { label: "Panel de operaciones", href: "/" },
-  { label: "Stock por SKU", href: "/inventory/products" },
-  { label: "Registrar entrada de stock", href: "/inventory/orders/inbound" },
-  { label: "Registrar salida de stock", href: "/inventory/orders/outbound" },
-  { label: "Historial de movimientos", href: "/inventory/orders" },
-  { label: "Transportistas", href: "/#transportistas" },
-  { label: "Envíos", href: "/#envios" },
-  { label: "Calidad de datos", href: "/#validaciones" },
-  { label: "Panel de incidencias", href: "/incidents" },
-  { label: "Registrar incidencia", href: "/incidents/new" },
-  { label: "Análisis CSV de incidencias", href: "/incidents/analyzer" },
-  { label: "Directorio de proveedores", href: "/suppliers" },
-  { label: "Mi perfil", href: "/account/profile" },
-  { label: "Devoluciones", href: "#", upcoming: true },
-  { label: "Atención al cliente", href: "#", upcoming: true },
-  { label: "Dashboard ejecutivo", href: "#", upcoming: true },
+  { key: "dashboard", label: "Panel de operaciones", href: "/" },
+  { key: "inventory_stock", label: "Stock por SKU", href: "/inventory/products" },
+  { key: "inventory_inbound", label: "Registrar entrada de stock", href: "/inventory/orders/inbound" },
+  { key: "inventory_outbound", label: "Registrar salida de stock", href: "/inventory/orders/outbound" },
+  { key: "inventory_count", label: "Conteo físico", href: "/inventory/counts" },
+  { key: "inventory_history", label: "Historial de movimientos", href: "/inventory/orders" },
+  { key: "carriers", label: "Transportistas", href: "/#transportistas" },
+  { key: "shipments", label: "Envíos", href: "/#envios" },
+  { key: "data_quality", label: "Calidad de datos", href: "/#validaciones" },
+  { key: "incidents_board", label: "Panel de incidencias", href: "/incidents" },
+  { key: "incidents_new", label: "Registrar incidencia", href: "/incidents/new" },
+  { key: "incidents_analyzer", label: "Análisis CSV de incidencias", href: "/incidents/analyzer" },
+  { key: "suppliers", label: "Directorio de proveedores", href: "/suppliers" },
+  { key: "profile", label: "Mi perfil", href: "/account/profile" },
+  { key: "returns", label: "Devoluciones", href: "#", upcoming: true },
+  { key: "customer_service", label: "Atención al cliente", href: "#", upcoming: true },
+  { key: "executive_dashboard", label: "Dashboard ejecutivo", href: "#", upcoming: true },
 ];
+
+/** Demanda real de cada módulo, incluidos los que aún no existen. */
+function trackClick(item: NavItem) {
+  if (!item.upcoming) rememberSidebarNavigation(item.href);
+  track("sidebar_item_clicked", {
+    item_key: item.key,
+    is_upcoming: Boolean(item.upcoming),
+    device_class: deviceClass(),
+  });
+}
 
 export function Sidebar() {
   return (
@@ -44,21 +62,25 @@ export function Sidebar() {
         <ul className="flex gap-1 overflow-x-auto lg:flex-col">
           {navItems.map((item) =>
             item.upcoming ? (
-              <li key={item.label}>
-                <span
-                  className="flex items-center justify-between gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm text-slate-500"
+              <li key={item.key}>
+                {/* Botón sin acción: el clic solo registra la demanda del módulo. */}
+                <button
+                  type="button"
                   aria-disabled="true"
+                  onClick={() => trackClick(item)}
+                  className="flex w-full cursor-not-allowed items-center justify-between gap-2 whitespace-nowrap rounded-md px-3 py-2 text-left text-sm text-slate-500"
                 >
                   {item.label}
                   <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] uppercase tracking-wide">
                     Próximo
                   </span>
-                </span>
+                </button>
               </li>
             ) : (
-              <li key={item.label}>
+              <li key={item.key}>
                 <Link
                   href={item.href}
+                  onClick={() => trackClick(item)}
                   className="block whitespace-nowrap rounded-md px-3 py-2 text-sm hover:bg-slate-800 hover:text-white"
                 >
                   {item.label}

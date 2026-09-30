@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy.exc import OperationalError
 from sqlmodel import SQLModel
 
+from services.api import inventory_telemetry, telemetry
 from services.api import models  # noqa: F401  registra las tablas de inventario
 from services.api.common_models import HealthResponse
 from services.api.database import DatabaseNotConfiguredError, get_engine
@@ -30,6 +31,7 @@ from services.api.routes.incidents import router as incidents_router
 from services.api.routes.inventory import router as inventory_router
 from services.api.routes.profiles import router as profiles_router
 from services.api.routes.suppliers import router as suppliers_router
+from services.api.routes.telemetry import router as telemetry_router
 from services.api.routes.users import router as users_router
 from services.api.security import get_current_user
 
@@ -78,6 +80,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         logger.warning("Inventario desactivado: %s", error)
     except OperationalError:
         logger.exception("No se pudo conectar con PostgreSQL al arrancar; el inventario responderá 503.")
+    endpoint = telemetry.telemetry_endpoint()
+    if endpoint:
+        logger.info("Telemetría: ingesta en %s (%s).", endpoint, telemetry.telemetry_environment())
+    else:
+        logger.warning("Falta TELEMETRY_ENDPOINT: se usará al conectar la ingesta persistente.")
     yield
 
 
@@ -86,7 +93,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(allowed_origins),
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-    allow_headers=["Authorization", "Content-Type"],
+    # X-Request-Id / X-Session-Id: correlación entre backoffice, API y logs.
+    allow_headers=["Authorization", "Content-Type", "X-Request-Id", "X-Session-Id"],
+    expose_headers=["X-Request-Id"],
 )
 app.include_router(auth_router)
 app.include_router(users_router)
@@ -94,19 +103,29 @@ app.include_router(profiles_router)
 app.include_router(suppliers_router)
 app.include_router(incidents_router)
 app.include_router(inventory_router)
+app.include_router(telemetry_router)
 app.add_exception_handler(IncidentValidationError, handle_incident_validation_error)
 
 
 @app.middleware("http")
 async def timing_middleware(request: Request, call_next):
     # Una línea por petición: la base para decidir qué cachear con datos y no por intuición.
+    # El `requestId` une esa línea con los eventos de telemetría de la misma petición.
+    request_id = telemetry.accept_request_id(request.headers.get("x-request-id"))
+    telemetry.bind_request(request_id, telemetry.accept_session_id(request.headers.get("x-session-id")))
     start = time.perf_counter()
     response = await call_next(request)
     duration_ms = (time.perf_counter() - start) * 1000
     timing_logger.info(
-        "%s %s -> %s | %.1fms", request.method, request.url.path, response.status_code, duration_ms
+        "%s %s -> %s | %.1fms | req=%s",
+        request.method,
+        request.url.path,
+        response.status_code,
+        duration_ms,
+        request_id,
     )
     response.headers["Server-Timing"] = f"app;dur={duration_ms:.1f}"
+    response.headers["X-Request-Id"] = request_id
     return response
 
 
@@ -119,6 +138,7 @@ async def validation_error_handler(
     # pero sin el valor recibido (`input`), que podía incluir contraseñas.
     if is_incidents_path(request):
         return await handle_request_validation_error(request, error)
+    inventory_telemetry.report_validation_error(request, error)
     return unprocessable_response(error)
 
 
@@ -139,7 +159,22 @@ async def database_unavailable_handler(request: Request, error: OperationalError
 
 @app.exception_handler(Exception)
 async def unhandled_error_handler(request: Request, error: Exception) -> JSONResponse:
-    logger.exception("Error no controlado en %s %s", request.method, request.url.path)
+    logger.exception(
+        "Error no controlado en %s %s (req=%s)",
+        request.method,
+        request.url.path,
+        telemetry.current_request_id(),
+    )
+    route = request.scope.get("route")
+    telemetry.emit(
+        "api_error_occurred",
+        {
+            # Plantilla de la ruta, nunca la URL con ids; sin mensaje ni traza.
+            "route": getattr(route, "path", "/unmatched"),
+            "http_method": request.method,
+            "error_class": type(error).__name__,
+        },
+    )
     return internal_error_response()
 
 

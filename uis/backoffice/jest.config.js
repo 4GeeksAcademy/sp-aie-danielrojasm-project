@@ -15,8 +15,11 @@ module.exports = {
     "lib/api-client.ts",
     "lib/incidents.ts",
     "lib/inventory.ts",
+    "lib/inventory-telemetry.ts",
     "lib/labels.ts",
     "lib/registration.ts",
+    "lib/telemetry.ts",
+    "lib/telemetry-helpers.ts",
     "lib/use-api-list.ts",
   ],
 };

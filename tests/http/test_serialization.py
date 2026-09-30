@@ -14,6 +14,13 @@ from services.api.schemas import InventoryOrderRead, SKUListItem, SKURead
 
 
 PASSWORD = "correct-password"
+# Rutas que siempre responden 405: el stock solo cambia con órdenes.
+ROUTES_THAT_ALWAYS_REJECT = {
+    "/inventory/products/{sku_id}",
+    "/inventory/products/{sku_id}/stock",
+    "/inventory/orders",
+    "/inventory/orders/{order_path}",
+}
 # Rutas sin cuerpo JSON: 204 sin contenido y la descarga CSV.
 ROUTES_WITHOUT_JSON_BODY = {
     ("DELETE", "/users/{user_id}"),
@@ -88,14 +95,27 @@ def test_every_json_route_declares_a_pydantic_response_model():
         for path, item in app.openapi()["paths"].items()
         for method, operation in item.items()
     ]
+    rejecting = [
+        (method, path, operation)
+        for method, path, operation in operations
+        if path in ROUTES_THAT_ALWAYS_REJECT and method in ("PUT", "PATCH", "DELETE")
+    ]
     missing = [
         (method, path)
         for method, path, operation in operations
         if (method, path) not in ROUTES_WITHOUT_JSON_BODY
+        and (method, path, operation) not in rejecting
         and not is_named_schema(success_schema(operation))
     ]
-    assert len(operations) == 31  # 32 rutas; el health check no se publica
+    # 32 rutas (el health check no se publica), el conteo físico, la ingesta de
+    # telemetría y 12 rechazos explícitos de edición directa del stock.
+    assert len(operations) == 45
     assert missing == []
+    # Los rechazos no tienen respuesta 2xx: su contrato es el cuerpo del 405.
+    assert len(rejecting) == 12
+    for _method, _path, operation in rejecting:
+        error_schema = operation["responses"]["405"]["content"]["application/json"]["schema"]
+        assert is_named_schema(error_schema)
 
 
 def test_health_check_declares_its_schema():

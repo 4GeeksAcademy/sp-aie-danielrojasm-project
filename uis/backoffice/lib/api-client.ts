@@ -1,3 +1,6 @@
+import { createUuid, endTelemetrySession, telemetrySessionId } from "@/lib/telemetry";
+import { reportApiCallFailure, reportSessionExpired } from "@/lib/telemetry-reporters";
+
 const TOKEN_STORAGE_KEY = "trackflow_access_token";
 
 interface ApiErrorBody {
@@ -49,6 +52,11 @@ const INVALID_RESPONSE_MESSAGE =
   "El servidor respondió con datos que no se pudieron interpretar. Inténtalo de nuevo.";
 const VALIDATION_ERROR_MESSAGE = "Revisa los datos del formulario e inténtalo de nuevo.";
 
+function requestUrl(input: RequestInfo | URL): string {
+  if (typeof input === "string") return input;
+  return input instanceof URL ? input.href : input.url;
+}
+
 export async function apiFetch(
   input: RequestInfo | URL,
   init: RequestInit = {},
@@ -56,6 +64,11 @@ export async function apiFetch(
   const headers = new Headers(init.headers);
   const token = getAccessToken();
   if (token) headers.set("Authorization", `Bearer ${token}`);
+  // Correlación: la API registra este id en su log y en sus eventos.
+  const requestId = createUuid();
+  headers.set("X-Request-Id", requestId);
+  const sessionId = telemetrySessionId();
+  if (sessionId) headers.set("X-Session-Id", sessionId);
 
   let response: Response;
   try {
@@ -63,10 +76,31 @@ export async function apiFetch(
   } catch {
     // fetch solo rechaza por fallos de red; su mensaje ("Failed to fetch")
     // no es útil para el usuario.
+    reportApiCallFailure(requestUrl(input), init.method, requestId, NETWORK_ERROR_STATUS, "network");
     throw new ApiError(NETWORK_ERROR_MESSAGE, NETWORK_ERROR_STATUS);
   }
-  if (response.status === 401) redirectToLogin();
+  if (response.status >= 500) {
+    reportApiCallFailure(requestUrl(input), init.method, requestId, response.status, "server_error");
+  }
+  if (response.status === 401) {
+    // Con token guardado, el 401 es una sesión que caduca; sin él, un login fallido.
+    if (token) {
+      reportSessionExpired(token, requestId);
+      endTelemetrySession();
+    }
+    redirectToLogin();
+  }
   return response;
+}
+
+function reportInvalidResponse(response: Response, init: RequestInit, input: RequestInfo | URL): void {
+  reportApiCallFailure(
+    requestUrl(input),
+    init.method,
+    response.headers.get("X-Request-Id") ?? createUuid(),
+    response.status,
+    "invalid_response",
+  );
 }
 
 /**
@@ -94,10 +128,15 @@ async function getApiError(
   return { body, message: fallback };
 }
 
-async function parseJson<T>(response: Response): Promise<T> {
+async function parseJson<T>(
+  response: Response,
+  init: RequestInit,
+  input: RequestInfo | URL,
+): Promise<T> {
   try {
     return (await response.json()) as T;
   } catch {
+    reportInvalidResponse(response, init, input);
     throw new ApiError(INVALID_RESPONSE_MESSAGE, response.status);
   }
 }
@@ -113,7 +152,7 @@ export async function requestJson<T>(
     throw new ApiError(error.message, response.status, error.body);
   }
   if (response.status === 204) return undefined as T;
-  return parseJson<T>(response);
+  return parseJson<T>(response, init, input);
 }
 
 export async function requestBlob(
@@ -129,6 +168,7 @@ export async function requestBlob(
   try {
     return await response.blob();
   } catch {
+    reportInvalidResponse(response, init, input);
     throw new ApiError(INVALID_RESPONSE_MESSAGE, response.status);
   }
 }

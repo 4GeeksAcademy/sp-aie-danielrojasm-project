@@ -17,6 +17,8 @@ services:
     volumes:
       - ./services:/app/services
       - ./packages:/app/packages:ro
+      # Allowlist de propiedades de cada evento de telemetría.
+      - ./docs/telemetry:/app/docs/telemetry:ro
     networks:
       - trackflow
     healthcheck:
@@ -35,6 +37,8 @@ services:
     environment:
       TRACKFLOW_API_INTERNAL_URL: ${TRACKFLOW_API_INTERNAL_URL:?Falta TRACKFLOW_API_INTERNAL_URL en .env}
       NEXT_PUBLIC_INVENTORY_API_URL: ${NEXT_PUBLIC_INVENTORY_API_URL:?Falta NEXT_PUBLIC_INVENTORY_API_URL en .env}
+      # Del .env raíz; si falta, la ruta del propio backoffice (rewrite /api/telemetry/* hacia la API).
+      NEXT_PUBLIC_TELEMETRY_ENDPOINT: ${NEXT_PUBLIC_TELEMETRY_ENDPOINT:-/api/telemetry/events}
     ports:
       - "3000:3000"
       - "3001:3001"
