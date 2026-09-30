@@ -166,6 +166,30 @@ directo al puerto privado de la API.
 
 ---
 
+### 🐳 Entorno de desarrollo en Docker Compose — Ticket #infra-40
+
+`docker compose up` desde la raíz levanta dos servicios en la red `trackflow-dev`:
+
+- **`api`** (`services/Dockerfile`, `python:3.12-slim` + `uv pip install --system -r api/requirements.txt`): Uvicorn con
+  `--reload` sobre `services/` y `packages/`, montados por bind mount desde `/app`, porque la API se importa como
+  `services.api.main` y usa `packages.shared`. Recibe `.env` entero (`env_file`). `BACKOFFICE_ORIGIN` y `PASSWORD_RESET_URL`
+  se sobrescriben con `DOCKER_BACKOFFICE_ORIGIN` y `DOCKER_PASSWORD_RESET_URL`, porque en el contenedor el backoffice va en el
+  3001 y en local sigue en el 3002. Healthcheck contra `GET /`.
+- **`uis`** (`uis/Dockerfile`, `node:24-alpine`): `npm ci` por separado en website y backoffice; `uis/start.sh` arranca
+  `next dev` de la web en el 3000 y del backoffice en el 3001, y sale si una de las dos cae. Monta `uis/`, más `src/` y el
+  `tsconfig.json` raíz (solo lectura) para que `turbopack.root` (= `/app`) resuelva `@trackflow/logic`. `node_modules` y `.next`
+  de cada app van en volúmenes anónimos: los binarios son de Alpine, no del host. Solo recibe `TRACKFLOW_API_INTERNAL_URL` y
+  `NEXT_PUBLIC_INVENTORY_API_URL` (`http://api:8000`, por nombre de servicio), nunca los secretos de la API. Estas variables del
+  proceso tienen prioridad sobre `uis/backoffice/.env.local`, que también llega por el bind mount.
+- Todas las variables salen de `.env` (plantilla en `.env.example`); el YAML falla con mensaje (`${VAR:?}`) si falta alguna.
+- Tras cambiar un `package.json` o `requirements.txt`: `docker compose up --build -V` (renueva los volúmenes anónimos).
+- `talent-pipeline-tracker` no está en el contenedor de interfaces.
+- **Codespaces:** el Docker-in-Docker del Codespace arrastra una tabla `iptables-legacy` con `FORWARD DROP` que solo acepta
+  `docker0`; en una red con nombre (`br-*`) los contenedores no se ven entre sí ni salen a internet (el DNS interno sí resuelve).
+  No ocurre en Docker Desktop ni en un Docker Engine estándar.
+
+---
+
 ## Puertos de desarrollo
 
 - **`uis/website`** — puerto **3000**, con `npm run dev` o `npm run dev:website` desde la raíz.

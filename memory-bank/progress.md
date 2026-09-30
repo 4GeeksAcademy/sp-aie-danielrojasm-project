@@ -8,6 +8,24 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Hito 5 — Contenedorización del monorepo (#infra-40)
+
+- 2026-09-29: `uis/Dockerfile` + `uis/start.sh` (website :3000 y backoffice
+   :3001 en un único contenedor), `services/Dockerfile` (FastAPI con
+   `--reload`), `.dockerignore` en ambas carpetas y `docker-compose.yml` con la
+   red `trackflow-dev`. Variables nuevas en `.env.example`
+   (`TRACKFLOW_API_INTERNAL_URL`, `NEXT_PUBLIC_INVENTORY_API_URL`,
+   `DOCKER_BACKOFFICE_ORIGIN`, `DOCKER_PASSWORD_RESET_URL`).
+- Verificado en Codespaces: `docker compose build` y `up -d` sin errores; `api`
+   healthy; `/`, `/aplicar` (3000), `/`, `/login`, `/inventory/products` (3001)
+   y `GET /` de la API (8000) → 200. Recarga en caliente comprobada editando
+   `site.ts` y `main.py` sin reconstruir. `api` resuelve por DNS desde `uis`.
+- Bloqueo: en este Codespace la red `trackflow-dev` no reenvía tráfico
+   (`iptables-legacy` con `FORWARD DROP`, ver techContext), así que los
+   rewrites `uis → api:8000` agotan el tiempo y Google Fonts/Unsplash fallan.
+- Siguiente paso: permitir los bridges `br-*` en la tabla legacy del Codespace
+   (o probar en Docker Desktop) y verificar login e inventario vía rewrite.
+
 ### Hito 5 — Backoffice: interfaz de inventario (TRK-0341)
 
 - Cuatro vistas en `uis/backoffice` (2026-09-29): `/inventory/products` (stock

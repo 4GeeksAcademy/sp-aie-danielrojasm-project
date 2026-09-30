@@ -1,0 +1,15 @@
+# Dependencias y artefactos: se instalan o generan dentro del contenedor
+**/node_modules
+**/.next
+**/out
+**/coverage
+**/*.tsbuildinfo
+
+# Secretos y configuración local
+**/.env*
+
+# Logs
+**/*.log
+
+# App fuera del contenedor de interfaces
+talent-pipeline-tracker

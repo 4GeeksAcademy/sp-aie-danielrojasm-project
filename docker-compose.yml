@@ -1,0 +1,60 @@
+# Entorno de desarrollo de TrackFlow: `docker compose up` desde la raíz.
+# Toda la configuración sale de `.env` (copia de `.env.example`); aquí no hay
+# valores de entorno ni secretos escritos a mano.
+
+services:
+  api:
+    build:
+      context: ./services
+    env_file:
+      - .env
+    environment:
+      # El backoffice del contenedor escucha en 3001 (en local, en 3002).
+      BACKOFFICE_ORIGIN: ${DOCKER_BACKOFFICE_ORIGIN:?Falta DOCKER_BACKOFFICE_ORIGIN en .env}
+      PASSWORD_RESET_URL: ${DOCKER_PASSWORD_RESET_URL:?Falta DOCKER_PASSWORD_RESET_URL en .env}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services:/app/services
+      - ./packages:/app/packages:ro
+    networks:
+      - trackflow
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  uis:
+    build:
+      context: ./uis
+    command: ["sh", "./start.sh"]
+    init: true
+    # Solo las URLs que necesita Next: los secretos de la API no entran aquí.
+    environment:
+      TRACKFLOW_API_INTERNAL_URL: ${TRACKFLOW_API_INTERNAL_URL:?Falta TRACKFLOW_API_INTERNAL_URL en .env}
+      NEXT_PUBLIC_INVENTORY_API_URL: ${NEXT_PUBLIC_INVENTORY_API_URL:?Falta NEXT_PUBLIC_INVENTORY_API_URL en .env}
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    volumes:
+      - ./uis:/app/uis
+      # El backoffice importa la lógica del Hito 2 desde <raíz>/src.
+      - ./src:/app/src:ro
+      - ./tsconfig.json:/app/tsconfig.json:ro
+      # Volúmenes anónimos: el bind mount no tapa las dependencias ni la caché
+      # de Next instaladas en la imagen (binarios de Alpine, no del host).
+      - /app/uis/website/node_modules
+      - /app/uis/website/.next
+      - /app/uis/backoffice/node_modules
+      - /app/uis/backoffice/.next
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - trackflow
+
+networks:
+  trackflow:
+    name: trackflow-dev
