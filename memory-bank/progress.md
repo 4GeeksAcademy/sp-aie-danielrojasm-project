@@ -54,7 +54,15 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
 - `experimental.inlineCss` en el website: FCP/LCP móvil con throttling real
    1,7 s → 1,0 s (home) y 1,6 s → 1,0 s (`/aplicar`); HTML 7,6 → 26,7 KB.
    Es experimental en Next 16: vigilar al actualizar Next.
-- Siguiente paso: medición final en `audit/after/` y `REPORT.md`.
+- Medición final en `audit/after/lighthouse/` y `audit/REPORT.md`. Accessibility
+   100 en las cuatro vistas; inventario móvil Performance 94 → 99. La home
+   del website sale 84 en simulado, pero una comparación intercalada de 5
+   rondas (`audit/experiments/ab-website/`) da original 92 [90–96] frente a
+   actual 91 [84–92]: es ruido del Codespace. Con throttling real FCP = LCP
+   1,67 → 0,94 s.
+- Pendiente fuera de alcance: autenticación en servidor, RUM con `web-vitals`
+   y revisar `inlineCss` al actualizar Next.
+- Siguiente paso: revisión del PR de `feat/frontend-performance`.
 
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 
