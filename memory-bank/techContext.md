@@ -174,6 +174,14 @@ El middleware `timing_middleware` registra cada petición en `trackflow.timing` 
 `_configure_logging()` da handler al logger `trackflow`, porque uvicorn solo configura los suyos.
 Decisiones y mediciones en `audit/caching/CACHING_REPORT.md`.
 
+### Telemetría (diseño, pendiente de implementar) — Milestone 09
+
+El contrato está en `docs/telemetry/telemetry-plan.md`; `docs/telemetry/event-schemas.json` es la fuente validable (draft-07,
+allowlist con `additionalProperties: false`). Decisiones: los eventos obligatorios de inventario los emite solo la API, con outbox
+transaccional en Supabase; los del navegador pasan por una ingesta en `services/api` (`POST /telemetry/events`) que valida el esquema y
+toma `userId` del token. Correlación por `X-Request-Id` (una por llamada de `apiFetch`) y `X-Session-Id` (una por pestaña). En eventos:
+`LA`/`ZGZ` → `los_angeles`/`zaragoza`, `client_id` = slug de `client_name`, `product_id` = código SKU. Nada implementado todavía.
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el

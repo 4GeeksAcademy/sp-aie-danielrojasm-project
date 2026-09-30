@@ -8,6 +8,31 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Plan de telemetría (diseño)
+
+- `docs/telemetry/telemetry-plan.md` y `docs/telemetry/event-schemas.json`
+   (JSON Schema draft-07): 42 eventos, 5 obligatorios (`inbound_order_created`,
+   `outbound_order_created`, `stock_threshold_triggered`,
+   `direct_stock_edit_rejected`, `inventory_discrepancy_detected`) y 37
+   oportunidades en inventario, auth, rendimiento, errores, navegación,
+   incidencias y proveedores. 11 stream, 5 batch horario, 26 batch diario.
+- Envelope común (`eventId`, `timestamp`, `sessionId`, `userId`, `event_type`,
+   `schemaVersion`, `requestId`, `source`, `environment`, `properties`) y
+   allowlist por evento (`additionalProperties: false`).
+- Solo diseño: no hay código de instrumentación. El plan exige piezas nuevas
+   en la API: umbral mínimo por cliente con tabla `stock_threshold_alerts`,
+   `POST /inventory/counts`, rutas 405 explícitas contra la edición directa
+   del stock, outbox transaccional e ingesta `POST /telemetry/events`.
+- Verificado: el esquema pasa el meta-esquema draft-07 (`jsonschema`); el
+   ejemplo del plan valida y se rechazan claves fuera del allowlist, almacén
+   `LA` sin mapear, `userId` con email y discrepancia con cantidad 0. Los 42
+   `event_type` del Markdown coinciden con los del JSON.
+- Riesgos abiertos: `client_id` derivado de `client_name` (no hay tabla de
+   clientes), umbral duplicado en frontend y API, ediciones directas en
+   Supabase invisibles para la API, SLA de picking no medible.
+- Siguiente paso: revisión del plan con el tech lead e implementación en el
+   orden de la sección 13 (correlación `requestId`/`sessionId` primero).
+
 ### Milestone 09 — Optimización de rendimiento: caching
 
 - Middleware de timing en `services/api/main.py` (log `trackflow.timing` y
@@ -332,6 +357,12 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### Plan de telemetría
+
+Catálogo de eventos con hipótesis y decisión por evento, envelope común y
+esquemas validables. Los obligatorios de inventario los emite solo la API,
+desde la transacción del movimiento, para que el dato de negocio sea fiable.
 
 ### Caching
 
