@@ -31,12 +31,21 @@ class ProfileFields(BaseModel):
     address: str | None = None
 
 
+# ---------------------------------------------------------------------------
+# Entrada: solo los campos que el cliente puede escribir. `extra="forbid"`
+# responde 422 ante cualquier otro (p. ej. `role` o `is_active` en el alta).
+# ---------------------------------------------------------------------------
+
 class UserCreate(ProfileFields):
+    model_config = ConfigDict(extra="forbid")
+
     email: EmailStr
     password: NewPassword
 
 
 class UserUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     email: EmailStr | None = None
     password: NewPassword | None = None
     role: UserRole | None = None
@@ -44,8 +53,38 @@ class UserUpdate(BaseModel):
 
 
 class ProfileUpdate(ProfileFields):
-    pass
+    model_config = ConfigDict(extra="forbid")
 
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=72)
+
+
+class ForgotPasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: str
+    new_password: NewPassword
+
+
+class ChangePasswordRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    current_password: str
+    new_password: NewPassword
+
+
+# ---------------------------------------------------------------------------
+# Modelos internos (TinyDB). Nunca se declaran como `response_model`: `User`
+# lleva `hashed_password` y `Profile` las claves `id`/`user_id`.
+# ---------------------------------------------------------------------------
 
 class User(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
@@ -58,38 +97,52 @@ class User(BaseModel):
     created_at: datetime
 
 
-class UserResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: str
-    email: EmailStr
-    is_active: bool
-    role: UserRole
-    created_at: datetime
-
-
 class Profile(ProfileFields):
     id: str
     user_id: str
 
 
-class LoginRequest(BaseModel):
+# ---------------------------------------------------------------------------
+# Salida: proyecciones explícitas por endpoint.
+# ---------------------------------------------------------------------------
+
+class UserRegistered(BaseModel):
+    """Alta pública: sin email (ya va en la petición) ni credenciales."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    role: UserRole
+    created_at: datetime
+
+
+class UserRead(BaseModel):
+    """Detalle de una cuenta para su dueño o un admin (sesión obligatoria)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
     email: EmailStr
-    password: str = Field(min_length=1, max_length=72)
+    role: UserRole
+    is_active: bool
+    created_at: datetime
 
 
-class ForgotPasswordRequest(BaseModel):
+class UserListItem(BaseModel):
+    """Fila del listado de admin: lo justo para identificar y gestionar la cuenta."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
     email: EmailStr
+    role: UserRole
+    is_active: bool
 
 
-class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: NewPassword
+class ProfileRead(ProfileFields):
+    """Datos de contacto editables, sin las claves internas del documento."""
 
-
-class ChangePasswordRequest(BaseModel):
-    current_password: str
-    new_password: NewPassword
+    model_config = ConfigDict(from_attributes=True)
 
 
 class TokenResponse(BaseModel):
@@ -98,6 +151,9 @@ class TokenResponse(BaseModel):
 
 
 class CurrentUserResponse(BaseModel):
+    """`GET /auth/me`: el propio llamante, por eso sí incluye su email."""
+
+    id: str
     email: EmailStr
     role: UserRole
-    profile: Profile
+    profile: ProfileRead

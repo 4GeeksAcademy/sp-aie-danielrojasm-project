@@ -20,12 +20,14 @@ def remove_profile(user_id: str) -> None:
 def test_me_returns_email_role_and_profile(make_user):
     user = make_user(name="Valentina Cruz", address="Zaragoza")
 
-    me = auth_me(user)
+    me = auth_me(user).model_dump()
 
-    assert me["email"] == "ana@example.com"
+    assert me["id"] == user.id
+    assert me["email"] == "ana@example.com"  # /auth/me sí devuelve el email propio
     assert me["role"] == "user"
-    assert me["profile"].name == "Valentina Cruz"
-    assert "hashed_password" not in me  # nunca sale el hash
+    # El perfil sale sin sus claves internas (`id`, `user_id`) y nunca sale el hash.
+    assert me["profile"] == {"name": "Valentina Cruz", "phone": None, "address": "Zaragoza"}
+    assert "hashed_password" not in me
 
 
 def test_profile_can_be_updated(make_user):

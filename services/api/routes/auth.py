@@ -1,6 +1,5 @@
 import logging
 import os
-from typing import Any
 from urllib.parse import quote, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -8,8 +7,9 @@ from pydantic import ValidationError
 
 from services.api.auth_models import (
     ChangePasswordRequest, CurrentUserResponse, ForgotPasswordRequest,
-    LoginRequest, ResetPasswordRequest, TokenResponse, User,
+    LoginRequest, ProfileRead, ResetPasswordRequest, TokenResponse, User,
 )
+from services.api.common_models import MessageResponse
 from services.api.passwords import verify_password
 from services.api.reset_email import EmailDeliveryError, send_reset_email
 from services.api.security import create_access_token, get_current_user
@@ -35,8 +35,8 @@ def _reset_url() -> str:
     return configured
 
 
-@router.post("/forgot-password")
-def forgot_password(payload: ForgotPasswordRequest) -> dict[str, str]:
+@router.post("/forgot-password", response_model=MessageResponse)
+def forgot_password(payload: ForgotPasswordRequest) -> MessageResponse:
     user = get_user_by_email(str(payload.email))
     if user is not None and user.is_active:
         token = issue_reset_token(user.id)
@@ -48,24 +48,24 @@ def forgot_password(payload: ForgotPasswordRequest) -> dict[str, str]:
             # La respuesta sigue siendo genérica para no revelar si la cuenta
             # existe; el log no incluye el email, el enlace ni el token.
             logger.error("No se pudo enviar el restablecimiento de contraseña: %s", error)
-    return {"message": "Si esa dirección está registrada, recibirás un enlace en breve"}
+    return MessageResponse(message="Si esa dirección está registrada, recibirás un enlace en breve")
 
 
-@router.post("/reset-password")
-def reset_password(payload: ResetPasswordRequest) -> dict[str, str]:
+@router.post("/reset-password", response_model=MessageResponse)
+def reset_password(payload: ResetPasswordRequest) -> MessageResponse:
     if not reset_user_password(payload.token, payload.new_password):
         raise HTTPException(status_code=400, detail="Enlace inválido, caducado o ya utilizado")
-    return {"message": "Contraseña actualizada"}
+    return MessageResponse(message="Contraseña actualizada")
 
 
-@router.post("/change-password")
+@router.post("/change-password", response_model=MessageResponse)
 def change_password(
     payload: ChangePasswordRequest, current_user: User = Depends(get_current_user)
-) -> dict[str, str]:
+) -> MessageResponse:
     if not verify_password(payload.current_password, current_user.hashed_password):
         raise HTTPException(status_code=400, detail="La contraseña actual es incorrecta")
     change_user_password(current_user.id, payload.new_password)
-    return {"message": "Contraseña actualizada"}
+    return MessageResponse(message="Contraseña actualizada")
 
 
 async def _login_payload(request: Request) -> LoginRequest:
@@ -129,12 +129,15 @@ async def login(request: Request) -> TokenResponse:
 
 
 @router.get("/me", response_model=CurrentUserResponse)
-def auth_me(current_user: User = Depends(get_current_user)) -> dict[str, Any]:
+def auth_me(current_user: User = Depends(get_current_user)) -> CurrentUserResponse:
     profile = get_profile_by_user_id(current_user.id)
     if profile is None:
         raise HTTPException(status_code=404, detail="Perfil no encontrado")
-    return {
-        "email": current_user.email,
-        "role": current_user.role,
-        "profile": profile,
-    }
+    # `id` identifica al llamante en la UI (p. ej. sus movimientos de inventario);
+    # el perfil sale sin sus claves internas `id` y `user_id`.
+    return CurrentUserResponse(
+        id=current_user.id,
+        email=current_user.email,
+        role=current_user.role,
+        profile=ProfileRead.model_validate(profile),
+    )

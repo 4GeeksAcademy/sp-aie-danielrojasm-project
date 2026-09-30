@@ -16,18 +16,23 @@ type Category =
   | "it_and_wms_software"
   | "cleaning_and_facilities";
 
-interface Supplier {
+/** Fila de `GET /api/suppliers`: solo las columnas que pinta la tabla. */
+interface SupplierListItem {
   id: number;
   name: string;
   country: Country;
   categories: Category[];
   rate_per_shipment: number;
   currency: "USD" | "EUR";
-  updated_at: string;
   status: Status;
-  service_zone?: string | null;
-  contact_email?: string | null;
-  notes?: string | null;
+  service_zone: string | null;
+}
+
+/** Detalle: respuesta del alta y de los cambios de tarifa o estado. */
+interface Supplier extends SupplierListItem {
+  updated_at: string;
+  contact_email: string | null;
+  notes: string | null;
 }
 
 const categoryLabels: Record<Category, string> = {
@@ -94,8 +99,8 @@ export function SupplierDirectory() {
     loading,
     error: loadError,
     retry: retryLoad,
-  } = useApiList<Supplier>(
-    () => requestJson<Supplier[]>(`/api/suppliers?${query}`),
+  } = useApiList<SupplierListItem>(
+    () => requestJson<SupplierListItem[]>(`/api/suppliers?${query}`),
     "No se pudo cargar el directorio de proveedores.",
     query,
   );
@@ -166,7 +171,7 @@ export function SupplierDirectory() {
     }
   }
 
-  async function toggleStatus(supplier: Supplier) {
+  async function toggleStatus(supplier: SupplierListItem) {
     const nextStatus: Status = supplier.status === "active" ? "suspended" : "active";
     setError("");
     setNotice("");

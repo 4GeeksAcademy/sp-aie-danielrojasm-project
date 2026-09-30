@@ -235,9 +235,15 @@ class AuthApiTests(unittest.TestCase):
 
         self.assertEqual(update_response.status_code, 200, update_response.text)
         self.assertEqual(me_response.status_code, 200, me_response.text)
+        self.assertEqual(
+            update_response.json(), {"name": "Updated", "phone": "555", "address": "Zaragoza"}
+        )
         self.assertEqual(me_response.json()["email"], "owner@example.com")
-        self.assertEqual(me_response.json()["profile"]["user_id"], user["id"])
-        self.assertEqual(me_response.json()["profile"]["name"], "Updated")
+        self.assertEqual(me_response.json()["id"], user["id"])
+        self.assertEqual(
+            me_response.json()["profile"],
+            {"name": "Updated", "phone": "555", "address": "Zaragoza"},
+        )
 
     def test_invalid_malformed_and_expired_tokens_return_401(self) -> None:
         user = self.register()

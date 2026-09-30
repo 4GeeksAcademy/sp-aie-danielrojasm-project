@@ -59,7 +59,7 @@ export function InventoryOrderHistory() {
     () => (typeFilter === "all" ? orders : orders.filter((order) => order.order_type === typeFilter)),
     [orders, typeFilter],
   );
-  const currentUserId = user?.profile.user_id ?? null;
+  const currentUserId = user?.id ?? null;
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -153,9 +153,9 @@ export function InventoryOrderHistory() {
                         <time dateTime={order.created_at}>{formatOrderDate(order.created_at)}</time>
                       </td>
                       <td className="px-3 py-3">
-                        <p className="text-slate-900">{order.sku.name}</p>
+                        <p className="text-slate-900">{order.sku_name}</p>
                         <p className="mt-0.5 font-mono text-xs text-slate-500">
-                          {order.sku.sku} · {order.sku.client_name}
+                          {order.sku_code} · {order.client_name}
                         </p>
                       </td>
                       <td className="whitespace-nowrap px-3 py-3 text-slate-700">

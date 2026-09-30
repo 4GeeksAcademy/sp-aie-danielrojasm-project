@@ -54,17 +54,43 @@ class SupplierFields(BaseModel):
 
 
 class SupplierCreate(SupplierFields):
-    pass
+    # `id` y `updated_at` los asigna el servidor; cualquier campo extra es un 422.
+    model_config = ConfigDict(use_enum_values=True, extra="forbid")
 
 
 class Supplier(SupplierFields):
+    """Detalle completo: respuesta del alta, del detalle y de las actualizaciones."""
+
     id: int
     updated_at: datetime
 
 
+class SupplierListItem(BaseModel):
+    """Fila del directorio: solo las columnas que pinta la tabla del backoffice.
+
+    Omite `contact_email`, `notes` (texto libre) y `updated_at`, que solo se
+    consultan en el detalle.
+    """
+
+    model_config = ConfigDict(from_attributes=True, use_enum_values=True)
+
+    id: int
+    name: str
+    country: Country
+    categories: list[SupplierCategory]
+    rate_per_shipment: float
+    currency: Currency
+    status: SupplierStatus
+    service_zone: str | None = None
+
+
 class RateUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     rate_per_shipment: float = Field(gt=0)
 
 
 class StatusUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     status: SupplierStatus

@@ -8,7 +8,7 @@ import {
   listSKUs,
   skuCategoryLabels,
   warehouseLabels,
-  type SKU,
+  type SKUListItem,
   type StockLevel,
   type Warehouse,
 } from "@/lib/inventory";
@@ -23,7 +23,7 @@ type WarehouseFilter = "all" | Warehouse;
 const warehouses = Object.keys(warehouseLabels) as Warehouse[];
 
 export function InventoryStockTable() {
-  const { items: skus, loading, error: loadError, retry } = useApiList<SKU>(
+  const { items: skus, loading, error: loadError, retry } = useApiList<SKUListItem>(
     listSKUs,
     "No se pudo cargar el inventario.",
   );

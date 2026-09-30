@@ -19,7 +19,7 @@ import {
   slaCategories,
   toFriendlyError,
   updateIncidentStatus,
-  type Incident,
+  type IncidentListItem,
   type IncidentFilters,
   type IncidentStatus,
 } from "@/lib/incidents";
@@ -32,7 +32,7 @@ interface IncidentBoardProps {
 type ListState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; incidents: Incident[]; loadedAt: number };
+  | { kind: "ready"; incidents: IncidentListItem[]; loadedAt: number };
 
 interface Notice {
   tone: "success" | "error";
@@ -133,7 +133,7 @@ export function IncidentBoard({ onChanged }: IncidentBoardProps) {
     }
   }
 
-  function replaceIncident(id: number, patch: Partial<Incident>) {
+  function replaceIncident(id: number, patch: Partial<IncidentListItem>) {
     setState((current) =>
       current.kind === "ready"
         ? {
@@ -146,7 +146,7 @@ export function IncidentBoard({ onChanged }: IncidentBoardProps) {
     );
   }
 
-  async function changeStatus(incident: Incident, target: IncidentStatus) {
+  async function changeStatus(incident: IncidentListItem, target: IncidentStatus) {
     const previous = incident.status;
     if (target === previous) return;
     setNotice(null);
@@ -154,7 +154,8 @@ export function IncidentBoard({ onChanged }: IncidentBoardProps) {
     replaceIncident(incident.id, { status: target });
     try {
       const updated = await updateIncidentStatus(incident.id, target);
-      replaceIncident(incident.id, updated);
+      // La fila del listado solo guarda los campos del listado (sin `reported_by`).
+      replaceIncident(incident.id, { status: updated.status });
       setNotice({
         tone: "success",
         message: `Incidencia #${incident.id} actualizada a «${incidentStatusLabels[updated.status]}».`,

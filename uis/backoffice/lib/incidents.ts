@@ -25,7 +25,8 @@ export type Branch =
   | "zaragoza_warehouse"
   | "zaragoza_office";
 
-export interface Incident {
+/** Fila de `GET /api/incidents`: sin el email de quien la registró. */
+export interface IncidentListItem {
   id: number;
   title: string;
   description: string;
@@ -33,8 +34,12 @@ export interface Incident {
   status: IncidentStatus;
   origin: IncidentOrigin;
   branch: Branch;
-  reported_by: string | null;
   created_at: string;
+}
+
+/** Detalle: respuesta del alta y del cambio de estado. */
+export interface Incident extends IncidentListItem {
+  reported_by: string | null;
   updated_at: string;
 }
 
@@ -238,13 +243,13 @@ export function toFriendlyError(error: unknown, action: string): FriendlyError {
 const BASE_PATH = "/api/incidents";
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
-export function fetchIncidents(filters: IncidentFilters): Promise<Incident[]> {
+export function fetchIncidents(filters: IncidentFilters): Promise<IncidentListItem[]> {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) {
     if (value) params.set(key, value);
   }
   const query = params.toString();
-  return requestJson<Incident[]>(query ? `${BASE_PATH}?${query}` : BASE_PATH);
+  return requestJson<IncidentListItem[]>(query ? `${BASE_PATH}?${query}` : BASE_PATH);
 }
 
 export function fetchIncidentSummary(): Promise<IncidentSummary> {

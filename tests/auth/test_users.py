@@ -65,14 +65,18 @@ def test_changing_password_invalidates_pending_reset_links(make_user):
 
     updated = put_user(user.id, UserUpdate(password="brand-new-password"), user)
 
-    assert verify_password("brand-new-password", updated.hashed_password)
+    assert "hashed_password" not in updated.model_dump()  # el hash nunca sale
+    assert verify_password("brand-new-password", get_user_by_id(user.id).hashed_password)
     with get_auth_db() as db:
         assert db.table("password_resets").all() == []
 
 
 def test_empty_update_leaves_account_unchanged(make_user):
     user = make_user()
-    assert put_user(user.id, UserUpdate(), user) == user
+    assert put_user(user.id, UserUpdate(), user).model_dump() == user.model_dump(
+        exclude={"hashed_password"}
+    )
+    assert get_user_by_id(user.id) == user
 
 
 # --- Modos de fallo ---------------------------------------------------------

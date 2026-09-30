@@ -22,6 +22,7 @@ from services.api.incident_models import (
     FieldError,
     Incident,
     IncidentCreate,
+    IncidentListItem,
     IncidentStatusUpdate,
     IncidentSummary,
     ValidationErrorResponse,
@@ -132,13 +133,13 @@ def create_incident(
     return _incident_from_document(document)
 
 
-@router.get("", response_model=list[Incident])
+@router.get("", response_model=list[IncidentListItem])
 def list_incidents(
     status_filter: IncidentStatus | None = Query(default=None, alias="status"),
     origin: IncidentOrigin | None = None,
     branch: Branch | None = None,
     category: IncidentCategory | None = None,
-) -> list[Incident]:
+) -> list[IncidentListItem]:
     filters = {
         "status": status_filter,
         "origin": origin,
@@ -153,7 +154,8 @@ def list_incidents(
         for document in documents
         if all(document.get(key) == value for key, value in active.items())
     ]
-    return sorted(incidents, key=lambda item: (item.created_at, item.id), reverse=True)
+    incidents.sort(key=lambda item: (item.created_at, item.id), reverse=True)
+    return [IncidentListItem.model_validate(incident) for incident in incidents]
 
 
 @router.get("/summary", response_model=IncidentSummary)

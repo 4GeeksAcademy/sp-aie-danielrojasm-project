@@ -104,7 +104,7 @@ def test_list_orders_includes_sku_data_newest_first(session, operator):
 
     orders = list_orders(warehouse=None, session=session)
     assert [order.order_type for order in orders] == ["outbound", "inbound"]
-    assert orders[0].sku.sku == "CLT-SNK-W-42"
+    assert orders[0].sku_code == "CLT-SNK-W-42"
     assert orders[0].tracking_number == "1Z999AA10123456784"
     assert orders[1].reference == "PO-2024-0098"
 

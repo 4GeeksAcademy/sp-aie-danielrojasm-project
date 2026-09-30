@@ -39,7 +39,13 @@ class SKUCreate(BaseModel):
     warehouse: Warehouse
 
 
-class SKURead(BaseModel):
+class SKUListItem(BaseModel):
+    """Fila de la tabla de stock y opción de los selectores de SKU.
+
+    Solo el stock del almacén del SKU: el desglose por almacén queda en el
+    detalle (`SKURead`), que es donde se consulta.
+    """
+
     id: int
     name: str
     sku: str
@@ -49,19 +55,14 @@ class SKURead(BaseModel):
     current_stock: int = Field(
         description="Stock calculado (entradas − salidas) en el almacén del SKU."
     )
+
+
+class SKURead(SKUListItem):
+    """Detalle de un SKU: añade el stock desglosado por almacén."""
+
     stock_by_warehouse: dict[Warehouse, int] = Field(
         description="Stock calculado en cada almacén; nunca se suman entre sí."
     )
-
-
-class SKUSummary(BaseModel):
-    """Datos del SKU que acompañan a cada movimiento."""
-
-    id: int
-    name: str
-    sku: str
-    client_name: str
-    warehouse: Warehouse
 
 
 # ---------------------------------------------------------------------------
@@ -117,11 +118,17 @@ class StockExitRead(BaseModel):
 
 
 class InventoryOrderRead(BaseModel):
-    """Un movimiento del historial, sea recepción o salida."""
+    """Un movimiento del historial, sea recepción o salida.
+
+    El SKU va aplanado (`sku_code`, `sku_name`, `client_name`): el historial
+    solo muestra esos tres datos, y su almacén ya es el del movimiento.
+    """
 
     order_type: Literal["inbound", "outbound"]
     id: int
-    sku: SKUSummary
+    sku_code: str
+    sku_name: str
+    client_name: str
     quantity: int
     warehouse: Warehouse
     created_at: datetime
