@@ -18,6 +18,7 @@ export default function GlobalError({ error, unstable_retry }: GlobalErrorProps)
           <ErrorFallback
             error={error}
             onRetry={() => unstable_retry()}
+            boundary="global"
             title="El backoffice no se pudo cargar"
             description="Se produjo un error inesperado. Reintenta o vuelve al panel de operaciones."
             logLabel="Error crítico en el backoffice"

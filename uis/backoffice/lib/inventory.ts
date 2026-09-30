@@ -18,6 +18,7 @@ export type Warehouse = "LA" | "ZGZ";
 export type SKUCategory = "fashion" | "electronics" | "cosmetics";
 export type ExitType = "dispatch" | "loss";
 export type OrderType = "inbound" | "outbound";
+export type DetectionMethod = "cycle_count" | "audit";
 
 /** Fila de `GET /inventory/products` (tabla de stock y selectores). */
 export interface SKUListItem {
@@ -67,6 +68,23 @@ export interface StockExitPayload {
   warehouse: Warehouse;
 }
 
+export interface InventoryCountPayload {
+  sku_id: number;
+  warehouse: Warehouse;
+  counted_quantity: number;
+  detection_method: DetectionMethod;
+}
+
+/** Resultado de `POST /inventory/counts`: el conteo no cambia el stock. */
+export interface InventoryCount extends InventoryCountPayload {
+  id: number;
+  system_quantity: number;
+  /** `counted_quantity − system_quantity`; negativo = falta mercancía. */
+  difference: number;
+  created_at: string;
+  user_uuid: string;
+}
+
 export interface StockEntry extends StockEntryPayload {
   id: number;
   created_at: string;
@@ -97,6 +115,11 @@ export const skuCategoryLabels: Record<SKUCategory, string> = {
 export const exitTypeLabels: Record<ExitType, string> = {
   dispatch: "Despacho a cliente",
   loss: "Pérdida confirmada",
+};
+
+export const detectionMethodLabels: Record<DetectionMethod, string> = {
+  cycle_count: "Conteo cíclico del turno",
+  audit: "Auditoría programada",
 };
 
 export const orderTypeLabels: Record<OrderType, string> = {
@@ -198,6 +221,31 @@ export function validateStockExit(
   return errors;
 }
 
+export interface InventoryCountFormValues {
+  skuId: string;
+  countedQuantity: string;
+  detectionMethod: DetectionMethod;
+}
+
+/** Unidades contadas: entero ≥ 0 (un hueco vacío en la estantería cuenta 0). */
+export function parseCountedQuantity(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const quantity = Number(trimmed);
+  return Number.isSafeInteger(quantity) ? quantity : null;
+}
+
+export function validateInventoryCount(
+  values: InventoryCountFormValues,
+): FormErrors<InventoryCountFormValues> {
+  const errors: FormErrors<InventoryCountFormValues> = {};
+  if (!values.skuId) errors.skuId = SKU_MESSAGE;
+  if (parseCountedQuantity(values.countedQuantity) === null) {
+    errors.countedQuantity = "Indica las unidades contadas: un número entero, 0 si no queda ninguna.";
+  }
+  return errors;
+}
+
 /** Aviso previo al envío cuando la cantidad supera el stock mostrado. */
 export function getOverdraftWarning(quantity: string, available: number | null): string | null {
   const parsed = parseQuantity(quantity);
@@ -246,6 +294,14 @@ export function createStockExit(payload: StockExitPayload): Promise<StockExit> {
     `${INVENTORY_API}/orders/outbound`,
     { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(payload) },
     "No se pudo registrar la salida de stock.",
+  );
+}
+
+export function createInventoryCount(payload: InventoryCountPayload): Promise<InventoryCount> {
+  return requestJson<InventoryCount>(
+    `${INVENTORY_API}/counts`,
+    { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(payload) },
+    "No se pudo registrar el conteo físico.",
   );
 }
 

@@ -18,6 +18,7 @@ export default function RouteError({ error, unstable_retry }: RouteErrorProps) {
       <ErrorFallback
         error={error}
         onRetry={() => unstable_retry()}
+        boundary="route"
         headingId="route-error-title"
         title="No se pudo mostrar esta sección"
         description="Se produjo un error inesperado. Puedes reintentarlo o volver al panel de operaciones."

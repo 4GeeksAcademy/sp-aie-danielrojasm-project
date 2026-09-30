@@ -2,6 +2,8 @@
 
 import { useEffect, useEffectEvent, useState, type Dispatch, type SetStateAction } from "react";
 import { getUserMessage } from "@/lib/api-client";
+import { track } from "@/lib/telemetry";
+import { currentPageRoute } from "@/lib/telemetry-helpers";
 
 export interface ApiList<T> {
   items: T[];
@@ -39,16 +41,27 @@ export function useApiList<T>(
     const run = async () => {
       setLoading(true);
       setError("");
+      let outcome: "success" | "failure" = "success";
       try {
         const loaded = await loadItems();
         if (active) setItems(Array.isArray(loaded) ? loaded : []);
       } catch (loadError) {
+        outcome = "failure";
         if (active) {
           setItems([]);
           setError(toMessage(loadError));
         }
       } finally {
         if (active) setLoading(false);
+      }
+      // ¿Los errores que ve el operador son transitorios? Solo tras pulsar «Reintentar».
+      if (active && attempt > 0) {
+        track("error_retry_attempted", {
+          component: "retry_alert",
+          page_route: currentPageRoute(),
+          attempt,
+          outcome,
+        });
       }
     };
     void run();

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/components/auth/AuthProvider";
 import { ProtectedShell } from "@/components/auth/ProtectedShell";
+import { TelemetryListener } from "@/components/telemetry/TelemetryListener";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -36,6 +37,7 @@ export default function BackofficeLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-slate-100 text-slate-900">
+        <TelemetryListener />
         <AuthProvider>
           <ProtectedShell>{children}</ProtectedShell>
         </AuthProvider>

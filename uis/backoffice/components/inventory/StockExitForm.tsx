@@ -1,8 +1,11 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FocusEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { CircleCheck, History, TriangleAlert } from "lucide-react";
 import { ApiError, getUserMessage } from "@/lib/api-client";
+import { clientValidationFailure, inventoryIdentity } from "@/lib/inventory-telemetry";
+import { track } from "@/lib/telemetry";
+import type { InventoryFormField } from "@/lib/telemetry-events";
 import {
   TRACKING_NUMBER_MAX_LENGTH,
   createStockExit,
@@ -23,6 +26,7 @@ import { InventoryPageHeader } from "@/components/inventory/InventoryPageHeader"
 import { RetryAlert } from "@/components/inventory/RetryAlert";
 import { StockLevelBadge } from "@/components/inventory/StockLevelBadge";
 import { useSkuCatalog } from "@/components/inventory/useSkuCatalog";
+import { useInventoryFormTelemetry } from "@/components/inventory/useInventoryFormTelemetry";
 
 interface StockExitFormProps {
   /** SKU preseleccionado desde la tabla de stock (`?sku=<id>`). */
@@ -43,6 +47,22 @@ const emptyValues: StockExitFormValues = {
   exitType: "dispatch",
   trackingNumber: "",
 };
+
+/** Nombre de cada campo en la API: la telemetría registra el campo, nunca su valor. */
+const telemetryFields: Record<keyof StockExitFormValues, InventoryFormField> = {
+  skuId: "sku_id",
+  quantity: "quantity",
+  exitType: "exit_type",
+  trackingNumber: "tracking_number",
+};
+const fieldsById: Record<string, InventoryFormField> = {
+  "exit-sku": "sku_id",
+  "exit-type": "exit_type",
+  "exit-quantity": "quantity",
+  "exit-tracking": "tracking_number",
+};
+/** El aviso se recalcula en cada pulsación: solo cuenta si sigue visible 1 s. */
+const OVERDRAFT_WARNING_DEBOUNCE_MS = 1_000;
 
 export function StockExitForm({ initialSkuId }: StockExitFormProps) {
   const catalog = useSkuCatalog();
@@ -88,8 +108,38 @@ export function StockExitForm({ initialSkuId }: StockExitFormProps) {
   const available = stockReady ? stockLookup.available : null;
   const stockError = stockReady ? stockLookup.error : "";
   const overdraftWarning = getOverdraftWarning(values.quantity, available);
+  const formTelemetry = useInventoryFormTelemetry(
+    "outbound_order",
+    Boolean(initialSkuId),
+    [skuValue, values.quantity.trim(), values.exitType, values.trackingNumber.trim()].filter(Boolean)
+      .length,
+  );
+  const reportedOverdrafts = useRef(new Set<string>());
+
+  // ¿El aviso evita los 400 por stock insuficiente? Un evento por SKU y cantidad.
+  useEffect(() => {
+    const quantity = parseQuantity(values.quantity);
+    if (!overdraftWarning || !selectedSku || available === null || quantity === null) return;
+    const key = `${selectedSku.id}:${quantity}`;
+    if (reportedOverdrafts.current.has(key)) return;
+    const timer = setTimeout(() => {
+      reportedOverdrafts.current.add(key);
+      track("stock_overdraft_warning_displayed", {
+        ...inventoryIdentity(selectedSku),
+        quantity,
+        available_quantity: Math.max(available, 0),
+      });
+    }, OVERDRAFT_WARNING_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [overdraftWarning, selectedSku, available, values.quantity]);
+
+  function handleFocus(event: FocusEvent<HTMLFormElement>) {
+    const field = fieldsById[event.target.id];
+    if (field) formTelemetry.touch(field);
+  }
 
   function update(field: keyof StockExitFormValues, value: string) {
+    formTelemetry.touch(telemetryFields[field]);
     setValues((current) => ({
       ...current,
       [field]: value,
@@ -106,10 +156,16 @@ export function StockExitForm({ initialSkuId }: StockExitFormProps) {
     setSubmitError("");
     setQuantityApiError("");
     setNotice("");
-    const validation = validateStockExit({ ...values, skuId: skuValue });
+    const submitted = { ...values, skuId: skuValue };
+    const validation = validateStockExit(submitted);
     const quantity = parseQuantity(values.quantity);
     if (Object.keys(validation).length > 0 || !selectedSku || quantity === null) {
       setErrors(validation);
+      formTelemetry.validationFailed();
+      track(
+        "inventory_validation_failed",
+        clientValidationFailure("outbound_order", submitted, validation, selectedSku),
+      );
       return;
     }
     // El aviso de stock no bloquea: la API aplica la regla y responde 400.
@@ -122,6 +178,7 @@ export function StockExitForm({ initialSkuId }: StockExitFormProps) {
         tracking_number: values.exitType === "dispatch" ? values.trackingNumber.trim() : null,
         warehouse: selectedSku.warehouse,
       });
+      formTelemetry.completed();
       // Se mantiene el SKU para ver al momento el stock que queda.
       setValues({ ...emptyValues, skuId: values.skuId });
       setErrors({});
@@ -129,6 +186,7 @@ export function StockExitForm({ initialSkuId }: StockExitFormProps) {
         `Salida registrada (${exitTypeLabels[values.exitType].toLowerCase()}): −${formatUnits(quantity)} uds. de ${selectedSku.sku} en ${warehouseLabels[selectedSku.warehouse]}.`,
       );
     } catch (error) {
+      formTelemetry.serverError();
       const message = getUserMessage(
         error,
         "No se pudo registrar la salida de stock. Inténtalo de nuevo.",
@@ -186,7 +244,7 @@ export function StockExitForm({ initialSkuId }: StockExitFormProps) {
             <RetryAlert message={catalog.error} onRetry={catalog.retry} />
           </div>
         ) : (
-          <form noValidate onSubmit={handleSubmit} className="mt-5 space-y-5">
+          <form noValidate onSubmit={handleSubmit} onFocus={handleFocus} className="mt-5 space-y-5">
             <FormField
               id="exit-sku"
               label="SKU"

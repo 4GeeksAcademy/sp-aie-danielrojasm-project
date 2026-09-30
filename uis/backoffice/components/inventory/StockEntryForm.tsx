@@ -1,8 +1,11 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FocusEvent, type FormEvent, useState } from "react";
 import { CircleCheck, History } from "lucide-react";
 import { getUserMessage } from "@/lib/api-client";
+import { clientValidationFailure } from "@/lib/inventory-telemetry";
+import { track } from "@/lib/telemetry";
+import type { InventoryFormField } from "@/lib/telemetry-events";
 import {
   REFERENCE_MAX_LENGTH,
   createStockEntry,
@@ -18,6 +21,7 @@ import { InventoryLinkButton } from "@/components/inventory/InventoryLinkButton"
 import { InventoryPageHeader } from "@/components/inventory/InventoryPageHeader";
 import { RetryAlert } from "@/components/inventory/RetryAlert";
 import { useSkuCatalog } from "@/components/inventory/useSkuCatalog";
+import { useInventoryFormTelemetry } from "@/components/inventory/useInventoryFormTelemetry";
 
 interface StockEntryFormProps {
   /** SKU preseleccionado desde la tabla de stock (`?sku=<id>`). */
@@ -25,6 +29,18 @@ interface StockEntryFormProps {
 }
 
 const emptyValues: StockEntryFormValues = { skuId: "", quantity: "", reference: "" };
+
+/** Nombre de cada campo en la API: la telemetría registra el campo, nunca su valor. */
+const telemetryFields: Record<keyof StockEntryFormValues, InventoryFormField> = {
+  skuId: "sku_id",
+  quantity: "quantity",
+  reference: "reference",
+};
+const fieldsById: Record<string, InventoryFormField> = {
+  "entry-sku": "sku_id",
+  "entry-quantity": "quantity",
+  "entry-reference": "reference",
+};
 
 export function StockEntryForm({ initialSkuId }: StockEntryFormProps) {
   const catalog = useSkuCatalog();
@@ -37,8 +53,19 @@ export function StockEntryForm({ initialSkuId }: StockEntryFormProps) {
   // Un `?sku=` que no existe no deja el selector en un valor invisible.
   const selectedSku = catalog.skus.find((sku) => String(sku.id) === values.skuId) ?? null;
   const skuValue = catalog.loading || selectedSku ? values.skuId : "";
+  const formTelemetry = useInventoryFormTelemetry(
+    "inbound_order",
+    Boolean(initialSkuId),
+    [skuValue, values.quantity.trim(), values.reference.trim()].filter(Boolean).length,
+  );
+
+  function handleFocus(event: FocusEvent<HTMLFormElement>) {
+    const field = fieldsById[event.target.id];
+    if (field) formTelemetry.touch(field);
+  }
 
   function update(field: keyof StockEntryFormValues, value: string) {
+    formTelemetry.touch(telemetryFields[field]);
     setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
     setNotice("");
@@ -48,10 +75,16 @@ export function StockEntryForm({ initialSkuId }: StockEntryFormProps) {
     event.preventDefault();
     setSubmitError("");
     setNotice("");
-    const validation = validateStockEntry({ ...values, skuId: skuValue });
+    const submitted = { ...values, skuId: skuValue };
+    const validation = validateStockEntry(submitted);
     const quantity = parseQuantity(values.quantity);
     if (Object.keys(validation).length > 0 || !selectedSku || quantity === null) {
       setErrors(validation);
+      formTelemetry.validationFailed();
+      track(
+        "inventory_validation_failed",
+        clientValidationFailure("inbound_order", submitted, validation, selectedSku),
+      );
       return;
     }
     setSaving(true);
@@ -62,12 +95,14 @@ export function StockEntryForm({ initialSkuId }: StockEntryFormProps) {
         reference: values.reference.trim(),
         warehouse: selectedSku.warehouse,
       });
+      formTelemetry.completed();
       setValues(emptyValues);
       setErrors({});
       setNotice(
         `Entrada registrada: +${formatUnits(quantity)} uds. de ${selectedSku.sku} en ${warehouseLabels[selectedSku.warehouse]} (ref. ${values.reference.trim()}).`,
       );
     } catch (error) {
+      formTelemetry.serverError();
       setSubmitError(
         getUserMessage(error, "No se pudo registrar la entrada de stock. Inténtalo de nuevo."),
       );
@@ -115,7 +150,7 @@ export function StockEntryForm({ initialSkuId }: StockEntryFormProps) {
             <RetryAlert message={catalog.error} onRetry={catalog.retry} />
           </div>
         ) : (
-          <form noValidate onSubmit={handleSubmit} className="mt-5 space-y-5">
+          <form noValidate onSubmit={handleSubmit} onFocus={handleFocus} className="mt-5 space-y-5">
             <FormField
               id="entry-sku"
               label="SKU recibido"

@@ -16,6 +16,13 @@ import {
   requestJson,
   storeAccessToken,
 } from "@/lib/api-client";
+import {
+  endTelemetrySession,
+  setTelemetryUser,
+  startTelemetrySession,
+  telemetrySessionAgeSeconds,
+  track,
+} from "@/lib/telemetry";
 import type {
   AuthUser,
   LoginCredentials,
@@ -87,6 +94,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [sessionAttempt]);
 
+  // `userId` de los eventos: el id del usuario (nunca el email), o `anonymous`.
+  useEffect(() => {
+    setTelemetryUser(user?.id ?? null);
+  }, [user]);
+
   function retrySession() {
     setSessionError(null);
     setIsLoading(true);
@@ -110,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       "No se pudo iniciar sesión.",
     );
     storeAccessToken(token.access_token);
+    startTelemetrySession();
     await refreshUser();
     router.replace("/");
   }
@@ -128,6 +141,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // ¿Se cierra sesión en los puestos compartidos o se deja caducar?
+    track("session_closed", { session_duration_s: telemetrySessionAgeSeconds() ?? 0 });
+    endTelemetrySession();
     clearAccessToken();
     setUser(null);
     setSessionError(null);

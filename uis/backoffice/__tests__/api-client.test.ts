@@ -89,6 +89,17 @@ describe("apiFetch", () => {
     expect(new Headers(init.headers).get("Authorization")).toBe("Bearer abc");
   });
 
+  it("envía un X-Request-Id nuevo en cada llamada para correlacionar con la API", async () => {
+    const fetchMock = mockFetch(json({}, 200));
+    await apiFetch("/api/inventory/products");
+    await apiFetch("/api/inventory/products");
+    const ids = fetchMock.mock.calls.map((call) =>
+      new Headers(((call as unknown[])[1] as RequestInit).headers).get("X-Request-Id"),
+    );
+    expect(ids[0]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    expect(ids[1]).not.toBe(ids[0]);
+  });
+
   it("no envía Authorization sin sesión", async () => {
     const fetchMock = mockFetch(json({}, 200));
     await apiFetch("/auth/login", { method: "POST" });
