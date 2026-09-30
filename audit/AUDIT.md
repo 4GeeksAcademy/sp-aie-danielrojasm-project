@@ -137,9 +137,13 @@ Ordenados por impacto en usuarios reales, primero los Core Web Vitals.
 
 - **Evidencia.** `render-blocking-insight` señala el único CSS de la app (6 KB comprimidos, Tailwind v4) como bloqueante, con un ahorro
   estimado de 150 ms en la home y de 110 ms en `/aplicar`.
-- **Causa raíz.** Es el comportamiento por defecto de Next: una hoja global enlazada en `<head>`. Con 6 KB, el coste real es la latencia
-  de la petición, no su tamaño. Next 16 ofrece `experimental.inlineCss` para incrustarla en el HTML. Es una **hipótesis** que se validará
-  midiendo, porque la opción es experimental.
+- **Causa raíz.** Es el comportamiento por defecto de Next: una hoja global enlazada en `<head>`. Con 6 KB, el coste real es la
+  **latencia** de una petición más antes del primer pintado, no su tamaño.
+- **Hipótesis probada.** Next 16 ofrece `experimental.inlineCss`, que incrusta el CSS en un `<style>`. Con throttling real (3 corridas,
+  mismo build salvo el flag), FCP = LCP móvil pasa de 1,7 s a **1,0 s** en la home y de 1,6 s a **1,0 s** en `/aplicar`. El modo
+  simulado no lo refleja (FCP 0,8 s en los dos casos), por el mismo sesgo de Lantern de P1. Coste: el HTML de la home pasa de 7,6 KB a
+  26,7 KB (Next duplica los estilos en el payload RSC) y el CSS deja de cachearse para las visitas recurrentes. En un sitio corporativo
+  cuyo objetivo es la primera visita desde buscadores, compensa. Evidencia en `audit/experiments/p3-inline-css/`.
 
 ### P4 — JavaScript «legacy» y «sin usar» (13–14 KiB y 29 KiB)
 
@@ -302,5 +306,5 @@ por commit.
 | 3c | P8 — `min-w-0` en los elementos de grid del dashboard | Sin scroll horizontal; resuelve el contraste de P6 | Corrección (layout) |
 | 5 | P6 — `link-name` del TopBar | A11y backoffice | Corrección requerida (WCAG A) |
 | 6 | P5 — Contraste, tamaño de objetivos y *label in name* del website | A11y website | Corrección requerida (WCAG AA) |
-| 7 | P3 — CSS inline (`experimental.inlineCss`) | FCP/LCP móvil | Hipótesis: se aplica solo si la medición lo confirma |
+| 7 | P3 — CSS inline (`experimental.inlineCss`) | FCP/LCP móvil real 1,7 → 1,0 s | Hipótesis confirmada y aplicada |
 | — | P2 (auth en cliente), P4 (JS del framework) | — | Documentados, fuera de alcance (reestructuración o framework) |

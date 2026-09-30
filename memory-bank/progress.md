@@ -51,7 +51,10 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    (4,23:1 → ≈7,5:1), enlaces de teléfono y correo de 18 a 28 px, y sin
    `aria-label` que sustituyan el texto visible (se retira `ariaLabel` de
    `ButtonLink`). Accessibility 91/92 → 100 en home y `/aplicar`.
-- Siguiente paso: probar `experimental.inlineCss` (P3) y medición final.
+- `experimental.inlineCss` en el website: FCP/LCP móvil con throttling real
+   1,7 s → 1,0 s (home) y 1,6 s → 1,0 s (`/aplicar`); HTML 7,6 → 26,7 KB.
+   Es experimental en Next 16: vigilar al actualizar Next.
+- Siguiente paso: medición final en `audit/after/` y `REPORT.md`.
 
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 
