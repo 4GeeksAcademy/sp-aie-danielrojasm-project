@@ -326,13 +326,28 @@ El almacenamiento y el pipeline se diseñan en el siguiente proyecto; aquí se f
 
 ### Backoffice (`uis/backoffice`)
 
-- `lib/telemetry.ts` con `track(event_type, properties)`: cola en memoria que se envía cada 5 s o al llegar a 20 eventos, y con
-  `navigator.sendBeacon` en `pagehide`. Tope de 200 eventos en cola (se descartan los más antiguos y se cuenta cuántos).
+- `lib/telemetry.ts` con `track(event_type, properties)`: cola en memoria que se envía en lote cada 10 s o al llegar a 20 eventos (lo
+  que ocurra antes), y con `navigator.sendBeacon` cuando la pestaña se oculta (`visibilitychange`) o se cierra (`pagehide`). Si el envío
+  falla, hasta 3 reintentos con espera exponencial (1 s, 2 s, 4 s) y después se descarta el lote. Tope de 200 eventos en cola (se
+  descartan los más antiguos y se cuenta cuántos). La URL sale de `NEXT_PUBLIC_TELEMETRY_ENDPOINT`; el beacon viaja como `text/plain`
+  para no necesitar preflight CORS si la ingesta es de otro origen.
 - Ingesta en la API, no en `uis/` (las interfaces no tienen rutas de API): `POST /telemetry/events` en `services/api`, detrás del rewrite
   `/api/telemetry/*`. Acepta sin token solo los eventos de `/login`, `/register`, `/forgot-password` y `/reset-password`
   (`userId = anonymous`); para el resto exige Bearer y sobrescribe `userId`. Valida cada evento con `event-schemas.json` y rechaza el
   que no cumpla (sin tumbar el lote).
 - **Un evento del navegador nunca sustituye a uno de la API.** Los obligatorios solo los emite la API; el navegador aporta contexto de UX.
+
+### Estado de la implementación (captura)
+
+| Pieza | Estado |
+|---|---|
+| `lib/telemetry.ts` (`TelemetryService` + `track()`) | Hecho, con el comportamiento de arriba. `track()` está tipado con `lib/telemetry-events.ts` (los 13 eventos de emisor `backoffice`); un test compara ese catálogo con `event-schemas.json`. |
+| Correlación | Hecho: `apiFetch` envía `X-Request-Id` (uno por llamada) y `X-Session-Id`; `timing_middleware` los acepta si son UUID v4, los usa en los eventos de la API y devuelve `X-Request-Id`. |
+| `services/api/telemetry.py` | Hecho: envelope, allowlist leído de `event-schemas.json`, solo eventos cuyo emisor incluye `api`. Entrega en el log `trackflow.telemetry`. No valida `properties` con JSON Schema en ejecución (lo hacen los tests). |
+| Obligatorios | Emitidos por la API después del `commit`. Falta el outbox transaccional: si el proceso cae entre el `commit` y el log, el evento se pierde. |
+| Umbral mínimo | `STOCK_MIN_THRESHOLDS` (JSON `client_id` → unidades, 50 por defecto). El disparo por flanco se calcula con el stock anterior y el resultante de la salida; la tabla `stock_threshold_alerts` (y con ella `stock_threshold_recovered`) queda para la fase de almacenamiento. |
+| Conteo físico | `POST /inventory/counts` (tabla `inventory_counts`) y vista `/inventory/counts` en el backoffice. |
+| `POST /telemetry/events` | **Stub**: valida el envelope (`TelemetryEvent`), registra cuántos eventos llegan y de qué tipo, y responde `{"received": N}`. Todavía no exige token, no sobrescribe `userId`, no aplica el allowlist por evento ni persiste. La URL de la ingesta está en `TELEMETRY_ENDPOINT` (API) y `NEXT_PUBLIC_TELEMETRY_ENDPOINT` (backoffice). |
 
 ## 8. Estrategia de entrega: stream o batch
 

@@ -8,6 +8,45 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Captura de telemetría (backoffice y API)
+
+- Backoffice: `lib/telemetry.ts` (`TelemetryService` + `track()`, única
+   puerta del tracking). Cola en memoria, lote cada 10 s o 20 eventos,
+   `sendBeacon` al ocultar o cerrar la pestaña, 3 reintentos (1/2/4 s) y
+   tope de 200 eventos. Envelope completo en la captura; `sessionId` por
+   pestaña que rota en login y logout; `userId` = id del usuario.
+   `NEXT_PUBLIC_TELEMETRY_ENDPOINT` en el `.env` raíz (lo carga
+   `next.config.ts`; no hay `.env.local`).
+- Instrumentados los 13 eventos del plan con emisor `backoffice`:
+   `page_viewed`, `sidebar_item_clicked`, `inventory_filter_applied`,
+   `frontend_error_captured` (límites de error, `window.onerror`,
+   `unhandledrejection`), `api_call_failed`, `error_retry_attempted`,
+   `page_load_recorded` (Web Vitals), `session_expired`, `session_closed`,
+   `inventory_form_started`/`abandoned`, `stock_overdraft_warning_displayed`
+   e `inventory_validation_failed` (cliente).
+- API: `telemetry.py` (envelope, allowlist de `event-schemas.json`,
+   correlación `X-Request-Id`/`X-Session-Id`) y receptor provisional
+   `POST /telemetry/events` (`TelemetryEvent`, responde `{received: N}`,
+   no persiste). Los 5 obligatorios los emite la API tras el `commit`; para
+   ello se añaden `POST /inventory/counts` (tabla `inventory_counts`, vista
+   `/inventory/counts`), rutas 405 contra la edición directa del stock y
+   `STOCK_MIN_THRESHOLDS`. También `outbound_order_rejected`,
+   `product_created`, `product_creation_rejected`,
+   `inventory_validation_failed` (servidor), `user_login_succeeded`/`failed`
+   y `api_error_occurred`.
+- Verificado: `uv run pytest` 266 (68 nuevos en `tests/telemetry`, cada
+   evento validado con `jsonschema` contra `event-schemas.json`); Jest 121;
+   `npm run verify` exit 0. Recorrido en Chrome headless con API y SQLite
+   temporales: lote de 16 eventos por el temporizador (`fetch`,
+   `application/json`) y lotes por `sendBeacon` (`text/plain`), todos 200 con
+   `{"received": N}`; 41 eventos válidos contra el esquema, sin email,
+   contraseña, tracking ni referencia de albarán.
+- Pendiente: captura de DevTools para el PR (a mano), outbox transaccional,
+   tabla `stock_threshold_alerts` (`stock_threshold_recovered`) e ingesta
+   real (token, allowlist por evento, persistencia).
+- Siguiente paso: fase de almacenamiento, sustituyendo el cuerpo del stub
+   sin cambiar la ruta ni el contrato.
+
 ### Milestone 09 — Plan de telemetría (diseño)
 
 - `docs/telemetry/telemetry-plan.md` y `docs/telemetry/event-schemas.json`
@@ -357,6 +396,13 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### Captura de telemetría
+
+Los eventos fluyen del backoffice a un receptor provisional de la API en lotes,
+y la API emite los obligatorios de inventario desde el propio movimiento. La
+URL de la ingesta es una variable de entorno en los dos lados, así que la fase
+de almacenamiento no cambia el frontend.
 
 ### Plan de telemetría
 

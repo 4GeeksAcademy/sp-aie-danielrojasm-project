@@ -25,6 +25,10 @@ RESEND_API_KEY=tu-clave-de-resend
 RESEND_FROM_EMAIL=onboarding@resend.dev
 PASSWORD_RESET_URL=http://localhost:3002/reset-password
 DATABASE_URL=postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+TELEMETRY_ENDPOINT=http://localhost:8000/telemetry/events
+TELEMETRY_ENVIRONMENT=development
+TELEMETRY_HASH_KEY=otra-clave-aleatoria-larga
+STOCK_MIN_THRESHOLDS={"purestep-footwear": 80}
 ```
 
 `DATABASE_URL` es la URI del **Transaction pooler** de Supabase (Connect →
@@ -131,6 +135,14 @@ el inventario es información contractual de las marcas cliente.
   escribir nada.
 - `GET /inventory/orders`: recepciones y salidas (más recientes primero) con
   los datos del SKU, `user_uuid` y filtro opcional `warehouse`.
+- `POST /inventory/counts`: conteo físico (`sku_id`, `warehouse`,
+  `counted_quantity` ≥ 0, `detection_method` = `cycle_count | audit`). Compara
+  lo contado con el stock calculado (con la fila del SKU bloqueada) y devuelve
+  `system_quantity` y `difference`. **No cambia el stock**: un descuadre se
+  corrige con una recepción o una salida `loss`.
+- `PUT`/`PATCH`/`DELETE` sobre `/inventory/products/{id}`,
+  `/inventory/products/{id}/stock` y `/inventory/orders/**`: siempre `405` con
+  «El stock solo cambia con órdenes de entrada o salida.».
 
 **Stock.** No existe ninguna columna de stock ni ruta que lo modifique: se
 calcula como `SUMA(recepciones) − SUMA(salidas)` por SKU **y por almacén**, con
@@ -152,6 +164,33 @@ uv run --env-file .env python scripts/seed_inventory.py --user-email tu@email.co
 En `/docs`, registra un usuario, abre **Authorize** y usa su email como
 `username` y su contraseña. Swagger obtiene el token desde `/auth/login` y lo
 envía en las rutas protegidas.
+
+### Telemetría (`/telemetry`)
+
+- `POST /telemetry/events`: **receptor provisional** de los lotes del
+  backoffice (`{"events": [...]}`, máximo 100). Valida el Event Envelope de
+  cada evento (`TelemetryEvent` en `telemetry_models.py`), registra en
+  `trackflow.telemetry` cuántos eventos llegan y su `event_type`, y responde
+  `{"received": N}`. Acepta el cuerpo como `application/json` o `text/plain`
+  (`sendBeacon`). No persiste nada ni exige token todavía.
+
+La API emite sus propios eventos con `telemetry.emit()` (`telemetry.py`): los
+cinco obligatorios de inventario tras el `commit`, rechazos de salidas y altas,
+validación del servidor, login y errores `500`. Salen como una línea JSON por
+evento en el log `trackflow.telemetry`, solo con las claves del allowlist de
+`docs/telemetry/event-schemas.json` (en Docker se monta en
+`/app/docs/telemetry`; otra ruta con `TELEMETRY_SCHEMA_PATH`).
+
+- `TELEMETRY_ENDPOINT`: URL de la ingesta; hoy el receptor de arriba.
+- `TELEMETRY_ENVIRONMENT`: `development`, `staging` o `production`.
+- `TELEMETRY_HASH_KEY`: clave del HMAC del email en `user_login_failed`. Sin
+  ella, `email_hash` sale nulo.
+- `STOCK_MIN_THRESHOLDS`: mínimo de stock por `client_id` (JSON); por defecto,
+  50 unidades. Una salida que lo cruza emite `stock_threshold_triggered`.
+
+Cada respuesta lleva `X-Request-Id` (el que envía el backoffice o uno nuevo);
+el mismo id aparece en la línea de `trackflow.timing` y en los eventos de la
+petición.
 
 ## Pruebas
 
