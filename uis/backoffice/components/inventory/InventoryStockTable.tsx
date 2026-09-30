@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { History, PackageMinus, PackagePlus } from "lucide-react";
-import { getUserMessage } from "@/lib/api-client";
 import {
   LOW_STOCK_THRESHOLD,
   getStockLevel,
@@ -13,6 +12,7 @@ import {
   type StockLevel,
   type Warehouse,
 } from "@/lib/inventory";
+import { useApiList } from "@/lib/use-api-list";
 import { InventoryLinkButton } from "@/components/inventory/InventoryLinkButton";
 import { InventoryPageHeader } from "@/components/inventory/InventoryPageHeader";
 import { RetryAlert } from "@/components/inventory/RetryAlert";
@@ -23,34 +23,11 @@ type WarehouseFilter = "all" | Warehouse;
 const warehouses = Object.keys(warehouseLabels) as Warehouse[];
 
 export function InventoryStockTable() {
-  const [skus, setSkus] = useState<SKU[]>([]);
+  const { items: skus, loading, error: loadError, retry } = useApiList<SKU>(
+    listSKUs,
+    "No se pudo cargar el inventario.",
+  );
   const [warehouse, setWarehouse] = useState<WarehouseFilter>("all");
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setLoading(true);
-      setLoadError("");
-      try {
-        const loaded = await listSKUs();
-        if (active) setSkus(Array.isArray(loaded) ? loaded : []);
-      } catch (error) {
-        if (active) {
-          setSkus([]);
-          setLoadError(getUserMessage(error, "No se pudo cargar el inventario."));
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [attempt]);
 
   const visible = useMemo(
     () => (warehouse === "all" ? skus : skus.filter((sku) => sku.warehouse === warehouse)),
@@ -141,7 +118,7 @@ export function InventoryStockTable() {
 
         {!loading && loadError ? (
           <div className="mt-5">
-            <RetryAlert message={loadError} onRetry={() => setAttempt((value) => value + 1)} />
+            <RetryAlert message={loadError} onRetry={retry} />
           </div>
         ) : null}
 

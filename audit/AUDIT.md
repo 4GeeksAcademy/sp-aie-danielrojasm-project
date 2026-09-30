@@ -115,8 +115,10 @@ Ordenados por impacto en usuarios reales, primero los Core Web Vitals.
   que ni la barra lateral ni la cabecera se pintan hasta tener la respuesta de `/auth/me`. Es una decisión de arquitectura documentada en
   `memory-bank/techContext.md` (sin `middleware.ts`). Cambiarla a autenticación en servidor sería una reestructuración, y la tarea la
   excluye expresamente, así que se deja como riesgo.
-- **Causa raíz (inventario).** La tabla la carga un `useEffect` después de la autenticación. Mientras llega, se ve el estado de carga y,
-  al llegar los datos, la tabla empuja el contenido: de ahí el CLS de **0,03** (bajo el umbral, pero medible).
+- **Causa raíz (inventario, CLS 0,03).** `layout-shifts` señala como elemento desplazado la leyenda de niveles (`p.mt-3` de
+  `InventoryStockTable`), no la tabla. La empuja la línea de estado que tiene encima (`aria-live`): mientras carga dice «Cargando
+  inventario...» (una línea) y al llegar los datos pasa a «6 SKUs · 0 sin stock · 1 con stock bajo», que en 412 px ocupa **dos
+  líneas**. El esqueleto de la tabla ya reserva su espacio; lo que no tiene alto reservado es ese texto.
 
 ### P3 — CSS bloqueante en el website (≈150 ms estimados en móvil)
 
@@ -164,7 +166,7 @@ La regla de arquitectura de `memory-bank/techContext.md` («Layouts separados: [
 componentes») descarta extraer componentes **entre** apps. Los error boundaries y `FormField` de las dos apps se parecen, pero tienen
 estilos y textos distintos a propósito (tema oscuro público frente a tema claro interno). Los candidatos están **dentro** de cada app.
 
-### Caso 1 — Carga de datos con cancelación y reintento (backoffice) → Custom Hook `useApiResource`
+### Caso 1 — Carga de datos con cancelación y reintento (backoffice) → Custom Hook `useApiList`
 
 **Dónde aparece.** El mismo bloque de unas 20 líneas se repite, con solo el loader y el mensaje cambiados, en:
 
@@ -185,37 +187,41 @@ para reintentar.
   las otras tres se quedan atrás.
 - **Duplicación ya reconocida.** `useSkuCatalog` es literalmente la versión «hook» del bloque de `InventoryStockTable`, y las dos llaman
   a `listSKUs()`.
-- **Hace falta para la corrección de P2.** Dar a la tabla de inventario un estado de carga estable (para eliminar el CLS) se hace una
-  sola vez en el hook y no en cuatro sitios.
+- **Mismo contrato de estados en toda la app.** Carga, error legible y reintento deben comportarse igual en stock, historial,
+  formularios de movimientos y proveedores; con un único hook, un cambio de UX (por ejemplo, un indicador de carga distinto) se
+  aplica en un sitio.
 
-**Abstracción propuesta** (`uis/backoffice/lib/useApiResource.ts`):
+**Abstracción propuesta** (`uis/backoffice/lib/use-api-list.ts`). Las cuatro copias cargan **listas**, así que el hook es específico de
+listas y absorbe también el `Array.isArray` defensivo:
 
 ```ts
-interface ApiResource<T> {
-  data: T;
+export interface ApiList<T> {
+  items: T[];
+  setItems: Dispatch<SetStateAction<T[]>>; // altas/ediciones confirmadas por la API (proveedores)
   loading: boolean;
   error: string;
   retry: () => void;
 }
 
-/** Carga un recurso de la API con cancelación al desmontar, mensaje legible y reintento. */
-export function useApiResource<T>(
-  load: () => Promise<T>,
+export function useApiList<T>(
+  load: () => Promise<T[]>,
   fallbackMessage: string,
-  initialData: T,
-  deps: DependencyList = [],
-): ApiResource<T>;
+  key = "", // recarga al cambiar (p. ej. la query string de los filtros)
+): ApiList<T>;
 ```
+
+`load` se envuelve con `useEffectEvent` (React 19.2): puede ser una función nueva en cada render (el loader de proveedores
+depende de los filtros) sin relanzar la carga ni saltarse `react-hooks/exhaustive-deps`; lo que decide cuándo recargar es `key`.
 
 Uso resultante:
 
 ```ts
-const { data: skus, loading, error, retry } = useApiResource(listSKUs, "No se pudo cargar el inventario.", []);
+const { items: skus, loading, error, retry } = useApiList<SKU>(listSKUs, "No se pudo cargar el inventario.");
 ```
 
-`useSkuCatalog` queda como un envoltorio de una línea sobre `useApiResource`, sin cambiar su contrato, para no tocar
-`StockEntryForm` ni `StockExitForm`. `SupplierDirectory` pasa `[country, category]` como `deps`. Los tests de Jest existentes
-(`__tests__/`) cubren los helpers de `lib/inventory.ts`; el hook tendrá su propio test.
+`useSkuCatalog` queda como un envoltorio sobre `useApiList` con el mismo contrato, para no tocar `StockEntryForm` ni `StockExitForm`.
+`SupplierDirectory` pasa la query string de los filtros como `key` y usa `setItems` para reflejar altas y cambios de tarifa o estado.
+El hook tiene su propio test (`__tests__/use-api-list.test.tsx`, jsdom).
 
 ### Caso 2 — Pantalla de error duplicada entre `error.tsx` y `global-error.tsx` (en cada app) → componente `ErrorFallback`
 
@@ -265,9 +271,10 @@ por commit.
 | # | Problema | KPI objetivo | Tipo |
 |---|----------|--------------|------|
 | 1 | P1 — Verificar el LCP con throttling real; migrar `priority` → `preload` | LCP real móvil home | Verificación + deprecación de Next 16 |
-| 2 | Caso 1 — `useApiResource` + estado de carga estable del inventario | CLS inventario → 0 y menos código repetido | Refactor requerido por la tarea |
-| 3 | Caso 2 — `ErrorFallback` en cada app | Mantenibilidad | Refactor |
-| 4 | P6 — `link-name` del TopBar y contraste de `<th>` | A11y backoffice | Corrección requerida (WCAG A/AA) |
-| 5 | P5 — Contraste, tamaño de objetivos y *label in name* del website | A11y website | Corrección requerida (WCAG AA) |
-| 6 | P3 — CSS inline (`experimental.inlineCss`) | FCP/LCP móvil | Hipótesis: se aplica solo si la medición lo confirma |
+| 2 | Caso 1 — `useApiList` | Menos código repetido, mismo comportamiento | Refactor requerido por la tarea |
+| 3 | P2 — Reservar el alto de la línea de estado del inventario | CLS inventario 0,03 → 0 | Corrección (layout shift) |
+| 4 | Caso 2 — `ErrorFallback` en cada app | Mantenibilidad | Refactor |
+| 5 | P6 — `link-name` del TopBar y contraste de `<th>` | A11y backoffice | Corrección requerida (WCAG A/AA) |
+| 6 | P5 — Contraste, tamaño de objetivos y *label in name* del website | A11y website | Corrección requerida (WCAG AA) |
+| 7 | P3 — CSS inline (`experimental.inlineCss`) | FCP/LCP móvil | Hipótesis: se aplica solo si la medición lo confirma |
 | — | P2 (auth en cliente), P4 (JS del framework) | — | Documentados, fuera de alcance (reestructuración o framework) |

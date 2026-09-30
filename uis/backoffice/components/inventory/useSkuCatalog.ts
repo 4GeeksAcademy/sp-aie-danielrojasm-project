@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { getUserMessage } from "@/lib/api-client";
 import { listSKUs, type SKU } from "@/lib/inventory";
+import { useApiList } from "@/lib/use-api-list";
 
 interface SkuCatalog {
   skus: SKU[];
@@ -13,33 +12,9 @@ interface SkuCatalog {
 
 /** Carga los SKUs para los selectores de los formularios de movimientos. */
 export function useSkuCatalog(): SkuCatalog {
-  const [skus, setSkus] = useState<SKU[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const loaded = await listSKUs();
-        if (active) setSkus(Array.isArray(loaded) ? loaded : []);
-      } catch (loadError) {
-        if (active) {
-          setSkus([]);
-          setError(getUserMessage(loadError, "No se pudo cargar la lista de SKUs."));
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      active = false;
-    };
-  }, [attempt]);
-
-  return { skus, loading, error, retry: () => setAttempt((value) => value + 1) };
+  const { items, loading, error, retry } = useApiList<SKU>(
+    listSKUs,
+    "No se pudo cargar la lista de SKUs.",
+  );
+  return { skus: items, loading, error, retry };
 }

@@ -17,5 +17,6 @@ module.exports = {
     "lib/inventory.ts",
     "lib/labels.ts",
     "lib/registration.ts",
+    "lib/use-api-list.ts",
   ],
 };

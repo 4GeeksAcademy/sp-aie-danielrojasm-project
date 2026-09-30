@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { getUserMessage, requestJson } from "@/lib/api-client";
+import { useApiList } from "@/lib/use-api-list";
 
 type Country = "USA" | "Spain";
 type Status = "active" | "suspended";
@@ -73,13 +74,9 @@ const emptyForm: FormState = {
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
 export function SupplierDirectory() {
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [country, setCountry] = useState<"all" | Country>("all");
   const [category, setCategory] = useState<"all" | Category>("all");
   const [form, setForm] = useState<FormState>(emptyForm);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [loadAttempt, setLoadAttempt] = useState(0);
   const [saving, setSaving] = useState(false);
   const [pendingId, setPendingId] = useState<number | null>(null);
   const [error, setError] = useState("");
@@ -87,31 +84,21 @@ export function SupplierDirectory() {
   const [editingRate, setEditingRate] = useState<number | null>(null);
   const [rateValue, setRateValue] = useState("");
 
-  useEffect(() => {
-    let active = true;
-    const loadSuppliers = async () => {
-      setLoading(true);
-      setLoadError("");
-      const params = new URLSearchParams();
-      if (country !== "all") params.set("country", country);
-      if (category !== "all") params.set("category", category);
-      try {
-        const loaded = await requestJson<Supplier[]>(`/api/suppliers?${params.toString()}`);
-        if (active) setSuppliers(Array.isArray(loaded) ? loaded : []);
-      } catch (requestError) {
-        if (active) {
-          setSuppliers([]);
-          setLoadError(getUserMessage(requestError, "No se pudo cargar el directorio de proveedores."));
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    void loadSuppliers();
-    return () => {
-      active = false;
-    };
-  }, [country, category, loadAttempt]);
+  const params = new URLSearchParams();
+  if (country !== "all") params.set("country", country);
+  if (category !== "all") params.set("category", category);
+  const query = params.toString();
+  const {
+    items: suppliers,
+    setItems: setSuppliers,
+    loading,
+    error: loadError,
+    retry: retryLoad,
+  } = useApiList<Supplier>(
+    () => requestJson<Supplier[]>(`/api/suppliers?${query}`),
+    "No se pudo cargar el directorio de proveedores.",
+    query,
+  );
 
   function updateForm(field: keyof FormState, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -230,7 +217,7 @@ export function SupplierDirectory() {
           {!loading && loadError ? (
             <div role="alert" className="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-5 text-center text-sm text-rose-800">
               <p>{loadError}</p>
-              <button type="button" onClick={() => setLoadAttempt((value) => value + 1)} className="mt-3 rounded-md border border-rose-300 bg-white px-4 py-2 font-semibold hover:bg-rose-100">Reintentar</button>
+              <button type="button" onClick={retryLoad} className="mt-3 rounded-md border border-rose-300 bg-white px-4 py-2 font-semibold hover:bg-rose-100">Reintentar</button>
             </div>
           ) : null}
           {!loading && !loadError ? <div className="mt-5 overflow-x-auto">

@@ -19,11 +19,16 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    throttling real (`THROTTLING=devtools`); quitar el preload del hero no
    mejora y rompe desktop, así que se mantiene y solo se migra `priority` →
    `preload` (deprecación de Next 16). Accesibilidad 91–96 con fallos WCAG.
-- `audit/AUDIT.md` recoge causas raíz y dos refactors: hook `useApiResource`
+- `audit/AUDIT.md` recoge causas raíz y dos refactors: hook `useApiList`
    (backoffice) y `ErrorFallback` por app. Evidencia del experimento del
    hero en `audit/experiments/p1-hero-preload/`.
-- Siguiente paso: extraer `useApiResource` y estabilizar la carga del
-   inventario (CLS 0,03).
+- `useApiList` (`uis/backoffice/lib/use-api-list.ts`) sustituye la carga
+   duplicada en stock, historial, `useSkuCatalog` y proveedores. Verificado:
+   Jest 59 (6 nuevos, hook al 100 % de líneas), typecheck y lint; en la app,
+   datos, filtros (Spain → 6 proveedores), 503 con «Reintentar» y sin errores
+   de consola.
+- Siguiente paso: reservar el alto de la línea de estado del inventario
+   (CLS 0,03) y volver a medir.
 
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 
