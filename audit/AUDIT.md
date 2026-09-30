@@ -259,7 +259,7 @@ El hook tiene su propio test (`__tests__/use-api-list.test.tsx`, jsdom).
 contacto o el estilo de los botones, hay que recordar editar dos archivos por app, y hoy ya divergen en detalles: «Ir al panel de
 operaciones» frente a «Ir a la página principal» en el backoffice.
 
-**Abstracción propuesta** (una por app, en `components/feedback/ErrorFallback.tsx`):
+**Abstracción propuesta** (una por app, en `components/ui/ErrorFallback.tsx`):
 
 ```tsx
 interface ErrorFallbackProps {
@@ -274,7 +274,8 @@ interface ErrorFallbackProps {
 ```
 
 `error.tsx` renderiza `<ErrorFallback …/>` dentro de su `<section role="alert">`, y `global-error.tsx` lo renderiza dentro de
-`<html><body><main role="alert">`, que es lo único que Next exige que sea distinto en el global error. Así se mantiene la
+`<html><body><main role="alert">`, que es lo único que Next exige que sea distinto en el global error. En el backoffice, el enlace
+se unifica como «Ir al panel de operaciones», que es lo que hay en `/`. Así se mantiene la
 independencia entre apps: cada una tiene su `ErrorFallback` con su tema.
 
 ### Caso 3 (menor) — `ariaLabel` en `ButtonLink` (website)

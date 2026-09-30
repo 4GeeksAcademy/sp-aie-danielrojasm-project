@@ -39,7 +39,11 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    columna del inventario y `CarrierSimulator`; 11 vistas sin desbordamiento
    de 320 a 1440 px. El fallo de contraste del `<thead>` era un efecto de esto:
    A11y móvil del dashboard 93 → 97 (`audit/experiments/p8-dashboard-overflow/`).
-- Siguiente paso: refactor `ErrorFallback` y `link-name` del TopBar.
+- `ErrorFallback` (`components/ui/`, uno por app) concentra el contenido de
+   `error.tsx` y `global-error.tsx`. Probado con una ruta temporal que falla
+   en cliente (ya borrada): textos, `aria-labelledby`, log sin el mensaje
+   técnico y «Reintentar» en las dos apps.
+- Siguiente paso: `link-name` del TopBar y accesibilidad del website.
 
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 
