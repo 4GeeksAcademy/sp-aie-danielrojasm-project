@@ -16,6 +16,7 @@ from packages.shared.incidents.domain import (
     can_transition,
 )
 from services.api.auth_models import User
+from services.api.cache import TTLCache
 from services.api.database import INCIDENTS_TABLE, get_incidents_db
 from services.api.errors import VALIDATION_DETAIL, field_name, validation_message
 from services.api.incident_models import (
@@ -39,6 +40,15 @@ router = APIRouter(
     tags=["incidents"],
     dependencies=[Depends(get_current_user)],
     responses={400: {"model": ValidationErrorResponse}},
+)
+
+# Resumen del panel: TinyDB lee y parsea el fichero entero en cada petición
+# (~40 ms con 5.000 incidencias, lineal con el volumen) y el panel lo vuelve a
+# pedir tras cada cambio de estado. Alta y cambio de estado lo invalidan; el TTL
+# acota los cambios hechos fuera de la API (`scripts/seed_incidents.py`).
+SUMMARY_CACHE_TTL_SECONDS = 60
+summary_cache: TTLCache[IncidentSummary] = TTLCache(
+    "incidents.summary", SUMMARY_CACHE_TTL_SECONDS, maxsize=1
 )
 
 
@@ -122,6 +132,7 @@ def create_incident(
             }
         )
         document = table.get(doc_id=document_id)
+    summary_cache.invalidate("alta de incidencia")
     logger.info(
         "Incidencia %s creada por %s (origen=%s, sede=%s, categoría=%s)",
         document_id,
@@ -160,6 +171,11 @@ def list_incidents(
 
 @router.get("/summary", response_model=IncidentSummary)
 def incidents_summary() -> IncidentSummary:
+    # Solo recuentos globales, iguales para cualquier usuario autenticado.
+    return summary_cache.get_or_compute("all", _compute_summary)
+
+
+def _compute_summary() -> IncidentSummary:
     with get_incidents_db() as db:
         documents = db.table(INCIDENTS_TABLE).all()
 
@@ -206,6 +222,7 @@ def update_incident_status(
             raise IncidentValidationError("status", message)
         table.update({"status": target.value, "updated_at": _now()}, doc_ids=[incident_id])
         document = table.get(doc_id=incident_id)
+    summary_cache.invalidate("cambio de estado")
     logger.info(
         "Incidencia %s: %s -> %s por %s",
         incident_id,

@@ -1,0 +1,18 @@
+{
+  "/": {
+    "chunks": 11,
+    "rawKB": 642.6,
+    "gzipKB": 193.5
+  },
+  "/incidents/analyzer": {
+    "chunks": 11,
+    "rawKB": 642.1,
+    "gzipKB": 193.2
+  },
+  "/incidents": {
+    "chunks": 11,
+    "rawKB": 651.1,
+    "gzipKB": 195.5
+  },
+  "buildChunks": 28
+}

@@ -21,8 +21,8 @@ import type {
   ShipmentStatus,
   WarehouseLocation,
 } from "@trackflow/logic/types/models";
-import { CarrierSimulator } from "@/components/dashboard/CarrierSimulator";
 import { InventoryTable } from "@/components/dashboard/InventoryTable";
+import { LazyCarrierSimulator } from "@/components/dashboard/LazyCarrierSimulator";
 import { RecordLookup } from "@/components/dashboard/RecordLookup";
 import {
   ValidationReport,
@@ -176,7 +176,7 @@ export default function OperationsDashboardPage() {
         description={`Simulador partiendo del envío ${initialShipment.id} (Zaragoza → Madrid). Cambia los parámetros para recalcular puntuación y coste.`}
         source="scoreCarrierForShipment · calculateShippingCost · selectBestCarrier"
       >
-        <CarrierSimulator
+        <LazyCarrierSimulator
           products={products}
           carriers={sampleCarriers}
           initialShipment={initialShipment}

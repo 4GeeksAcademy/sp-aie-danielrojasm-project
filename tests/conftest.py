@@ -7,6 +7,8 @@ from typing import Any
 import pytest
 
 from services.api.auth_models import User, UserCreate, UserRole, UserUpdate
+from services.api.routes.incidents import summary_cache
+from services.api.routes.inventory import products_cache
 from services.api.user_service import create_user, update_user
 from tests.helpers import DEFAULT_PASSWORD, TEST_SECRET
 
@@ -28,6 +30,10 @@ def isolated_environment(tmp_path, monkeypatch):
         "GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN",
     ):
         monkeypatch.delenv(variable, raising=False)
+    # Las cachés son del módulo: sin vaciarlas, un test vería el resumen o el
+    # stock de la base temporal del test anterior.
+    products_cache.invalidate("test")
+    summary_cache.invalidate("test")
 
 
 @pytest.fixture
