@@ -46,8 +46,12 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
 - `link-name`: el enlace a «Mi perfil» del TopBar no tenía nombre en móvil
    (texto con `hidden`); ahora `sr-only` bajo `sm`. A11y del backoffice 100
    en dashboard e inventario, móvil y desktop (`audit/experiments/p6-topbar-link-name/`).
-- Siguiente paso: accesibilidad del website (contraste del footer, tamaño
-   de enlaces de contacto y `aria-label` distintos del texto visible).
+- Website, accesibilidad (un commit por problema, evidencia en
+   `audit/experiments/p5a…p5c`): copyright del footer a `slate-400`
+   (4,23:1 → ≈7,5:1), enlaces de teléfono y correo de 18 a 28 px, y sin
+   `aria-label` que sustituyan el texto visible (se retira `ariaLabel` de
+   `ButtonLink`). Accessibility 91/92 → 100 en home y `/aplicar`.
+- Siguiente paso: probar `experimental.inlineCss` (P3) y medición final.
 
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 

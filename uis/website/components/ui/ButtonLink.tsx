@@ -16,28 +16,28 @@ interface ButtonLinkProps {
   href: string;
   children: ReactNode;
   variant?: ButtonVariant;
-  ariaLabel?: string;
 }
+
+/** El nombre accesible es el texto visible: sin `aria-label` que lo sustituya (WCAG 2.5.3). */
 
 export function ButtonLink({
   href,
   children,
   variant = "primary",
-  ariaLabel,
 }: ButtonLinkProps) {
   const className = `inline-flex items-center justify-center rounded-lg px-6 py-3 text-base transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-300 ${variantClasses[variant]}`;
   const isExternal = href.startsWith("mailto:") || href.startsWith("http");
 
   if (isExternal) {
     return (
-      <a href={href} className={className} aria-label={ariaLabel}>
+      <a href={href} className={className}>
         {children}
       </a>
     );
   }
 
   return (
-    <Link href={href} className={className} aria-label={ariaLabel}>
+    <Link href={href} className={className}>
       {children}
     </Link>
   );
