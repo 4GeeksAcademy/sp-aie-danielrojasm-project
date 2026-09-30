@@ -29,6 +29,7 @@ igual que hace `/login`. Sin sesión, Lighthouse solo habría medido la pantalla
   (1350×940, sin throttling de CPU).
 - **3 corridas por URL y modo**; se guarda la **mediana** (`computeMedianRun`). El script está en
   [`audit/lighthouse-runner.mjs`](lighthouse-runner.mjs) y la medición final usa el mismo script.
+- Layout shifts por ancho de pantalla: [`audit/layout-shift-probe.mjs`](layout-shift-probe.mjs) (`PerformanceObserver`, CPU 4×).
 - Resultados: [`audit/before/lighthouse/`](before/lighthouse/): informe JSON y captura PNG por vista y modo. El JSON se puede
   abrir en el [Lighthouse Viewer](https://googlechrome.github.io/lighthouse/viewer/) para ver el informe completo.
 
@@ -128,6 +129,9 @@ Ordenados por impacto en usuarios reales, primero los Core Web Vitals.
 - **Causa raíz.** Por debajo de `xl` (1280 px) el formulario de alta va **debajo** de la lista. La lista carga con un esqueleto de 4
   filas y al llegar los datos se convierte en una tabla de 14 filas: el formulario, visible en pantalla, se desplaza cientos de píxeles.
   El esqueleto no reserva el alto real porque el número de proveedores no se conoce hasta que responde la API.
+- **Segunda causa (≤ 640 px).** La sección de la lista es un elemento de grid con `min-width: auto`, así que adopta el ancho mínimo
+  de la tabla (`min-w-[760px]`) y el `overflow-x-auto` interior nunca actúa: a 360 px la sección pasa de 286 a 760 px al llegar los
+  datos, la página se desborda en horizontal (`scrollWidth` 818) y los filtros cambian de fila.
 
 ### P3 — CSS bloqueante en el website (≈150 ms estimados en móvil)
 
@@ -282,7 +286,7 @@ por commit.
 | 1 | P1 — Verificar el LCP con throttling real; migrar `priority` → `preload` | LCP real móvil home | Verificación + deprecación de Next 16 |
 | 2 | Caso 1 — `useApiList` | Menos código repetido, mismo comportamiento | Refactor requerido por la tarea |
 | 3 | P2 — Cabecera del inventario estable en móvil | CLS inventario 0,03 → 0 | Corrección (layout shift) |
-| 3b | P7 — CLS de proveedores | CLS proveedores < 0,1 | Corrección (Core Web Vital fuera de umbral) |
+| 3b | P7 — Lista de proveedores con alto fijo bajo `xl` + `min-w-0` | CLS proveedores 0,18 → 0 y sin scroll horizontal | Corrección (Core Web Vital fuera de umbral) |
 | 4 | Caso 2 — `ErrorFallback` en cada app | Mantenibilidad | Refactor |
 | 5 | P6 — `link-name` del TopBar y contraste de `<th>` | A11y backoffice | Corrección requerida (WCAG A/AA) |
 | 6 | P5 — Contraste, tamaño de objetivos y *label in name* del website | A11y website | Corrección requerida (WCAG AA) |

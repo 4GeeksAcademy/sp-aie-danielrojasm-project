@@ -30,9 +30,13 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
 - CLS del inventario: el `<select>` de almacén saltaba de fila al llegar el
    resumen (380–640 px). Con el título a fila completa en móvil, CLS 0,03 → 0
    y Performance móvil 94 → 99 (`audit/experiments/p2-inventory-cls/`).
-- Riesgo nuevo: `/suppliers` tiene CLS de hasta 0,18 entre 360 y 1279 px;
-   el formulario de alta va bajo la lista y esta crece de 4 a 14 filas.
-- Siguiente paso: decidir la corrección del CLS de proveedores.
+- `/suppliers`: CLS de hasta 0,18 entre 360 y 1279 px (el formulario de alta
+   iba bajo una lista que crece de 4 a 14 filas, y en móvil la sección se
+   ensanchaba a 760 px). Lista con alto fijo y scroll bajo `xl` + `min-w-0`:
+   CLS 0 de 360 a 1600 px y sin scroll horizontal (`audit/layout-shift-probe.mjs`).
+- Riesgo nuevo: el dashboard `/` se desborda en horizontal a 360 px
+   (`scrollWidth` 698).
+- Siguiente paso: corregir el desbordamiento del dashboard.
 
 ### Hito 5 — Contenedorización del monorepo (#infra-40)
 
