@@ -5,6 +5,9 @@ antes de construir un dashboard ejecutivo? Con este dataset, **sí**: pronostica
 esos meses, el modelo se desvía de media un **3,0 %** del ingreso de cada mes (MAPE), frente al 7,3 % de la regla manual de
 "mismo mes del año pasado × crecimiento".
 
+La evaluación técnica (validación cruzada temporal, curva de aprendizaje y diagnóstico de ajuste) está en
+[`../evaluation_report.md`](../evaluation_report.md).
+
 ## Cómo reproducirlo
 
 ```bash

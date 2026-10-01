@@ -344,6 +344,15 @@ Decisiones del diseño que se mantienen:
 - **PSI:** bins por cuantiles de la referencia con al menos 6 valores por bin (4 con 24 meses) y suavizado +0,5; con muestras tan
   pequeñas el valor depende del número de bins.
 - **K2 Score:** se interpreta como R² (`r2_score`); se reporta además el K² de D'Agostino sobre los residuos.
+- **Validación cruzada:** `data/process/forecast_validation.py`, solo sobre 2016–2023. `TimeSeriesSplit(5, test_size=12)`, con
+  ventana creciente y un año natural por fold (2019…2023). `assert_chronological` falla si un fold baraja, solapa o retrocede.
+  Cada fold reconstruye las features solo con sus meses (no se calculan sobre la serie completa). Se valida a un paso, para
+  compararlo con el error de entrenamiento, y en recursivo de 12 meses, que es el uso real.
+- **Métrica principal: RMSE** (raíz del MSE que pide Dirección); penaliza los fallos grandes en los picos de noviembre–diciembre. El
+  MAE es secundario y el sesgo con signo se reporta aparte (`real − pronóstico`, negativo = sobreestima).
+- **Diagnóstico:** bien ajustado; regularizar empeora la validación. Error residual = sesgo del nivel anual por el crecimiento
+  alterno (~3 %/~9 %). Acción propuesta, aún no implementada: separar el crecimiento anual del bosque
+  (`alternating_growth_adjustment`). Detalle en `data/eval/evaluation_report.md`.
 
 ### 🚫 Sin APIs dentro de `uis/`
 
@@ -417,6 +426,7 @@ Todos se ejecutan desde la raíz del monorepo:
 - **Tests de Python** — `uv run pytest` (o `uv run pytest --cov`) desde la raíz; detalle en `TESTING.md`.
 - **Pipeline semanal** — `uv run python data/pipelines/pipeline.py` (`--week-start YYYY-MM-DD`, `--lookback-weeks N`, `--serve`).
 - **Pronóstico de ventas** — `uv run python scripts/train_sales_forecast.py` (escribe `data/eval/sales_forecast/`).
+- **Evaluación del pronóstico** — `uv run python scripts/evaluate_sales_forecast.py` (CV temporal y curva de aprendizaje en `data/eval/`).
 - **Job nocturno** — `uv run python scripts/nightly_export.py` (`TARGET_DATE=YYYY-MM-DD` para otra fecha cerrada).
 - **Worker de Celery** — `docker compose up -d redis worker flower` / `docker compose stop worker`; sin Docker,
   `uv run --env-file .env celery -A services.tasks.celery_app worker --loglevel=INFO --queues=default,dead_letter`

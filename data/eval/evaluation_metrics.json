@@ -1,0 +1,414 @@
+{
+  "model": "RandomForestRegressor",
+  "params": {
+    "n_estimators": 500,
+    "min_samples_leaf": 2,
+    "max_features": 1.0,
+    "oob_score": true,
+    "random_state": 42
+  },
+  "target": "revenue_eur (market = consolidated)",
+  "cv": {
+    "strategy": "TimeSeriesSplit",
+    "n_splits": 5,
+    "validation_months": 12,
+    "shuffle": false
+  },
+  "mean_train_revenue_eur": 975377.9239583332,
+  "cv_summary": {
+    "train": {
+      "mae_eur": {
+        "mean": 19154.571629068625,
+        "std": 6193.277867471524
+      },
+      "rmse_eur": {
+        "mean": 24499.258878388315,
+        "std": 8960.017085339201
+      },
+      "mse_eur2": {
+        "mean": 664439210.525945,
+        "std": 515024260.3813979
+      },
+      "mae_pct_of_mean_revenue": {
+        "mean": 1.963810248168676,
+        "std": 0.6349618660977704
+      },
+      "rmse_pct_of_mean_revenue": {
+        "mean": 2.5117709019867958,
+        "std": 0.9186200410377509
+      },
+      "bias_pct": {
+        "mean": -0.03650976833913472,
+        "std": 0.0855896193653898
+      }
+    },
+    "validation_one_step": {
+      "mae_eur": {
+        "mean": 39486.821560849,
+        "std": 16868.923727519934
+      },
+      "rmse_eur": {
+        "mean": 46896.160960090005,
+        "std": 19920.66192933442
+      },
+      "mse_eur2": {
+        "mean": 2516716130.156936,
+        "std": 2315572006.4032054
+      },
+      "mae_pct_of_mean_revenue": {
+        "mean": 4.048361213733583,
+        "std": 1.729475653812373
+      },
+      "rmse_pct_of_mean_revenue": {
+        "mean": 4.807999013323306,
+        "std": 2.04235316793836
+      },
+      "bias_pct": {
+        "mean": 1.2415696960255613,
+        "std": 2.876611791988908
+      }
+    },
+    "validation_recursive": {
+      "mae_eur": {
+        "mean": 44509.19746471425,
+        "std": 19371.654221429035
+      },
+      "rmse_eur": {
+        "mean": 52529.88824498792,
+        "std": 24727.51703090028
+      },
+      "mse_eur2": {
+        "mean": 3248549237.8416896,
+        "std": 3320732489.066362
+      },
+      "mae_pct_of_mean_revenue": {
+        "mean": 4.563277102283035,
+        "std": 1.9860665025935693
+      },
+      "rmse_pct_of_mean_revenue": {
+        "mean": 5.385593312570392,
+        "std": 2.5351729235935214
+      },
+      "bias_pct": {
+        "mean": 1.601641933209806,
+        "std": 3.708413159408999
+      }
+    }
+  },
+  "cv_seasonal_naive_recursive": {
+    "mae_eur": {
+      "mean": 66502.26900071156,
+      "std": 8764.709215998177
+    },
+    "rmse_eur": {
+      "mean": 76616.6704639505,
+      "std": 9753.154175160913
+    },
+    "mse_eur2": {
+      "mean": 5946213406.073153,
+      "std": 1531553513.7497263
+    },
+    "mae_pct_of_mean_revenue": {
+      "mean": 6.818102744301237,
+      "std": 0.8985962262123735
+    },
+    "rmse_pct_of_mean_revenue": {
+      "mean": 7.855075307940173,
+      "std": 0.9999359156684745
+    },
+    "bias_pct": {
+      "mean": 1.614988630040888,
+      "std": 7.063276574514657
+    }
+  },
+  "cv_regularization_sweep": {
+    "min_samples_leaf=1": {
+      "train": {
+        "mae_pct_of_mean_revenue": {
+          "mean": 1.4325933980417014,
+          "std": 0.3888250251070629
+        },
+        "rmse_pct_of_mean_revenue": {
+          "mean": 1.7619361736212145,
+          "std": 0.48717958081827706
+        }
+      },
+      "validation_one_step": {
+        "mae_pct_of_mean_revenue": {
+          "mean": 3.6630941013991047,
+          "std": 1.250390370141904
+        },
+        "rmse_pct_of_mean_revenue": {
+          "mean": 4.475735275265279,
+          "std": 1.6283229998865822
+        }
+      },
+      "validation_recursive": {
+        "mae_pct_of_mean_revenue": {
+          "mean": 4.165138891168425,
+          "std": 1.6174536917861135
+        },
+        "rmse_pct_of_mean_revenue": {
+          "mean": 4.963872282396048,
+          "std": 2.1317464193111304
+        }
+      }
+    },
+    "min_samples_leaf=2": {
+      "train": {
+        "mae_pct_of_mean_revenue": {
+          "mean": 1.963810248168676,
+          "std": 0.6349618660977704
+        },
+        "rmse_pct_of_mean_revenue": {
+          "mean": 2.5117709019867958,
+          "std": 0.9186200410377509
+        }
+      },
+      "validation_one_step": {
+        "mae_pct_of_mean_revenue": {
+          "mean": 4.048361213733583,
+          "std": 1.729475653812373
+        },
+        "rmse_pct_of_mean_revenue": {
+          "mean": 4.807999013323306,
+          "std": 2.04235316793836
+        }
+      },
+      "validation_recursive": {
+        "mae_pct_of_mean_revenue": {
+          "mean": 4.563277102283035,
+          "std": 1.9860665025935693
+        },
+        "rmse_pct_of_mean_revenue": {
+          "mean": 5.385593312570392,
+          "std": 2.5351729235935214
+        }
+      }
+    },
+    "min_samples_leaf=4": {
+      "train": {
+        "mae_pct_of_mean_revenue": {
+          "mean": 3.566283144760034,
+          "std": 1.5765635231518482
+        },
+        "rmse_pct_of_mean_revenue": {
+          "mean": 4.492751812231951,
+          "std": 2.260944919828094
+        }
+      },
+      "validation_one_step": {
+        "mae_pct_of_mean_revenue": {
+          "mean": 4.975714710481149,
+          "std": 1.6730141606643438
+        },
+        "rmse_pct_of_mean_revenue": {
+          "mean": 6.171739715425572,
+          "std": 2.5643678451051803
+        }
+      },
+      "validation_recursive": {
+        "mae_pct_of_mean_revenue": {
+          "mean": 5.223579960184604,
+          "std": 1.507690331155614
+        },
+        "rmse_pct_of_mean_revenue": {
+          "mean": 6.533044924060507,
+          "std": 2.5865335786184427
+        }
+      }
+    },
+    "min_samples_leaf=6": {
+      "train": {
+        "mae_pct_of_mean_revenue": {
+          "mean": 4.969154279006817,
+          "std": 1.816460399119463
+        },
+        "rmse_pct_of_mean_revenue": {
+          "mean": 6.254254996579042,
+          "std": 2.5430490788041133
+        }
+      },
+      "validation_one_step": {
+        "mae_pct_of_mean_revenue": {
+          "mean": 5.959139508401501,
+          "std": 1.4727303355060886
+        },
+        "rmse_pct_of_mean_revenue": {
+          "mean": 7.465537181730165,
+          "std": 2.5157752974116003
+        }
+      },
+      "validation_recursive": {
+        "mae_pct_of_mean_revenue": {
+          "mean": 6.279933203852173,
+          "std": 1.586085174544482
+        },
+        "rmse_pct_of_mean_revenue": {
+          "mean": 7.655477680337723,
+          "std": 2.3879978180917973
+        }
+      }
+    }
+  },
+  "cv_alternating_growth_adjustment": {
+    "by_fold": [
+      {
+        "fold": 1,
+        "last_year_growth_pct": 1.821133653396645,
+        "model_implied_growth_pct": 1.7103442366420474,
+        "rule_growth_pct": 9.575924532280421,
+        "real_growth_pct": 9.4226728289319,
+        "mae_eur": 77607.73380894087,
+        "rmse_eur": 95496.94448602163,
+        "mse_eur2": 9119666406.166298,
+        "mae_pct_of_mean_revenue": 7.9566834457344315,
+        "rmse_pct_of_mean_revenue": 9.790763368774083,
+        "bias_pct": 6.898974197881742,
+        "adjusted_mae_eur": 55208.35991537406,
+        "adjusted_rmse_eur": 65274.47827618075,
+        "adjusted_mse_eur2": 4260757514.2275925,
+        "adjusted_mae_pct_of_mean_revenue": 5.660201913461852,
+        "adjusted_rmse_pct_of_mean_revenue": 6.692224282796992,
+        "adjusted_bias_pct": -0.13708953586855682
+      },
+      {
+        "fold": 2,
+        "last_year_growth_pct": 9.4226728289319,
+        "model_implied_growth_pct": 3.3248207908488148,
+        "rule_growth_pct": 4.4571478474740776,
+        "real_growth_pct": 2.9217954055358097,
+        "mae_eur": 31791.36839673713,
+        "rmse_eur": 37550.97740553488,
+        "mse_eur2": 1410075904.1109912,
+        "mae_pct_of_mean_revenue": 3.2593897827541167,
+        "rmse_pct_of_mean_revenue": 3.849890025513742,
+        "bias_pct": -0.3944924688206489,
+        "adjusted_mae_eur": 31754.843885727274,
+        "adjusted_rmse_eur": 39700.852642654696,
+        "adjusted_mse_eur2": 1576157700.5537822,
+        "adjusted_mae_pct_of_mean_revenue": 3.255645130541605,
+        "adjusted_rmse_pct_of_mean_revenue": 4.0703046139837245,
+        "adjusted_bias_pct": -1.5028457199034049
+      },
+      {
+        "fold": 3,
+        "last_year_growth_pct": 2.9217954055358097,
+        "model_implied_growth_pct": 6.402205270401229,
+        "rule_growth_pct": 8.94896780453658,
+        "real_growth_pct": 8.026660279222742,
+        "mae_eur": 30484.516267347895,
+        "rmse_eur": 35388.22675929736,
+        "mse_eur2": 1252326593.1674497,
+        "mae_pct_of_mean_revenue": 3.1254056011062796,
+        "rmse_pct_of_mean_revenue": 3.6281553939300655,
+        "bias_pct": 1.636520145726661,
+        "adjusted_mae_eur": 28389.787012294382,
+        "adjusted_rmse_eur": 32226.712973131747,
+        "adjusted_mse_eur2": 1038561029.0526181,
+        "adjusted_mae_pct_of_mean_revenue": 2.9106448193005394,
+        "adjusted_rmse_pct_of_mean_revenue": 3.3040232079835783,
+        "adjusted_bias_pct": -0.9291576790583749
+      },
+      {
+        "fold": 4,
+        "last_year_growth_pct": 8.026660279222742,
+        "model_implied_growth_pct": 5.5678824898742985,
+        "rule_growth_pct": 4.6806144005242665,
+        "real_growth_pct": 2.796812504172541,
+        "mae_eur": 44998.366471516085,
+        "rmse_eur": 50468.56812868165,
+        "mse_eur2": 2547076368.959381,
+        "mae_pct_of_mean_revenue": 4.613428842935177,
+        "rmse_pct_of_mean_revenue": 5.174257781421511,
+        "bias_pct": -3.0157276125994272,
+        "adjusted_mae_eur": 40473.091563815826,
+        "adjusted_rmse_eur": 45755.872519258985,
+        "adjusted_mse_eur2": 2093599869.9986794,
+        "adjusted_mae_pct_of_mean_revenue": 4.1494779171918985,
+        "adjusted_rmse_pct_of_mean_revenue": 4.691091667686095,
+        "adjusted_bias_pct": -2.050122669152444
+      },
+      {
+        "fold": 5,
+        "last_year_growth_pct": 2.796812504172541,
+        "model_implied_growth_pct": 7.5380836668576645,
+        "rule_growth_pct": 8.724853897007478,
+        "real_growth_pct": 10.115061275850334,
+        "mae_eur": 37664.00237902926,
+        "rmse_eur": 43744.72444540403,
+        "mse_eur2": 1913600916.804329,
+        "mae_pct_of_mean_revenue": 3.861477838885168,
+        "rmse_pct_of_mean_revenue": 4.4848999932125535,
+        "bias_pct": 2.882935403860704,
+        "adjusted_mae_eur": 31808.439211104258,
+        "adjusted_rmse_eur": 36890.7994100054,
+        "adjusted_mse_eur2": 1360931081.1092546,
+        "adjusted_mae_pct_of_mean_revenue": 3.2611399571170803,
+        "adjusted_rmse_pct_of_mean_revenue": 3.782205697284299,
+        "adjusted_bias_pct": 1.5552630559103435
+      }
+    ],
+    "recursive": {
+      "mae_eur": {
+        "mean": 44509.19746471425,
+        "std": 19371.654221429035
+      },
+      "rmse_eur": {
+        "mean": 52529.88824498792,
+        "std": 24727.51703090028
+      },
+      "mse_eur2": {
+        "mean": 3248549237.8416896,
+        "std": 3320732489.066362
+      },
+      "mae_pct_of_mean_revenue": {
+        "mean": 4.563277102283035,
+        "std": 1.9860665025935693
+      },
+      "rmse_pct_of_mean_revenue": {
+        "mean": 5.385593312570392,
+        "std": 2.5351729235935214
+      },
+      "bias_pct": {
+        "mean": 1.601641933209806,
+        "std": 3.708413159408999
+      }
+    },
+    "recursive_adjusted": {
+      "mae_eur": {
+        "mean": 37526.90431766316,
+        "std": 10849.174263511208
+      },
+      "rmse_eur": {
+        "mean": 43969.74316424631,
+        "std": 12877.457292619916
+      },
+      "mse_eur2": {
+        "mean": 2066001438.9883854,
+        "std": 1285536930.3141403
+      },
+      "mae_pct_of_mean_revenue": {
+        "mean": 3.8474219475225953,
+        "std": 1.112304676681884
+      },
+      "rmse_pct_of_mean_revenue": {
+        "mean": 4.507969893946938,
+        "std": 1.320253101521911
+      },
+      "bias_pct": {
+        "mean": -0.6127905096144874,
+        "std": 1.4040083581939773
+      }
+    }
+  },
+  "learning_curve_validation_period": "2023-01..2023-12",
+  "learning_curve_seasonal_naive": {
+    "mae_eur": 79855.41239698818,
+    "rmse_eur": 91208.03395744869,
+    "mse_eur2": 8318905458.383114,
+    "mae_pct_of_mean_revenue": 8.187125260423619,
+    "rmse_pct_of_mean_revenue": 9.351045550354796,
+    "bias_pct": 8.187125260423619
+  }
+}
