@@ -37,6 +37,7 @@ from services.api.routes.telemetry import router as telemetry_router
 from services.api.routes.telemetry_report import router as telemetry_report_router
 from services.api.routes.users import router as users_router
 from services.api.security import get_current_user
+from services.reporting.router import router as reporting_router
 
 
 logger = logging.getLogger("trackflow.api")
@@ -112,6 +113,7 @@ app.include_router(incidents_router)
 app.include_router(inventory_router)
 app.include_router(telemetry_router)
 app.include_router(telemetry_report_router)
+app.include_router(reporting_router)
 app.add_exception_handler(IncidentValidationError, handle_incident_validation_error)
 
 

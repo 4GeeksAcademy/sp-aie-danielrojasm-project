@@ -21,7 +21,10 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
 - **`packages/shared/`** — paquete `@repo/shared-types` de la plantilla (sin uso) y `incidents/`, lógica Python de incidencias
   compartida por `services/api` y `scripts/` (se importa como `packages.shared.incidents.*` desde la raíz).
 - **`memory-bank/`, `AGENTS.md`, `.agents/`** — configuración de los agentes de código (Hito 4).
-- **`agents/`, `skills/`, `mcps/`, `workflows/`, `data/`, `infra/`** — espacio para el producto de hitos futuros (agentes de la empresa,
+- **`data/`** — pipelines de datos (`pipelines/`, con el pipeline semanal de desempeño de negocio en Prefect) y su lógica
+  reutilizable (`process/`); `raw/` y `eval/` guardan salidas locales.
+- **`services/reporting/`** — API `/reporting/*` del pipeline semanal, incluida por `services/api/main.py`.
+- **`agents/`, `skills/`, `mcps/`, `workflows/`, `infra/`** — espacio para el producto de hitos futuros (agentes de la empresa,
   no del IDE). Solo contienen la plantilla.
 
 ---
@@ -36,7 +39,8 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
 `src/**/*.ts`.
 
 **Python:** el CLI y `services/api/incidents_analyzer.py` usan la biblioteca estándar para validar y agregar el CSV en streaming. El analizador y el seed validan con `packages/shared/incidents/csv_validation.py`. La API usa
-FastAPI, `python-multipart` y Uvicorn, declarados en `services/api/requirements.txt`; el reporte de telemetría usa Pandas.
+FastAPI, `python-multipart` y Uvicorn, declarados en `services/api/requirements.txt`; el reporte de telemetría usa Pandas, y el pipeline semanal
+de `data/pipelines/`, Pandas y Prefect 3.
 
 ---
 
@@ -225,9 +229,26 @@ en una sola conexión. Es un reporte técnico: las métricas de negocio quedan p
   esquema de telemetría, así que no emite `page_viewed`.
 - **Dependencia:** `pandas` en `pyproject.toml` y `services/api/requirements.txt` (imagen Docker).
 
-### Pipeline de desempeño de negocio — Milestone 09 (diseño)
+### Pipeline de desempeño de negocio — Milestone 09
 
-Diseño en `data/pipelines/PIPELINE_DESIGN.md`; aún sin código. Decisiones que condicionan la implementación:
+Diseño e implementación en `data/pipelines/PIPELINE_DESIGN.md` (sección 16: comandos y diferencias con el diseño).
+
+- **Código:** `data/pipelines/pipeline.py` (flow, tasks, CLI y `--serve`), `data/pipelines/weekly_warehouse_client_performance/`
+  (`schema.py`, `database.py`, `storage.py`, `runs.py`, `queries.py`) y `data/process/weekly_performance.py` (Pandas puro).
+  `data/`, `data/pipelines/` y `data/process/` son paquetes Python; `pipeline.py` añade la raíz a `sys.path` para poder
+  ejecutarse como script. El pipeline no importa nada de `services/` (motor propio desde `DATABASE_URL`, tablas fuente con
+  `table()`); `services/reporting/` sí importa de `data/pipelines/`.
+- **Prefect 3** (`prefect>=3`, `python-dotenv`): sin `PREFECT_API_URL` levanta un servidor temporal por proceso (~10 s).
+  `PREFECT_LOCAL_STORAGE_PATH` apunta a `data/raw/weekly_warehouse_client_performance/prefect-results` (ignorado por git); los
+  snapshots de eval van a `data/eval/weekly_warehouse_client_performance/` (ignorado). Los blocks JSON y Secret son opcionales.
+- **API:** `POST /reporting/pipeline-runs` (admin) reserva la corrida `pending` y ejecuta el flow como tarea de fondo de FastAPI
+  en el proceso de la API (no hay worker). Si el flow no arranca, la corrida se cierra `failed`; si la API muere, caduca por
+  heartbeat (15 min).
+- **Tests:** `tests/reporting` usa SQLite con `reporting` adjunto (`ATTACH`) y `prefect_test_harness` (sesión). Las fixtures
+  vacían `services.api.database.get_engine.cache_clear()`: la API cachea su motor al volcar eventos de telemetría.
+- **Docker:** la imagen instala Prefect y `docker-compose.yml` monta `./data` en `/app/data`.
+
+Decisiones del diseño que se mantienen:
 
 - **Separación:** el pipeline lee `telemetry_events` en solo lectura y escribe solo en el esquema `reporting`
   (`weekly_warehouse_client_performance`, `pipeline_runs`, `pipeline_run_weeks`). El DDL va en un `schema.sql` propio porque
@@ -237,7 +258,7 @@ Diseño en `data/pipelines/PIPELINE_DESIGN.md`; aún sin código. Decisiones que
 - **Idempotencia:** recalcular semanas completas (última cerrada + 3 de lookback + las que tengan `received_at` posterior al
   watermark) y upsert por `unique (warehouse, client_id, week_start)`, una transacción por semana.
 - **Concurrencia:** índice único parcial en `pipeline_runs` (una corrida activa por pipeline) más límite de concurrencia de Prefect.
-- **Prefect:** entra como dependencia en la Parte 2; cron `0 2 * * 1` UTC; blocks `Secret` (`DATABASE_URL`) y `JSON` (umbrales).
+- **Prefect:** cron `0 2 * * 1` UTC (`--serve`, `global_limit=1`); blocks `Secret` (`DATABASE_URL`) y `JSON` (umbrales) opcionales.
 
 ### 🚫 Sin APIs dentro de `uis/`
 
@@ -304,6 +325,7 @@ Todos se ejecutan desde la raíz del monorepo:
 - **API de incidencias** — instalar `services/api/requirements.txt` y ejecutar `uvicorn services.api.main:app --reload --port 8000`.
 - **API completa** — `uv sync` y `uv run uvicorn services.api.main:app --reload --port 8000 --env-file .env`.
 - **Tests de Python** — `uv run pytest` (o `uv run pytest --cov`) desde la raíz; detalle en `TESTING.md`.
+- **Pipeline semanal** — `uv run python data/pipelines/pipeline.py` (`--week-start YYYY-MM-DD`, `--lookback-weeks N`, `--serve`).
 - **Tests del backoffice** — `npm test` / `npm run test:coverage` en `uis/backoffice` (Jest).
 - **Seed de incidencias** — `uv run python scripts/seed_incidents.py`.
 - **Seed de carga (solo local)** — `uv run python scripts/seed_load_test.py --database-url sqlite:///<ruta> --incidents-db <ruta>`;

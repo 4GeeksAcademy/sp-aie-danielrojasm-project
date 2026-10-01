@@ -14,6 +14,8 @@ dependencies = [
     "sqlmodel>=0.0.47",
     "psycopg2-binary>=2.9.13",
     "pandas>=3.0.6",
+    "prefect>=3",
+    "python-dotenv>=1.2.3",
 ]
 
 [project.scripts]
@@ -41,7 +43,7 @@ pythonpath = ["."]
 addopts = "--import-mode=importlib"
 
 [tool.coverage.run]
-source = ["services/api", "services/telemetry", "packages/shared"]
+source = ["services/api", "services/telemetry", "services/reporting", "data/pipelines", "data/process", "packages/shared"]
 
 [tool.coverage.report]
 show_missing = true

@@ -108,8 +108,9 @@ def test_every_json_route_declares_a_pydantic_response_model():
         and not is_named_schema(success_schema(operation))
     ]
     # 32 rutas (el health check no se publica), el conteo físico, la ingesta y el
-    # reporte de telemetría, y 12 rechazos explícitos de edición directa del stock.
-    assert len(operations) == 46
+    # reporte de telemetría, las 3 de `/reporting` (pipeline semanal) y 12 rechazos
+    # explícitos de edición directa del stock.
+    assert len(operations) == 49
     assert missing == []
     # Los rechazos no tienen respuesta 2xx: su contrato es el cuerpo del 405.
     assert len(rejecting) == 12

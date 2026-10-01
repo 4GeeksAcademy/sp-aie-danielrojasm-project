@@ -17,6 +17,8 @@ services:
     volumes:
       - ./services:/app/services
       - ./packages:/app/packages:ro
+      # Pipeline semanal: `services/reporting` importa el flow de `data/pipelines`.
+      - ./data:/app/data
       # Allowlist de propiedades de cada evento de telemetría.
       - ./docs/telemetry:/app/docs/telemetry:ro
     networks:
