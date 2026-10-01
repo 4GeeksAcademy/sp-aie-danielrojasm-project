@@ -33,8 +33,11 @@ STOCK_MIN_THRESHOLDS={"purestep-footwear": 80}
 
 `DATABASE_URL` es la URI del **Transaction pooler** de Supabase (Connect →
 Direct). Al arrancar, la API crea las tablas que falten
-(`SQLModel.metadata.create_all`). Sin `DATABASE_URL`, o si PostgreSQL no
-responde, la API arranca igual y las rutas de `/inventory` responden `503`.
+(`SQLModel.metadata.create_all`), incluida `telemetry_events`, donde
+`POST /telemetry/events` y la propia API guardan los eventos de telemetría
+(solo escritura: un trigger rechaza UPDATE y DELETE). Sin `DATABASE_URL`, o si
+PostgreSQL no responde, la API arranca igual y las rutas de `/inventory` y la
+ingesta de telemetría responden `503`.
 
 `RESEND_API_KEY` es obligatoria para enviar correos reales. Con el remitente de
 onboarding de Resend solo se puede enviar al email de la cuenta Resend; para

@@ -10,11 +10,13 @@ from fastapi import Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
+from starlette.background import BackgroundTask, BackgroundTasks
 from sqlalchemy.exc import OperationalError
 from sqlmodel import SQLModel
 
 from services.api import inventory_telemetry, telemetry
 from services.api import models  # noqa: F401  registra las tablas de inventario
+from services.api.telemetry_storage import api_event_buffer  # registra telemetry_events
 from services.api.common_models import HealthResponse
 from services.api.database import DatabaseNotConfiguredError, get_engine
 from services.api.errors import internal_error_response, unprocessable_response
@@ -84,11 +86,15 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     if endpoint:
         logger.info("Telemetría: ingesta en %s (%s).", endpoint, telemetry.telemetry_environment())
     else:
-        logger.warning("Falta TELEMETRY_ENDPOINT: se usará al conectar la ingesta persistente.")
+        logger.warning("Falta TELEMETRY_ENDPOINT: el backoffice no tendrá a dónde enviar sus eventos.")
     yield
+    # Lo emitido fuera de una respuesta (p. ej. por el manejador de 500) aún está en el búfer.
+    api_event_buffer.flush()
 
 
 app = FastAPI(title="TrackFlow API", version="1.0.0", lifespan=lifespan)
+# Los eventos que emite la API se guardan en `telemetry_events` además de ir al log.
+telemetry.SINKS.append(api_event_buffer)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=sorted(allowed_origins),
@@ -126,7 +132,18 @@ async def timing_middleware(request: Request, call_next):
     )
     response.headers["Server-Timing"] = f"app;dur={duration_ms:.1f}"
     response.headers["X-Request-Id"] = request_id
+    if api_event_buffer.has_pending():
+        # Un bulk insert con lo que emitió la petición, después de enviar la respuesta.
+        response.background = _after(response.background, BackgroundTask(api_event_buffer.flush))
     return response
+
+
+def _after(existing: BackgroundTask | None, task: BackgroundTask) -> BackgroundTask:
+    if existing is None:
+        return task
+    tasks = BackgroundTasks()
+    tasks.tasks.extend([existing, task])
+    return tasks
 
 
 @app.exception_handler(RequestValidationError)
