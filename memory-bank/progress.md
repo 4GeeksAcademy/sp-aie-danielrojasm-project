@@ -8,6 +8,26 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Evaluación técnica del modelo de pronóstico (ticket del tech lead)
+
+- `scripts/evaluate_sales_forecast.py` + `data/process/forecast_validation.py`: validación cruzada `TimeSeriesSplit` de 5 folds
+   anuales (2019…2023) sobre el entrenamiento, sin barajar y con features reconstruidas por fold. Curva de aprendizaje con
+   validación fija en 2023. Salidas en `data/eval/`: `evaluation_report.md`, `learning_curve.png`, `evaluation_metrics.json`,
+   `cv_folds.csv` y `learning_curve.csv`.
+- Resultado: **bien ajustado**. MAE de validación a un paso 4,05 ± 1,73 % del ingreso medio y RMSE 4,81 ± 2,04 %, frente al
+   6,82 % de MAE del baseline. El entrenamiento queda en 1,96 ± 0,63 %. La curva es plana desde 36 filas (~3,3 %) y regularizar
+   empeora la validación. Sin el fold 1 (12 filas), la validación queda en 3,31 ± 0,60 %.
+- Métrica principal: RMSE (fallos grandes en los picos de noviembre–diciembre).
+- Problema detectado: sesgo anual que alterna con el crecimiento (~3 %/~9 %). Subestima los años de crecimiento alto hasta un
+   6,9 % y sobreestima los de crecimiento bajo hasta un 3,0 %. La corrección por regla de alternancia baja el MAE recursivo de
+   4,56 ± 1,99 a 3,85 ± 1,11 %.
+- Verificado: `uv run pytest tests/pipelines` (40 tests, 8 nuevos en `test_forecast_validation.py`: orden cronológico de los
+   folds y ausencia de fuga). `train_sales_forecast.py` sigue dando las mismas salidas.
+- Pendiente: validar con Finanzas (Thomas) el crecimiento anual que debe usarse (la regla, el presupuesto o una combinación).
+- Siguiente paso: implementar la separación entre nivel anual y forma estacional en `train_sales_forecast.py` y volver a
+   evaluar 2024–2025.
+
+
 ### Milestone 09 — Modelo de pronóstico de ingresos mensuales (RFI de Finanzas)
 
 - `scripts/train_sales_forecast.py`: Random Forest sobre `data/raw/trackflow_sales.csv` (`consolidated`), entrenamiento

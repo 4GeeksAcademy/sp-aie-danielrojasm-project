@@ -87,11 +87,11 @@ FOREST_PARAMS = {
 BAND_PERCENTILES = (5, 10, 90, 95)
 
 
-def train_model(X: pd.DataFrame, y: pd.Series) -> Pipeline:
+def train_model(X: pd.DataFrame, y: pd.Series, params: dict | None = None) -> Pipeline:
     # El escalado no cambia los cortes de un árbol, pero deja todas las features en la
     # misma magnitud por contrato (el mes 1–12 frente a índices ~1,0) y se ajusta solo
     # con el entrenamiento. La normalización que sí importa es la del target.
-    model = Pipeline([("scale", StandardScaler()), ("forest", RandomForestRegressor(**FOREST_PARAMS))])
+    model = Pipeline([("scale", StandardScaler()), ("forest", RandomForestRegressor(**(params or FOREST_PARAMS)))])
     model.fit(X.to_numpy(), y.to_numpy())
     return model
 
