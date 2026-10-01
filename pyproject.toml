@@ -43,7 +43,7 @@ pythonpath = ["."]
 addopts = "--import-mode=importlib"
 
 [tool.coverage.run]
-source = ["services/api", "services/telemetry", "services/reporting", "data/pipelines", "data/process", "packages/shared"]
+source = ["services/api", "services/telemetry", "services/reporting", "services/jobs", "data/pipelines", "data/process", "packages/shared"]
 
 [tool.coverage.report]
 show_missing = true

@@ -1,0 +1,7 @@
+# Jobs nocturnos de TrackFlow (contenedor `scheduler`, zona horaria UTC).
+# Formato cron estándar: minuto hora día-del-mes mes día-de-la-semana.
+
+# nightly_export: backup CSV de telemetry_events del día anterior (UTC) y pipeline
+# weekly_warehouse_client_performance. 01:15 UTC: el día cerró a las 00:00 y los
+# lotes de telemetría reintentados por el backoffice ya han llegado.
+15 1 * * * cd /app && python scripts/nightly_export.py

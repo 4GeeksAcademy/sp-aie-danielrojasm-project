@@ -30,6 +30,23 @@ services:
       retries: 5
       start_period: 15s
 
+  # Cron de los jobs nocturnos (`infra/scheduler/crontab`): proceso aparte de la
+  # API, que nunca ejecuta jobs en su hilo. Solo necesita la base de datos.
+  scheduler:
+    build:
+      context: ./services
+      dockerfile: ../infra/scheduler/Dockerfile
+    env_file:
+      - .env
+    volumes:
+      - ./services:/app/services:ro
+      - ./scripts:/app/scripts:ro
+      # Código del pipeline y destino del CSV (`data/raw/telemetry_YYYY-MM-DD.csv`).
+      - ./data:/app/data
+      - ./infra/scheduler/crontab:/app/infra/scheduler/crontab:ro
+    networks:
+      - trackflow
+
   uis:
     build:
       context: ./uis
