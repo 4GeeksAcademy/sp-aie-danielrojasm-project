@@ -26,7 +26,14 @@ TABLE = weekly_warehouse_client_performance
 @pytest.fixture(autouse=True)
 def fast_pipeline(monkeypatch, tmp_path):
     """Sin esperas entre reintentos y con el snapshot de eval fuera del repo."""
-    for name in ("resolve_target_weeks", "extract_business_events", "reconcile_with_domain_tables", "load_weekly_performance", "close_pipeline_run"):
+    for name in (
+        "resolve_target_weeks",
+        "extract_business_events",
+        "reconcile_with_domain_tables",
+        "detect_capture_drop",
+        "load_weekly_performance",
+        "close_pipeline_run",
+    ):
         task = getattr(pipeline, name)
         monkeypatch.setattr(pipeline, name, task.with_options(retry_delay_seconds=0))
     monkeypatch.setattr(pipeline, "EVAL_DIR", tmp_path / "eval")
@@ -225,16 +232,16 @@ def test_a_pending_run_from_the_api_is_adopted_and_completed(engine, week_events
     assert run["prefect_flow_run_id"] is not None
 
 
-def test_the_transform_is_cached_for_an_hour_on_identical_events(engine, week_events, monkeypatch):
+def test_the_event_preparation_is_cached_for_an_hour_on_identical_events(engine, week_events, monkeypatch):
     calls = []
-    original = pipeline.compute_weekly_performance
-    monkeypatch.setattr(pipeline, "compute_weekly_performance", lambda events, weeks: calls.append(1) or original(events, weeks))
+    original = pipeline.clean_business_events
+    monkeypatch.setattr(pipeline, "clean_business_events", lambda events, weeks: calls.append(1) or original(events, weeks))
 
     assert run_flow().is_completed()
     assert run_flow().is_completed()
 
     assert len(calls) == 1
-    assert pipeline.transform_weekly_performance.cache_expiration == timedelta(hours=1)
+    assert pipeline.prepare_business_events.cache_expiration == timedelta(hours=1)
 
 
 def test_the_source_table_is_never_written(engine, week_events):
@@ -245,3 +252,18 @@ def test_the_source_table_is_never_written(engine, week_events):
 
     with engine.connect() as connection:
         assert connection.execute(select(func.count()).select_from(storage.TELEMETRY_EVENTS)).scalar() == before
+
+
+def test_a_capture_drop_against_the_previous_weeks_is_recorded_with_the_week(engine, insert_events):
+    week, previous = closed_week(), closed_week(1)
+    insert_events(
+        *(make_event(INBOUND, at(previous, hour), order_id=hour, quantity=5, **ZGZ) for hour in range(1, 7)),
+        make_event(INBOUND, at(week), order_id=99, quantity=5, **ZGZ),
+    )
+
+    assert run_flow(week_start=week, lookback_weeks=1).is_completed()
+
+    with engine.connect() as connection:
+        captures = dict(connection.execute(select(pipeline_run_weeks.c.week_start, pipeline_run_weeks.c.reconciliation)).all())
+    assert captures[previous]["capture"] == {"events": 6, "baseline": None, "baseline_weeks": 0, "dropped": False}
+    assert captures[week]["capture"] == {"events": 1, "baseline": 6.0, "baseline_weeks": 1, "dropped": True}

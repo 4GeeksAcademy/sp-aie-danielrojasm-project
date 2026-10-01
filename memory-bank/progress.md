@@ -8,6 +8,36 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Pipeline de desempeño de negocio (subflows, tests y dashboard)
+
+- `data/pipelines/pipeline.py`: el flow principal ya solo coordina cinco
+   subflows con entradas y salidas explícitas: `extract_business_events_flow`,
+   `transform_weekly_kpis_flow`, `load_weekly_performance_flow` y los opcionales
+   `reconcile_with_domain_tables_flow` y `write_eval_snapshot_flow`
+   (`return_state=True`). La CLI y sus argumentos no cambian.
+- Transformación partida en tasks por KPI (`compute_inbound_volume`,
+   `compute_outbound_throughput`, `compute_stockout_frequency`,
+   `compute_discrepancy_rate`) tras `prepare_business_events` (caché de 1 h).
+   Columnas que faltan → `MalformedBusinessEventsError`, que no se reintenta.
+- Mejora adicional: `detect_capture_drop` compara los eventos de cada semana
+   con la media de las 4 anteriores (umbral 0,5) y lo guarda en
+   `pipeline_run_weeks.reconciliation.capture`. Era la señal pendiente de la
+   pregunta «silencio vs. ausencia real».
+- Dashboard en `uis/backoffice` → `/reporting`: los cuatro KPIs con sus
+   nombres del CONTEXT, el período, la última actualización, los avisos de
+   desactualización y de reconciliación, una barra por almacén y cliente por
+   KPI, la tabla de detalle y la navegación entre semanas.
+- Verificado: `uv run pytest` 361 (18 en `tests/pipelines/test_pipeline.py`,
+   sin base de datos); backoffice typecheck, lint, build y 132 tests de Jest.
+   `python data/pipelines/pipeline.py` contra Supabase termina con código 0
+   (0 filas: las semanas cerradas siguen sin eventos obligatorios). Dashboard
+   revisado en un navegador con una SQLite local de 4 semanas sintéticas.
+- No verificado: el dashboard contra la API de Supabase (la API local que
+   estaba en marcha era anterior a `/reporting`).
+- Pendiente: worker de Prefect para `run_deployment`, flow de backfill.
+- Siguiente paso: revisar con Thomas y Ana el primer reporte con datos
+   reales, el lunes siguiente al cierre de la primera semana con actividad.
+
 ### Milestone 09 — Pipeline de desempeño de negocio (implementación)
 
 - `data/pipelines/pipeline.py`: flow de Prefect 3
@@ -501,6 +531,12 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### Pipeline de desempeño de negocio (subflows, tests y dashboard)
+
+El flow principal se dividió en subflows, las tasks de transformación tienen
+tests unitarios aislados, se añadió la detección de caída de captura y
+Thomas y Ana tienen el dashboard `/reporting` en el backoffice.
 
 ### Pipeline de desempeño de negocio (diseño)
 

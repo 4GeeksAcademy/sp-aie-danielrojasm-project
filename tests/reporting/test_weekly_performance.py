@@ -14,6 +14,7 @@ from data.process.weekly_performance import (
     compute_weekly_performance,
     contract_violations,
     last_closed_week,
+    capture_drops,
     reconcile,
     week_start_of,
 )
@@ -243,3 +244,20 @@ def test_reconciliation_flags_movements_without_events():
     detail = reconcile(rows, lost, [WEEK])[WEEK]
     assert detail["status"] == "gap"
     assert detail["warehouses"]["zaragoza"]["dispatched_orders"] == {"events": 1, "domain": 2}
+
+
+def test_capture_drop_compares_each_week_with_the_mean_of_the_four_before():
+    history = {WEEK - timedelta(weeks=offset): events for offset, events in [(1, 100), (2, 80), (3, 120), (4, 100), (5, 5)]}
+
+    result = capture_drops({WEEK: 49, NEXT_WEEK: 60}, history)
+
+    # Media de las 4 semanas anteriores: (100 + 80 + 120 + 100) / 4 = 100; la quinta no cuenta.
+    assert result[WEEK] == {"events": 49, "baseline": 100.0, "baseline_weeks": 4, "dropped": True}
+    # La semana anterior de NEXT_WEEK es WEEK con su valor recalculado (49), no el del historial.
+    assert result[NEXT_WEEK]["baseline"] == round((49 + 100 + 80 + 120) / 4, 2)
+    assert result[NEXT_WEEK]["dropped"] is False
+
+
+def test_without_history_there_is_no_baseline_and_no_drop():
+    assert capture_drops({WEEK: 0}, {}) == {WEEK: {"events": 0, "baseline": None, "baseline_weeks": 0, "dropped": False}}
+    assert capture_drops({WEEK: 0}, {WEEK - timedelta(weeks=1): 0})[WEEK]["dropped"] is False
