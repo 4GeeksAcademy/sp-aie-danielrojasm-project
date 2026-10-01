@@ -9,6 +9,7 @@ import pytest
 from services.api.auth_models import User, UserCreate, UserRole, UserUpdate
 from services.api.routes.incidents import summary_cache
 from services.api.routes.inventory import products_cache
+from services.api.routes.telemetry_report import report_cache
 from services.api.user_service import create_user, update_user
 from tests.helpers import DEFAULT_PASSWORD, TEST_SECRET
 
@@ -34,6 +35,7 @@ def isolated_environment(tmp_path, monkeypatch):
     # stock de la base temporal del test anterior.
     products_cache.invalidate("test")
     summary_cache.invalidate("test")
+    report_cache.invalidate("test")
 
 
 @pytest.fixture

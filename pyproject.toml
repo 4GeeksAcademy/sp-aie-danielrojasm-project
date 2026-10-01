@@ -13,6 +13,7 @@ dependencies = [
     "resend>=2.48,<3.0",
     "sqlmodel>=0.0.47",
     "psycopg2-binary>=2.9.13",
+    "pandas>=3.0.6",
 ]
 
 [project.scripts]
@@ -40,7 +41,7 @@ pythonpath = ["."]
 addopts = "--import-mode=importlib"
 
 [tool.coverage.run]
-source = ["services/api", "packages/shared"]
+source = ["services/api", "services/telemetry", "packages/shared"]
 
 [tool.coverage.report]
 show_missing = true
