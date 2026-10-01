@@ -8,6 +8,23 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Modelo de pronóstico de ingresos mensuales (RFI de Finanzas)
+
+- `scripts/train_sales_forecast.py`: Random Forest sobre `data/raw/trackflow_sales.csv` (`consolidated`), entrenamiento
+   2016–2023 y prueba 2024–2025. Pronóstico recursivo de 24 meses sin ver ningún ingreso real de la prueba; banda
+   p10–p90 y p5–p95 a partir de las trayectorias de cada árbol. Salidas versionadas en `data/eval/sales_forecast/`
+   (`metrics.json`, `predictions.csv`, `forecast.png`, `README.md` con justificación y lectura de métricas).
+- Lógica reutilizable en `data/process/sales_forecast.py` (carga, validación, nulos, split, features causales) y
+   `data/process/forecast_metrics.py` (MSE, PSI, Gini normalizado, R² y K² de D'Agostino).
+- Resultado en prueba: MSE 1,98·10⁹ EUR² (RMSE 3,4 % del ingreso medio), MAPE 3,0 %, PSI 0,078, Gini 0,918,
+   K2 Score (R²) 0,932; baseline estacional: MAPE 7,3 %, R² 0,602. Cobertura p10–p90: 79 %; p5–p95: 100 %.
+- Verificado: `uv run pytest tests/pipelines/test_sales_forecast.py` (12 tests: split 8/2, sin fuga de datos,
+   causalidad de las features, validación del CSV y métricas). Dos ejecuciones del script dan las mismas métricas.
+- Pendiente: desglose por mercado (Los Ángeles / Zaragoza) para medir el PSI de la mezcla de volumen; el CSV solo trae
+   `consolidated`. Decidir con Finanzas si el error (~3 %) es aceptable para el dashboard ejecutivo.
+- Siguiente paso: PR con las métricas; si Finanzas lo aprueba, reentrenamiento mensual y endpoint en `services/reporting`.
+
+
 ### Milestone 09 — Cola de tareas asíncronas con Redis y Celery (Ticket #DEV-55)
 
 - `POST /reporting/pipeline-runs` deja de ejecutar el flow de Prefect en el
