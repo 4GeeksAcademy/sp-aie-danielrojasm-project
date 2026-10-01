@@ -8,6 +8,45 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Cola de tareas asíncronas con Redis y Celery (Ticket #DEV-55)
+
+- `POST /reporting/pipeline-runs` deja de ejecutar el flow de Prefect en el
+   proceso de la API: reserva la corrida, encola
+   `reporting.run_weekly_performance` (solo `run_id`, `week_start`,
+   `triggered_by`) y responde `202` con `task_id`. Era la operación más lenta
+   (12–24 s por corrida contra Supabase, ~10 s solo de arranque de Prefect).
+- `GET /tasks/{task_id}`: `pending`/`started`/`retry`/`success`/`failure`,
+   resultado y error saneado; `503` sin Redis.
+- Reintentos `max_retries=3` con backoff 30/60/120 s; cada intento cierra su
+   corrida y el siguiente reserva otra con `retry_of`. Al agotarlos: cola
+   `dead_letter` → tabla `task_dead_letters` (`task_id`, intentos, error,
+   `failed_at`).
+- Docker Compose: `redis` (`noeviction`, AOF), `worker` y `flower` (:5555).
+- `ensure_schema` se ejecuta una vez por motor y proceso: el 202 contra
+   Supabase bajó de ~1,5 s a ~480 ms.
+- Verificado: `uv run pytest` 419 (24 nuevos en `tests/tasks`). En Docker
+   contra Supabase: 8 corridas `success` desde el worker (12–24 s cada una).
+   Con Postgres local: 202 en 15–27 ms; con `TASKS_SIMULATE_FAILURE=1`,
+   reintentos a los 5/10/20 s, `failure` en el intento 4 y fila en
+   `task_dead_letters`; con la API parada el mensaje esperó en Redis y el
+   worker lo completó al arrancar. Flower muestra éxitos, el fallo y la
+   tarea de la DLQ. Worker en Windows con `--pool=solo`: conecta y queda listo.
+   Con el contenedor `redis` parado: POST → 503 (corrida cerrada `failed`),
+   `GET /tasks` → 503; al arrancarlo, POST → 202 sin reiniciar la API y el
+   worker se reconecta y completa la tarea.
+- Bug encontrado y corregido: con Redis caído, `apply_async` se colgaba más
+   de 60 s y acababa en `RuntimeError` (500) por la suscripción pub/sub del
+   backend; ahora `PublishOnlyRedisBackend` y 503 en ~6–8 s en Windows.
+- No verificado: el 202 en menos de 200 ms contra Supabase desde esta máquina
+   (cada ida y vuelta cuesta ~120 ms); la tabla `task_dead_letters` en
+   Supabase (todavía no ha fallado ninguna tarea allí).
+- Pendiente: endpoint o vista para consultar la DLQ y reencolar; autenticación
+   en Flower si se expone fuera de la máquina; llevar a la cola otras
+   operaciones largas (exportación CSV de inventario, análisis de incidencias).
+- Siguiente paso: PR con la etiqueta `async-tasks`, captura de Flower y log
+   de una ejecución con reintentos.
+
+
 ### Milestone 09 — Job nocturno de telemetría (Ticket #DEV-53)
 
 - `scripts/nightly_export.py`: exporta `telemetry_events` del día anterior

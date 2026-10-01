@@ -11,3 +11,5 @@ psycopg2-binary>=2.9.13
 pandas>=3.0.6
 prefect>=3
 python-dotenv>=1.2.3
+celery[redis]>=5.5
+flower>=2.0

@@ -72,6 +72,27 @@ ai-engineering-company-project-monorepo/
 
 ---
 
+## Worker en segundo plano (Celery + Redis)
+
+Las operaciones largas no corren dentro de la API. `POST /reporting/pipeline-runs` encola el pipeline semanal y responde
+`202` con un `task_id`. Un worker de Celery aparte lo ejecuta, y `GET /tasks/{task_id}` informa de su estado. Detalle:
+[`services/tasks/README.md`](./services/tasks/README.md).
+
+```bash
+# Levantar (desde la raíz; variables en .env, ver .env.example)
+docker compose up -d redis worker flower      # broker, worker y Flower en http://localhost:5555
+docker compose logs -f worker                 # log de cada intento (task_id, intento, estado, duración)
+
+# Detener
+docker compose stop worker                    # warm shutdown: termina la tarea en curso; lo encolado sigue en Redis
+docker compose down                           # todo (los datos de Redis se conservan en el volumen redis-data)
+
+# Worker sin Docker (Redis tiene que estar arriba); en Windows, añadir --pool=solo
+uv run --env-file .env celery -A services.tasks.celery_app worker --loglevel=INFO --queues=default,dead_letter
+```
+
+---
+
 ## Hitos (referencia)
 
 | Hito | Enfoque       | Entregables típicos                              |

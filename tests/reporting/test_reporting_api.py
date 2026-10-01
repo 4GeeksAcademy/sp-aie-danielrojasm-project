@@ -5,11 +5,13 @@ prueba el contrato HTTP, no el flow (ver `test_pipeline_flow.py`).
 """
 
 from datetime import date, datetime, timedelta, timezone
+from types import SimpleNamespace
 from uuid import UUID
 
 import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
+from kombu.exceptions import OperationalError as BrokerError
 
 from data.pipelines.weekly_warehouse_client_performance import runs, storage
 from data.process.weekly_performance import OUTPUT_COLUMNS
@@ -48,9 +50,14 @@ def admin_auth(make_user):
 
 @pytest.fixture
 def launched(monkeypatch):
-    """Corridas que el endpoint manda ejecutar en segundo plano (sin lanzar Prefect)."""
+    """Mensajes que el endpoint encola en Celery (sin Redis ni worker)."""
     calls = []
-    monkeypatch.setattr(reporting_router, "run_weekly_performance", lambda *args: calls.append(args) or "Completed")
+
+    def enqueue(*, args, **options):
+        calls.append(tuple(args))
+        return SimpleNamespace(id=f"task-{len(calls)}")
+
+    monkeypatch.setattr(reporting_router.run_weekly_performance_task, "apply_async", enqueue)
     return calls
 
 
@@ -178,16 +185,18 @@ def test_only_admins_can_trigger_a_run(client, auth, launched):
     assert launched == []
 
 
-def test_admin_triggers_a_run_that_executes_in_the_background(client, admin_auth, engine, launched):
+def test_admin_trigger_enqueues_a_task_and_answers_202_with_its_id(client, admin_auth, engine, launched):
     response = client.post("/reporting/pipeline-runs", json={"week_start": closed_week().isoformat()}, headers=admin_auth)
 
     assert response.status_code == 202
     body = response.json()
     assert body["status"] == "pending"
+    assert body["task_id"] == "task-1"
     assert body["week_start"] == closed_week().isoformat()
+    # Mensaje ligero: solo identificadores serializables en JSON.
     [(run_id, week_start, triggered_by)] = launched
-    assert str(run_id) == body["run_id"]
-    assert week_start == closed_week()
+    assert run_id == body["run_id"]
+    assert week_start == closed_week().isoformat()
     assert triggered_by.startswith("user:")
     latest = runs.get_latest_run(engine)
     assert (latest["status"], latest["trigger"]) == ("pending", "manual")
@@ -212,17 +221,32 @@ def test_trigger_rejects_weeks_that_are_not_closed_mondays(client, admin_auth, l
     assert launched == []
 
 
-def test_a_run_that_cannot_start_releases_the_lock(client, admin_auth, engine, monkeypatch):
-    def broken(*_args):
-        raise RuntimeError("Prefect no arranca")
+def test_without_task_queue_the_trigger_is_503_and_releases_the_lock(client, admin_auth, engine, monkeypatch):
+    def broker_down(**_options):
+        raise BrokerError("Error 10061 connecting to localhost:6379")
 
-    monkeypatch.setattr(reporting_router, "run_weekly_performance", broken)
+    monkeypatch.setattr(reporting_router.run_weekly_performance_task, "apply_async", broker_down)
+
+    response = client.post("/reporting/pipeline-runs", headers=admin_auth)
+
+    assert response.status_code == 503
+    assert "localhost" not in response.text
+    latest = runs.get_latest_run(engine)
+    assert (latest["status"], latest["error_type"]) == ("failed", "OperationalError")
+
+
+def test_the_endpoint_does_not_run_the_pipeline_in_the_api_process(client, admin_auth, launched, monkeypatch):
+    import data.pipelines.pipeline as pipeline
+
+    def must_not_run(*_args):
+        raise AssertionError("La API ejecutó el flow en su proceso")
+
+    monkeypatch.setattr(pipeline, "run_weekly_performance", must_not_run)
 
     response = client.post("/reporting/pipeline-runs", headers=admin_auth)
 
     assert response.status_code == 202
-    latest = runs.get_latest_run(engine)
-    assert (latest["status"], latest["error_type"]) == ("failed", "RuntimeError")
+    assert len(launched) == 1
 
 
 def test_without_database_the_endpoints_answer_503(auth):

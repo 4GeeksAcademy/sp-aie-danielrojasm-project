@@ -75,5 +75,6 @@ class PipelineRunTriggerRequest(BaseModel):
 
 class PipelineRunTriggered(BaseModel):
     run_id: UUID
+    task_id: str = Field(description="Tarea de Celery que ejecuta la corrida; estado en `GET /tasks/{task_id}`.")
     status: Literal["pending"]
     week_start: date | None

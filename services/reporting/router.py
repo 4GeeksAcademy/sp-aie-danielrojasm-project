@@ -7,24 +7,26 @@ no hay lógica de ETL: cada handler valida parámetros, llama a una función de
 - `GET /reporting/weekly-warehouse-client-performance`: KPIs publicados de una semana.
 - `GET /reporting/pipeline-runs/latest`: estado y metadata de la última corrida.
 - `POST /reporting/pipeline-runs`: disparo manual (solo `admin`). Reserva la
-  corrida (`pending`, con el lock de una corrida activa) y ejecuta el flow en
-  segundo plano tras responder `202`; el resultado se consulta en `latest`.
+  corrida (`pending`, con el lock de una corrida activa), encola la tarea de
+  Celery `reporting.run_weekly_performance` y responde `202` con su `task_id`.
+  El flow corre en un worker aparte (`services/tasks/`), nunca en la API; el
+  estado se consulta en `GET /tasks/{task_id}` y en `latest`.
 """
 
 import logging
 from datetime import date, timedelta
-from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from kombu.exceptions import OperationalError as BrokerError
+from redis.exceptions import RedisError
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
 from data.pipelines.pipeline import (
     InvalidWeekError,
     PipelineConfig,
-    run_weekly_performance,
     trigger_weekly_performance_run,
 )
 from data.pipelines.weekly_warehouse_client_performance import queries, runs
@@ -38,6 +40,7 @@ from services.reporting.models import (
     PipelineRunTriggerRequest,
     WeeklyPerformanceReport,
 )
+from services.tasks.pipeline import run_weekly_performance_task
 
 
 logger = logging.getLogger("trackflow.reporting")
@@ -46,6 +49,9 @@ router = APIRouter(prefix="/reporting", tags=["reporting"], dependencies=[Depend
 
 REPORTING_UNAVAILABLE_DETAIL = (
     "El reporte semanal no está disponible ahora mismo; vuelve a intentarlo en unos minutos."
+)
+QUEUE_UNAVAILABLE_DETAIL = (
+    "La cola de tareas no está disponible; la corrida no se ha lanzado. Vuelve a intentarlo en unos minutos."
 )
 # Umbral del diseño. No se lee el block de Prefect aquí: en la API, sin servidor de Prefect,
 # cada lectura levantaría uno temporal.
@@ -121,10 +127,10 @@ def get_latest_pipeline_run(
     responses={
         403: {"description": "Solo un admin puede lanzar el pipeline."},
         409: {"description": "Ya hay una corrida en curso; devuelve su `active_run_id`."},
+        503: {"description": "Sin base de datos o sin cola de tareas (Redis)."},
     },
 )
 def trigger_pipeline_run(
-    background_tasks: BackgroundTasks,
     payload: PipelineRunTriggerRequest | None = None,
     current_user: User = Depends(get_current_user),
     engine: Engine = Depends(get_reporting_engine),
@@ -148,19 +154,24 @@ def trigger_pipeline_run(
         )
     except SQLAlchemyError as error:
         raise _unavailable(error, "reservar la corrida") from error
-    logger.info("Corrida %s del pipeline semanal lanzada por %s (semana %s).", run_id, triggered_by, week_start)
-    background_tasks.add_task(_run_in_background, engine, run_id, week_start, triggered_by)
-    return PipelineRunTriggered(run_id=run_id, status="pending", week_start=week_start)
-
-
-def _run_in_background(engine: Engine, run_id: UUID, week_start: date | None, triggered_by: str) -> None:
-    """El flow registra su estado final en `pipeline_runs`. Si ni siquiera arranca (p. ej. Prefect
-    no levanta), la corrida reservada se cierra como `failed` para no bloquear el siguiente disparo."""
+    # Mensaje ligero: solo identificadores; el worker lee los eventos de la base de datos.
     try:
-        run_weekly_performance(run_id, week_start, triggered_by)
-    except Exception as error:  # nunca debe tumbar el worker de la API
-        logger.exception("La corrida %s del pipeline semanal no pudo ejecutarse.", run_id)
+        task = run_weekly_performance_task.apply_async(
+            args=[str(run_id), week_start.isoformat() if week_start else None, triggered_by], retry=False
+        )
+    except (BrokerError, RedisError, OSError) as error:
+        # Sin cola la corrida nunca se ejecutaría: se cierra para no bloquear el siguiente disparo.
+        logger.error("No se pudo encolar la corrida %s: %s", run_id, type(error).__name__, exc_info=error)
         try:
             runs.fail_run(engine, run_id, error)
         except SQLAlchemyError:
             logger.exception("No se pudo cerrar la corrida %s; caducará por heartbeat.", run_id)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, QUEUE_UNAVAILABLE_DETAIL) from error
+    logger.info(
+        "Corrida %s del pipeline semanal encolada como tarea %s por %s (semana %s).",
+        run_id,
+        task.id,
+        triggered_by,
+        week_start,
+    )
+    return PipelineRunTriggered(run_id=run_id, task_id=task.id, status="pending", week_start=week_start)

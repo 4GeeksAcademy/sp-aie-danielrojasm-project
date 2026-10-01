@@ -12,6 +12,7 @@ idempotente y lo ejecuta la primera task de cada corrida. En SQLite (tests) el
 esquema es una base adjunta con `ATTACH ... AS reporting` (`database.py`).
 """
 
+import weakref
 from datetime import date
 from typing import Any
 
@@ -152,11 +153,19 @@ pipeline_run_weeks = Table(
 TABLES = (weekly_warehouse_client_performance, pipeline_runs, pipeline_run_weeks)
 
 
+# Motores en los que este proceso ya creó o comprobó el esquema. Contra Supabase el DDL
+# completo cuesta ~1 s; el disparo manual (`202` inmediato) no puede pagarlo en cada petición.
+_ensured_engines: "weakref.WeakSet[Engine]" = weakref.WeakSet()
+
+
 def ensure_schema(bind: Engine | Connection) -> None:
-    """Crea lo que falte del esquema `reporting` (idempotente)."""
+    """Crea lo que falte del esquema `reporting` (idempotente; con un `Engine`, una vez por proceso)."""
     if isinstance(bind, Engine):
+        if bind in _ensured_engines:
+            return
         with bind.begin() as connection:
             ensure_schema(connection)
+        _ensured_engines.add(bind)
         return
     postgresql = bind.dialect.name == "postgresql"
     if postgresql:

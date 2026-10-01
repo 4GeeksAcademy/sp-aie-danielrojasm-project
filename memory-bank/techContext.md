@@ -26,6 +26,8 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
 - **`services/reporting/`** — API `/reporting/*` del pipeline semanal, incluida por `services/api/main.py`.
 - **`services/jobs/`** — estado de los jobs en segundo plano (`job_runs`); el job nocturno vive en `scripts/nightly_export.py` y lo
   dispara el contenedor `scheduler` (`infra/scheduler/`).
+- **`services/tasks/`** — cola de tareas asíncronas (Celery + Redis): instancia, tarea del pipeline semanal y DLQ. El worker
+  es el contenedor `worker`; Flower, el contenedor `flower`.
 - **`agents/`, `skills/`, `mcps/`, `workflows/`, `infra/`** — espacio para el producto de hitos futuros (agentes de la empresa,
   no del IDE). Solo contienen la plantilla.
 
@@ -249,9 +251,8 @@ subflows, tests y dashboard).
 - **Prefect 3** (`prefect>=3`, `python-dotenv`): sin `PREFECT_API_URL` levanta un servidor temporal por proceso (~10 s).
   `PREFECT_LOCAL_STORAGE_PATH` apunta a `data/raw/weekly_warehouse_client_performance/prefect-results` (ignorado por git); los
   snapshots de eval van a `data/eval/weekly_warehouse_client_performance/` (ignorado). Los blocks JSON y Secret son opcionales.
-- **API:** `POST /reporting/pipeline-runs` (admin) reserva la corrida `pending` y ejecuta el flow como tarea de fondo de FastAPI
-  en el proceso de la API (no hay worker). Si el flow no arranca, la corrida se cierra `failed`; si la API muere, caduca por
-  heartbeat (15 min).
+- **API:** `POST /reporting/pipeline-runs` (admin) reserva la corrida `pending` y encola la tarea de Celery
+  `reporting.run_weekly_performance`; el flow corre en el worker, nunca en la API (ver "Cola de tareas asíncronas").
 - **Tests:** `tests/reporting` usa SQLite con `reporting` adjunto (`ATTACH`) y `prefect_test_harness` (sesión). Las fixtures
   vacían `services.api.database.get_engine.cache_clear()`: la API cachea su motor al volcar eventos de telemetría.
   `tests/pipelines/test_pipeline.py` prueba las tasks con `task.fn` y DataFrames en memoria (sin BD ni Prefect).
@@ -296,6 +297,38 @@ Decisiones del diseño que se mantienen:
   el ERROR lleva la traza. `error_message` en BD solo guarda clase y primera línea, sin URLs ni SQL.
 - **Tests:** `tests/jobs` con SQLite temporal y un subproceso falso en lugar del pipeline (sin Prefect).
 
+### Cola de tareas asíncronas (Celery + Redis) — Milestone 09 (Ticket #DEV-55)
+
+- **Código:** `services/tasks/` (`celery_app.py`, `pipeline.py`, `dead_letter.py`); `GET /tasks/{task_id}` en
+  `services/api/routes/tasks.py` (`TaskStatusRead`). Detalle y comandos en `services/tasks/README.md`.
+- **Productor / consumidor:** la API solo encola (`apply_async(..., retry=False)`); el worker es otro proceso (contenedor
+  `worker`, colas `default` y `dead_letter`). `services/tasks` no importa FastAPI ni `services/api` (lo comprueba un test).
+- **Redis:** broker y result backend (`REDIS_URL`; en Compose, `DOCKER_REDIS_URL`). `redis:7-alpine` con `noeviction` y AOF,
+  publicado solo en `127.0.0.1:6379`. En Windows hay que usar `127.0.0.1`: con `localhost` cada conexión nueva tarda ~2 s
+  (prueba antes IPv6).
+- **Operación convertida:** `POST /reporting/pipeline-runs`. Mensaje = `[run_id, week_start | null, triggered_by]` (142 bytes).
+  `PipelineRunTriggered` añade `task_id`. Sin Redis: `503` y la corrida se cierra `failed` (no deja el lock tomado); la API
+  se recupera sola cuando vuelve Redis. El backend es `PublishOnlyRedisBackend` (`on_task_call` vacío): la suscripción
+  pub/sub por tarea del backend de Redis colgaba `apply_async` más de 60 s con Redis caído y acababa en `RuntimeError`.
+- **Configuración:** JSON, `task_track_started`, `task_acks_late` + `task_reject_on_worker_lost`, `prefetch = 1`, límites
+  20/25 min en el pipeline (30 min por defecto), `visibility_timeout` 2 h, `result_expires` 24 h y eventos activados para Flower.
+- **Reintentos:** `max_retries = 3` (4 intentos), backoff `TASKS_RETRY_BACKOFF_SECONDS × 2^n` (30/60/120 s). Cada intento
+  fallido cierra su corrida `failed`; el reintento reserva otra (`retry_of` la enlaza). Se reintenta cualquier fallo: las
+  tasks de Prefect ya filtran internamente los transitorios.
+- **DLQ:** al agotar los reintentos se publica `tasks.record_dead_letter` en la cola `dead_letter`, que inserta en
+  `task_dead_letters` (`public`, `task_id` único, RLS sin políticas; SQL en `services/tasks/migrations/`). Si no se puede
+  publicar, se escribe directamente; si tampoco, log `CRITICAL`.
+- **Estados:** `PENDING/RECEIVED` → `pending`, `STARTED` → `started`, `RETRY` → `retry`, `SUCCESS` → `success`,
+  `FAILURE/REVOKED` → `failure`. Un id desconocido sale `pending`. El error se sanea con `job_runner.describe_error`.
+- **Logs:** `trackflow.tasks`, señales `task_prerun`/`task_postrun`: `task_id=… task=… attempt=… status=… duration_ms=…`;
+  `retry` en WARNING y `failure` en ERROR con traza.
+- **Latencia del 202:** `ensure_schema` se recuerda por motor y proceso (`WeakSet`): el DDL de `reporting` costaba ~1,3 s por
+  disparo contra Supabase. Con Postgres local el 202 tarda 15–27 ms. Contra Supabase desde la máquina de desarrollo, ~480 ms:
+  son ~4 idas y vueltas a ~120 ms (la reserva de la corrida es síncrona porque el `409` depende de ella).
+- **Demo:** `TASKS_SIMULATE_FAILURE=1` en el worker hace fallar el pipeline antes del flow (el worker lo avisa al arrancar).
+- **Windows sin Docker:** `celery ... worker --pool=solo` (prefork no funciona en Windows; tampoco los límites de tiempo).
+- **Tests:** `tests/tasks` con Celery en modo eager (`.apply()` recorre la cadena de reintentos en el acto) y SQLite.
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el
@@ -314,13 +347,14 @@ directo al puerto privado de la API.
 
 ### 🐳 Entorno de desarrollo en Docker Compose — Ticket #infra-40
 
-`docker compose up` desde la raíz levanta tres servicios en la red `trackflow-dev`:
+`docker compose up` desde la raíz levanta seis servicios en la red `trackflow-dev` (`redis`, `worker` y `flower` se
+describen en "Cola de tareas asíncronas"; `worker` y `flower` usan la imagen de `services/Dockerfile` con otro `command`):
 
 - **`api`** (`services/Dockerfile`, `python:3.12-slim` + `uv pip install --system -r api/requirements.txt`): Uvicorn con
   `--reload` sobre `services/` y `packages/`, montados por bind mount desde `/app`, porque la API se importa como
   `services.api.main` y usa `packages.shared`. Recibe `.env` entero (`env_file`). `BACKOFFICE_ORIGIN` y `PASSWORD_RESET_URL`
   se sobrescriben con `DOCKER_BACKOFFICE_ORIGIN` y `DOCKER_PASSWORD_RESET_URL`, porque en el contenedor el backoffice va en el
-  3001 y en local sigue en el 3002. Healthcheck contra `GET /`.
+  3001 y en local sigue en el 3002. `REDIS_URL` se sobrescribe con `DOCKER_REDIS_URL`. Healthcheck contra `GET /`.
 - **`scheduler`** (`infra/scheduler/Dockerfile`): supercronic con `infra/scheduler/crontab`; ejecuta los jobs nocturnos fuera
   de la API. Ver "Job nocturno de telemetría".
 - **`uis`** (`uis/Dockerfile`, `node:24-alpine`): `npm ci` por separado en website y backoffice; `uis/start.sh` arranca
@@ -344,6 +378,8 @@ directo al puerto privado de la API.
 - **`uis/backoffice`** — puerto **3002**, con `npm run dev` o `npm run dev:backoffice` desde la raíz.
 - **`services/api`** — puerto **8000**, con `uvicorn services.api.main:app --reload --port 8000` desde la raíz.
 - **`uis/talent-pipeline-tracker`** — puerto 3000 por defecto, que choca con la web. Se arranca con `npm run dev -- --port 3003`.
+- **Redis** — puerto **6379** (solo `127.0.0.1`), con `docker compose up -d redis`.
+- **Flower** — puerto **5555** (solo `127.0.0.1`), con `docker compose up -d flower`.
 
 El backoffice **no** usa el 3001 porque el tracker del Hito 3 usa `http://localhost:3001` como API por defecto cuando no existe
 `NEXT_PUBLIC_TRACKFLOW_API_BASE_URL`.
@@ -365,6 +401,9 @@ Todos se ejecutan desde la raíz del monorepo:
 - **Tests de Python** — `uv run pytest` (o `uv run pytest --cov`) desde la raíz; detalle en `TESTING.md`.
 - **Pipeline semanal** — `uv run python data/pipelines/pipeline.py` (`--week-start YYYY-MM-DD`, `--lookback-weeks N`, `--serve`).
 - **Job nocturno** — `uv run python scripts/nightly_export.py` (`TARGET_DATE=YYYY-MM-DD` para otra fecha cerrada).
+- **Worker de Celery** — `docker compose up -d redis worker flower` / `docker compose stop worker`; sin Docker,
+  `uv run --env-file .env celery -A services.tasks.celery_app worker --loglevel=INFO --queues=default,dead_letter`
+  (`--pool=solo` en Windows).
 - **Tests del backoffice** — `npm test` / `npm run test:coverage` en `uis/backoffice` (Jest).
 - **Seed de incidencias** — `uv run python scripts/seed_incidents.py`.
 - **Seed de carga (solo local)** — `uv run python scripts/seed_load_test.py --database-url sqlite:///<ruta> --incidents-db <ruta>`;
