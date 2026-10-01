@@ -72,6 +72,27 @@ ai-engineering-company-project-monorepo/
 
 ---
 
+## Background worker (Celery + Redis)
+
+Long operations do not run inside the API. `POST /reporting/pipeline-runs` enqueues the weekly pipeline and returns
+`202` with a `task_id`. A separate Celery worker runs it, and `GET /tasks/{task_id}` reports its state. Details:
+[`services/tasks/README.md`](./services/tasks/README.md).
+
+```bash
+# Start (from the repo root; variables in .env, see .env.example)
+docker compose up -d redis worker flower      # broker, worker and Flower at http://localhost:5555
+docker compose logs -f worker                 # per-attempt logs (task_id, attempt, status, duration)
+
+# Stop
+docker compose stop worker                    # warm shutdown: finishes the running task; queued messages stay in Redis
+docker compose down                           # everything (Redis data survives in the redis-data volume)
+
+# Worker without Docker (Redis must be running); on Windows add --pool=solo
+uv run --env-file .env celery -A services.tasks.celery_app worker --loglevel=INFO --queues=default,dead_letter
+```
+
+---
+
 ## Milestones (reference)
 
 | Milestone | Focus        | Typical deliverables                        |

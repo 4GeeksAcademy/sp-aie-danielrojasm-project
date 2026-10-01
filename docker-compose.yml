@@ -12,6 +12,8 @@ services:
       # El backoffice del contenedor escucha en 3001 (en local, en 3002).
       BACKOFFICE_ORIGIN: ${DOCKER_BACKOFFICE_ORIGIN:?Falta DOCKER_BACKOFFICE_ORIGIN en .env}
       PASSWORD_RESET_URL: ${DOCKER_PASSWORD_RESET_URL:?Falta DOCKER_PASSWORD_RESET_URL en .env}
+      # La API solo encola: mismo Redis que el worker, por nombre de servicio.
+      REDIS_URL: ${DOCKER_REDIS_URL:?Falta DOCKER_REDIS_URL en .env}
     ports:
       - "8000:8000"
     volumes:
@@ -29,6 +31,74 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Broker y result backend de Celery. `noeviction`: con la memoria llena Redis
+  # rechaza escrituras en vez de borrar mensajes de la cola. AOF para que los
+  # mensajes encolados sobrevivan a un reinicio del contenedor.
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory-policy", "noeviction", "--appendonly", "yes"]
+    ports:
+      # Sin contraseña: solo accesible desde esta máquina.
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - trackflow
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Worker de Celery (`services/tasks/`): proceso aparte de la API. Consume la cola
+  # `default` (pipeline semanal) y `dead_letter` (registro de tareas agotadas).
+  # `docker compose stop worker` hace un warm shutdown: termina la tarea en curso;
+  # si no le da tiempo, el mensaje sin ACK vuelve a la cola.
+  worker:
+    build:
+      context: ./services
+    command:
+      ["celery", "-A", "services.tasks.celery_app", "worker", "--loglevel=INFO",
+       "--queues=default,dead_letter", "--concurrency=2", "--hostname=worker@%h"]
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: ${DOCKER_REDIS_URL:?Falta DOCKER_REDIS_URL en .env}
+    stop_grace_period: 2m
+    volumes:
+      - ./services:/app/services:ro
+      # El worker ejecuta el flow de `data/pipelines` (resultados de Prefect en `data/raw/`).
+      - ./data:/app/data
+    networks:
+      - trackflow
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Monitor de la cola (solo desarrollo): http://localhost:5555
+  flower:
+    build:
+      context: ./services
+    command: ["celery", "-A", "services.tasks.celery_app", "flower", "--port=5555"]
+    env_file:
+      - .env
+    environment:
+      REDIS_URL: ${DOCKER_REDIS_URL:?Falta DOCKER_REDIS_URL en .env}
+    ports:
+      # Sin autenticación: solo accesible desde esta máquina.
+      - "127.0.0.1:5555:5555"
+    volumes:
+      - ./services:/app/services:ro
+      - ./data:/app/data:ro
+    networks:
+      - trackflow
+    depends_on:
+      redis:
+        condition: service_healthy
 
   # Cron de los jobs nocturnos (`infra/scheduler/crontab`): proceso aparte de la
   # API, que nunca ejecuta jobs en su hilo. Solo necesita la base de datos.
@@ -81,3 +151,6 @@ services:
 networks:
   trackflow:
     name: trackflow-dev
+
+volumes:
+  redis-data:

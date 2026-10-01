@@ -29,6 +29,8 @@ def isolated_environment(tmp_path, monkeypatch):
         "PASSWORD_RESET_URL",
         "CODESPACE_NAME",
         "GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN",
+        "TASKS_SIMULATE_FAILURE",
+        "TASKS_RETRY_BACKOFF_SECONDS",
     ):
         monkeypatch.delenv(variable, raising=False)
     # Las cachés son del módulo: sin vaciarlas, un test vería el resumen o el
