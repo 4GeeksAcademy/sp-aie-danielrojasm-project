@@ -170,12 +170,20 @@ envía en las rutas protegidas.
 
 ### Telemetría (`/telemetry`)
 
-- `POST /telemetry/events`: **receptor provisional** de los lotes del
-  backoffice (`{"events": [...]}`, máximo 100). Valida el Event Envelope de
-  cada evento (`TelemetryEvent` en `telemetry_models.py`), registra en
-  `trackflow.telemetry` cuántos eventos llegan y su `event_type`, y responde
-  `{"received": N}`. Acepta el cuerpo como `application/json` o `text/plain`
-  (`sendBeacon`). No persiste nada ni exige token todavía.
+- `POST /telemetry/events`: ingesta de los lotes del backoffice
+  (`{"events": [...]}`, máximo 100). Valida cada evento por separado
+  (`TelemetryEvent` en `telemetry_models.py`), guarda los válidos en
+  `telemetry_events` con un único insert y responde
+  `{"received", "stored", "rejected"}`. Acepta el cuerpo como
+  `application/json` o `text/plain` (`sendBeacon`). No exige token todavía.
+- `GET /telemetry/report` (bearer): reporte técnico calculado con Pandas en
+  `services/telemetry/analysis.py`. `start_date` y `end_date` opcionales en
+  ISO 8601 (sin zona = UTC; inicio incluido, fin excluido, máximo 90 días);
+  por defecto, los últimos 7 días. Devuelve
+  `{"period": {"from", "to"}, "generated_at", "metrics": {...}}` con
+  `events_per_day`, `events_by_type`, `error_rate_by_type`,
+  `page_load_by_route` y `auth_failure_rate`. Caché en memoria de 60 s por
+  combinación de parámetros; `503` si el almacén no responde.
 
 La API emite sus propios eventos con `telemetry.emit()` (`telemetry.py`): los
 cinco obligatorios de inventario tras el `commit`, rechazos de salidas y altas,
