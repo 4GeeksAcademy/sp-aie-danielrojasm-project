@@ -3,9 +3,9 @@
 `emit(event_type, properties)` construye el Event Envelope con el contexto de la
 petición en curso (`requestId`, `sessionId`), descarta las claves de
 `properties` que no están en el allowlist del evento y entrega el evento a los
-sumideros de `SINKS`. Hoy el único sumidero es el log `trackflow.telemetry`
-(una línea JSON por evento); la persistencia añadirá el suyo sin tocar a los
-emisores.
+sumideros de `SINKS`: el log `trackflow.telemetry` (una línea JSON por evento)
+y, registrado en `main.py`, el búfer que los guarda en `telemetry_events`
+(`services/api/telemetry_storage.py`).
 
 La telemetría nunca cambia la respuesta al usuario: cualquier fallo al emitir
 se registra como WARNING (sin valores, solo nombres) y se descarta.
@@ -51,9 +51,9 @@ _session_id: ContextVar[str] = ContextVar("telemetry_session_id", default=UNKNOW
 def telemetry_endpoint() -> str | None:
     """URL de la ingesta de eventos (`TELEMETRY_ENDPOINT`).
 
-    Hoy apunta al receptor `POST /telemetry/events` de esta misma API. Cuando la
-    ingesta persista los eventos, el publicador de la API entregará aquí los
-    suyos y el backoffice seguirá usando su propia variable, sin cambios.
+    Apunta a la ingesta `POST /telemetry/events` de esta misma API, la que usa
+    el backoffice con su propia variable. Los eventos de la API no pasan por
+    ahí: se guardan directamente con `telemetry_storage.api_event_buffer`.
     """
     endpoint = os.getenv("TELEMETRY_ENDPOINT", "").strip()
     return endpoint or None
@@ -89,6 +89,12 @@ def _event_catalog() -> dict[str, tuple[str, frozenset[str], frozenset[str]]]:
 
 def allowlist(event_type: str) -> frozenset[str]:
     return _event_catalog()[event_type][1]
+
+
+def event_sources(event_type: str) -> frozenset[str] | None:
+    """Emisores permitidos de un `event_type`, o `None` si no está en el catálogo."""
+    entry = _event_catalog().get(event_type)
+    return entry[2] if entry else None
 
 
 # ---------------------------------------------------------------------------

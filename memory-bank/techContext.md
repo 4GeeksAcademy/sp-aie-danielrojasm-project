@@ -174,7 +174,7 @@ El middleware `timing_middleware` registra cada petición en `trackflow.timing` 
 `_configure_logging()` da handler al logger `trackflow`, porque uvicorn solo configura los suyos.
 Decisiones y mediciones en `audit/caching/CACHING_REPORT.md`.
 
-### Telemetría: captura implementada, almacenamiento pendiente — Milestone 09
+### Telemetría: captura y almacenamiento — Milestone 09
 
 El contrato está en `docs/telemetry/telemetry-plan.md`; `docs/telemetry/event-schemas.json` es la fuente validable (draft-07,
 allowlist con `additionalProperties: false`). Los eventos obligatorios de inventario los emite solo la API; el navegador aporta
@@ -189,15 +189,21 @@ prueba), `product_id` = código SKU.
   archivo trae URLs de Docker) y respeta las que ya estén en el entorno. Sin endpoint, la telemetría queda desactivada. Rewrite
   `/api/telemetry/*` para Codespaces.
 - **API:** `telemetry.py` lee el allowlist, la versión y el emisor de cada evento de `event-schemas.json` (montado en Docker en
-  `/app/docs/telemetry`) y solo emite eventos cuyo emisor incluye `api`. Sumideros en `SINKS`: hoy, el log `trackflow.telemetry`.
-  `routes/telemetry.py` es un stub que solo valida el envelope (`telemetry_models.TelemetryEvent`). `TELEMETRY_ENDPOINT`,
-  `TELEMETRY_ENVIRONMENT`, `TELEMETRY_HASH_KEY` (HMAC del email) y `STOCK_MIN_THRESHOLDS`.
+  `/app/docs/telemetry`) y solo emite eventos cuyo emisor incluye `api`. Sumideros en `SINKS`: el log `trackflow.telemetry` y
+  `telemetry_storage.api_event_buffer`, que `timing_middleware` vacía con un bulk insert tras enviar cada respuesta (y el `lifespan`
+  al apagar). `TELEMETRY_ENDPOINT`, `TELEMETRY_ENVIRONMENT`, `TELEMETRY_HASH_KEY` (HMAC del email) y `STOCK_MIN_THRESHOLDS`.
+- **Almacén (`telemetry_storage.py`):** tabla `telemetry_events` de solo escritura (trigger contra UPDATE/DELETE, RLS sin políticas).
+  `id` = `eventId` para que un reintento no duplique; `service` = `source`; `tags` = `properties` ya filtrado. No se persisten
+  `requestId`, `schemaVersion` ni `environment` (siguen en el log); cada entorno usa su propio proyecto de Supabase.
+- **Ingesta (`routes/telemetry.py`):** lee el sobre de forma laxa (`TelemetryIngestEnvelope`, `events: list[Any]`) y valida cada evento
+  con `TelemetryEvent.model_validate`: un evento malo se cuenta en `rejected` y no tumba el lote. Solo acepta emisor `backoffice` y
+  `event_type` cuyo emisor lo incluya (los obligatorios no se pueden suplantar desde el navegador). 503 si no hay almacén.
 - **Inventario:** nueva tabla `inventory_counts` (la crea `create_all`, no modifica tablas existentes) y rutas 405 explícitas contra
   la edición directa del stock. Las 12 rutas 405 declaran su esquema de error; `tests/http/test_serialization.py` las cuenta aparte.
 - **Restricciones abiertas:** sin outbox, un evento obligatorio se pierde si el proceso cae entre el `commit` y el log. El umbral se
   dispara comparando stock anterior y resultante en la salida; una recepción concurrente no bloquea la fila del SKU, así que en una
-  carrera `stock_after` puede quedar desfasado hasta que exista `stock_threshold_alerts`. El stub no exige token: cualquiera que
-  alcance la API puede enviar eventos hasta que llegue la ingesta real.
+  carrera `stock_after` puede quedar desfasado hasta que exista `stock_threshold_alerts`. La ingesta no exige token ni toma
+  `userId` del JWT: cualquiera que alcance la API puede escribir eventos de navegador (no los de la API).
 
 ### 🚫 Sin APIs dentro de `uis/`
 

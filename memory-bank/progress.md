@@ -8,6 +8,35 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Almacenamiento de telemetría
+
+- Tabla `telemetry_events` en Supabase (la crea `create_all` al arrancar la
+   API): `id` (= `eventId`, PK), `event_type`, `timestamp`, `service`
+   (= `source`), `user_id`, `session_id`, `tags` (JSONB con `properties`
+   filtrado por allowlist) y `received_at`. Índices en `timestamp`,
+   `event_type` y GIN en `tags`. Un trigger rechaza UPDATE y DELETE; RLS
+   activado sin políticas (solo la API, como propietaria, lee y escribe).
+- `POST /telemetry/events` deja de ser stub: misma ruta y mismo sobre;
+   valida cada evento con `TelemetryEvent.model_validate` (modelo sin
+   cambios), además de catálogo, emisor `backoffice` y reloj (+5 min);
+   recorta `properties` al allowlist y guarda los válidos en un único bulk
+   insert (`ON CONFLICT DO NOTHING`, los reintentos no duplican). Responde
+   `{received, stored, rejected}`; 422 solo si el sobre no se puede leer y
+   503 si el almacén no responde.
+- Los eventos de la API (obligatorios incluidos) también se guardan: el
+   sumidero `ApiEventBuffer` los acumula y `timing_middleware` los inserta
+   en bloque tras enviar la respuesta.
+- Frontend sin cambios (`git diff main -- uis` vacío).
+- Verificado: `uv run pytest` 273 (`tests/telemetry/test_ingest.py`
+   sustituye a los tests del stub). Contra Supabase: lote mixto de 6 →
+   `{"received":6,"stored":2,"rejected":4}`; un login fallido aparece como
+   `user_login_failed` con `service = api`; UPDATE y DELETE rechazados por
+   el trigger.
+- Pendiente: recorrido en el backoffice (recepción, salida y evento técnico)
+   y captura de la tabla con 5+ filas para el PR; token y `userId` desde el
+   JWT en la ingesta; outbox transaccional.
+- Siguiente paso: consultas analíticas sobre `telemetry_events`.
+
 ### Milestone 09 — Captura de telemetría (backoffice y API)
 
 - Backoffice: `lib/telemetry.ts` (`TelemetryService` + `track()`, única
@@ -396,6 +425,13 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### Almacenamiento de telemetría
+
+Los eventos del backoffice y de la API se guardan en `telemetry_events`
+(Supabase), una fila inmutable por evento y un insert por lote. Un evento
+inválido se rechaza solo, sin perder el resto del lote, y el frontend no
+cambió.
 
 ### Captura de telemetría
 

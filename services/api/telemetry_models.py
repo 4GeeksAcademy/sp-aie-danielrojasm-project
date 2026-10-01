@@ -1,13 +1,12 @@
 """Modelos del Event Envelope de telemetría (`docs/telemetry/telemetry-plan.md`, sección 6).
 
 `TelemetryEvent` es el contrato común de todo evento, lo emita el backoffice,
-la API o un job. Lo usan el receptor `POST /telemetry/events` y el emisor de la
-API (`services/api/telemetry.py`), y se reutilizará sin cambios cuando la
-ingesta persista los eventos. Los patrones son los de `definitions/envelope`
+la API o un job. Lo usan la ingesta `POST /telemetry/events` (como validador de
+cada evento del lote) y el emisor de la API (`services/api/telemetry.py`). Los patrones son los de `definitions/envelope`
 de `docs/telemetry/event-schemas.json` (un test comprueba que coinciden).
 
 Aquí solo se valida el envelope. El allowlist de `properties` de cada
-`event_type` lo aplica el emisor y, en la fase de persistencia, la ingesta.
+`event_type` lo aplican el emisor y la ingesta.
 """
 
 from typing import Any, Literal
@@ -63,5 +62,19 @@ class TelemetryBatch(BaseModel):
     events: list[TelemetryEvent] = Field(min_length=1, max_length=MAX_EVENTS_PER_BATCH)
 
 
+class TelemetryIngestEnvelope(BaseModel):
+    """Lo que de verdad lee la ingesta: el sobre del lote, con cada evento sin validar.
+
+    Cada elemento se valida después, uno a uno, con `TelemetryEvent`: un evento
+    inválido se rechaza solo y el resto del lote se guarda igual.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    events: list[Any] = Field(max_length=MAX_EVENTS_PER_BATCH)
+
+
 class TelemetryIngestResponse(BaseModel):
-    received: int = Field(description="Eventos aceptados del lote.")
+    received: int = Field(description="Eventos que traía el lote.")
+    stored: int = Field(description="Eventos válidos guardados en `telemetry_events`.")
+    rejected: int = Field(description="Eventos que no cumplen el contrato; no se guardan.")

@@ -309,7 +309,7 @@ falla.
 
 ## 7. Emisión y transporte
 
-El almacenamiento y el pipeline se diseñan en el siguiente proyecto; aquí se fija el contrato de emisión, que no depende de ellos.
+Aquí se fija el contrato de emisión, que no depende del almacenamiento; el estado de la ingesta y de la tabla `telemetry_events` está al final de la sección.
 
 ### API (`services/api`)
 
@@ -347,7 +347,8 @@ El almacenamiento y el pipeline se diseñan en el siguiente proyecto; aquí se f
 | Obligatorios | Emitidos por la API después del `commit`. Falta el outbox transaccional: si el proceso cae entre el `commit` y el log, el evento se pierde. |
 | Umbral mínimo | `STOCK_MIN_THRESHOLDS` (JSON `client_id` → unidades, 50 por defecto). El disparo por flanco se calcula con el stock anterior y el resultante de la salida; la tabla `stock_threshold_alerts` (y con ella `stock_threshold_recovered`) queda para la fase de almacenamiento. |
 | Conteo físico | `POST /inventory/counts` (tabla `inventory_counts`) y vista `/inventory/counts` en el backoffice. |
-| `POST /telemetry/events` | **Stub**: valida el envelope (`TelemetryEvent`), registra cuántos eventos llegan y de qué tipo, y responde `{"received": N}`. Todavía no exige token, no sobrescribe `userId`, no aplica el allowlist por evento ni persiste. La URL de la ingesta está en `TELEMETRY_ENDPOINT` (API) y `NEXT_PUBLIC_TELEMETRY_ENDPOINT` (backoffice). |
+| `POST /telemetry/events` | **Ingesta real**: misma ruta y mismo sobre. Valida cada evento con `TelemetryEvent.model_validate` (más catálogo, emisor `backoffice` y reloj ±5 min), recorta `properties` al allowlist y guarda los válidos con un único bulk insert en `telemetry_events`; responde `{"received", "stored", "rejected"}`. Un evento inválido no tumba el lote. Todavía no exige token ni sobrescribe `userId`. La URL de la ingesta está en `TELEMETRY_ENDPOINT` (API) y `NEXT_PUBLIC_TELEMETRY_ENDPOINT` (backoffice). |
+| `telemetry_events` (Supabase) | Una fila inmutable por evento: `id` (= `eventId`), `event_type`, `timestamp`, `service` (= `source`), `user_id`, `session_id`, `tags` (JSONB, `properties` filtrado) y `received_at`. Índices en `timestamp`, `event_type` y GIN en `tags`; trigger contra UPDATE/DELETE. Los eventos de la API llegan por el sumidero `ApiEventBuffer`, un insert por respuesta. |
 
 ## 8. Estrategia de entrega: stream o batch
 
