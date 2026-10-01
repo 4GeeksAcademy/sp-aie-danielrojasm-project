@@ -24,6 +24,8 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
 - **`data/`** — pipelines de datos (`pipelines/`, con el pipeline semanal de desempeño de negocio en Prefect) y su lógica
   reutilizable (`process/`); `raw/` y `eval/` guardan salidas locales.
 - **`services/reporting/`** — API `/reporting/*` del pipeline semanal, incluida por `services/api/main.py`.
+- **`services/jobs/`** — estado de los jobs en segundo plano (`job_runs`); el job nocturno vive en `scripts/nightly_export.py` y lo
+  dispara el contenedor `scheduler` (`infra/scheduler/`).
 - **`agents/`, `skills/`, `mcps/`, `workflows/`, `infra/`** — espacio para el producto de hitos futuros (agentes de la empresa,
   no del IDE). Solo contienen la plantilla.
 
@@ -270,6 +272,30 @@ Decisiones del diseño que se mantienen:
 - **Concurrencia:** índice único parcial en `pipeline_runs` (una corrida activa por pipeline) más límite de concurrencia de Prefect.
 - **Prefect:** cron `0 2 * * 1` UTC (`--serve`, `global_limit=1`); blocks `Secret` (`DATABASE_URL`) y `JSON` (umbrales) opcionales.
 
+### Job nocturno de telemetría — Milestone 09 (Ticket #DEV-53)
+
+- **Código:** `scripts/nightly_export.py` (fecha objetivo, CSV, subproceso del pipeline, CLI) y `services/jobs/job_runner.py`
+  (tabla `job_runs`, transiciones y `run_job`). DDL equivalente en `services/jobs/migrations/001_create_job_runs.sql`.
+- **Proceso independiente:** ni el script ni `services/jobs` importan FastAPI ni `services/api` (lo comprueba un test). Motor propio
+  desde `DATABASE_URL`; `telemetry_events` se lee con una `Table` mínima. Nada de `APScheduler`, `BackgroundTasks` ni lifespan.
+- **`job_runs` ≠ `pipeline_runs`:** `job_runs` (esquema `public`) es la orquestación: CSV, disparo, lock e idempotencia por día.
+  `reporting.pipeline_runs` sigue registrando las fases del ETL. El pipeline se lanza con
+  `python -m data.pipelines.pipeline --triggered-by job:nightly_export` (no existe `--no-prefect`): recalcula la última semana
+  cerrada + 3 de lookback + semanas con eventos tardíos. Cada noche es redundante pero idempotente (upsert sin cambios).
+- **Lock:** la fila `processing` es el lock; el índice único parcial `job_runs_one_active` (una fila `pending`/`processing` por job)
+  hace atómica la toma cuando dos instancias arrancan a la vez. Filas activas de más de 6 h caducan a `failed` (proceso muerto con
+  SIGKILL). SIGTERM se convierte en `SystemExit` para que el `finally` cierre la fila.
+- **Idempotencia:** `completed` por `(job_name, target_date)` → se omite. El CSV se escribe en `.partial` y se renombra: un fallo a
+  medias no deja un archivo que la siguiente ejecución dé por bueno. `TARGET_DATE` de hoy o futuro se rechaza (CSV incompleto).
+- **CSV:** `data/raw/telemetry_YYYY-MM-DD.csv` (ignorado por git: lleva `user_id` y `session_id`), filas por `timestamp` en el día
+  UTC, `tags` como JSON con claves ordenadas. Los eventos que lleguen tarde no entran en el CSV del día; el pipeline sí los ve.
+- **Disparador:** contenedor `scheduler` (`infra/scheduler/Dockerfile`, supercronic v0.2.49 linux-amd64 con SHA1 verificado),
+  `15 1 * * *` UTC. Supercronic hereda `env_file`, escribe en la salida del contenedor y no solapa ejecuciones; el lock de BD cubre
+  además ejecuciones manuales y otros hosts. Monta `services/`, `scripts/` (solo lectura), `data/` y el crontab.
+- **Logs:** logger `trackflow.jobs` a stdout en UTF-8, `<ISO UTC> <nivel> trackflow.jobs job=… target_date=… status=… <mensaje>`;
+  el ERROR lleva la traza. `error_message` en BD solo guarda clase y primera línea, sin URLs ni SQL.
+- **Tests:** `tests/jobs` con SQLite temporal y un subproceso falso en lugar del pipeline (sin Prefect).
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el
@@ -288,13 +314,15 @@ directo al puerto privado de la API.
 
 ### 🐳 Entorno de desarrollo en Docker Compose — Ticket #infra-40
 
-`docker compose up` desde la raíz levanta dos servicios en la red `trackflow-dev`:
+`docker compose up` desde la raíz levanta tres servicios en la red `trackflow-dev`:
 
 - **`api`** (`services/Dockerfile`, `python:3.12-slim` + `uv pip install --system -r api/requirements.txt`): Uvicorn con
   `--reload` sobre `services/` y `packages/`, montados por bind mount desde `/app`, porque la API se importa como
   `services.api.main` y usa `packages.shared`. Recibe `.env` entero (`env_file`). `BACKOFFICE_ORIGIN` y `PASSWORD_RESET_URL`
   se sobrescriben con `DOCKER_BACKOFFICE_ORIGIN` y `DOCKER_PASSWORD_RESET_URL`, porque en el contenedor el backoffice va en el
   3001 y en local sigue en el 3002. Healthcheck contra `GET /`.
+- **`scheduler`** (`infra/scheduler/Dockerfile`): supercronic con `infra/scheduler/crontab`; ejecuta los jobs nocturnos fuera
+  de la API. Ver "Job nocturno de telemetría".
 - **`uis`** (`uis/Dockerfile`, `node:24-alpine`): `npm ci` por separado en website y backoffice; `uis/start.sh` arranca
   `next dev` de la web en el 3000 y del backoffice en el 3001, y sale si una de las dos cae. Monta `uis/`, más `src/` y el
   `tsconfig.json` raíz (solo lectura) para que `turbopack.root` (= `/app`) resuelva `@trackflow/logic`. `node_modules` y `.next`
@@ -336,6 +364,7 @@ Todos se ejecutan desde la raíz del monorepo:
 - **API completa** — `uv sync` y `uv run uvicorn services.api.main:app --reload --port 8000 --env-file .env`.
 - **Tests de Python** — `uv run pytest` (o `uv run pytest --cov`) desde la raíz; detalle en `TESTING.md`.
 - **Pipeline semanal** — `uv run python data/pipelines/pipeline.py` (`--week-start YYYY-MM-DD`, `--lookback-weeks N`, `--serve`).
+- **Job nocturno** — `uv run python scripts/nightly_export.py` (`TARGET_DATE=YYYY-MM-DD` para otra fecha cerrada).
 - **Tests del backoffice** — `npm test` / `npm run test:coverage` en `uis/backoffice` (Jest).
 - **Seed de incidencias** — `uv run python scripts/seed_incidents.py`.
 - **Seed de carga (solo local)** — `uv run python scripts/seed_load_test.py --database-url sqlite:///<ruta> --incidents-db <ruta>`;

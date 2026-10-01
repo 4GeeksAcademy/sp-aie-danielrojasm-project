@@ -8,6 +8,29 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Job nocturno de telemetría (Ticket #DEV-53)
+
+- `scripts/nightly_export.py`: exporta `telemetry_events` del día anterior
+   (UTC) a `data/raw/telemetry_YYYY-MM-DD.csv` si no existe, lanza el
+   pipeline semanal como subproceso y registra el resultado en `job_runs`.
+   `TARGET_DATE` cambia la fecha (solo días cerrados).
+- `services/jobs/job_runner.py`: tabla `job_runs` (`pending` → `processing`
+   → `completed` | `failed`, `target_date`, `error_message`, `details`),
+   `has_processing_lock`, `has_completed_for_date` y `run_job`. El estado
+   `processing` es el lock, con índice único parcial para la carrera.
+- Disparador: contenedor `scheduler` (supercronic) con `15 1 * * *` UTC.
+- Verificado: `uv run pytest` 394 (33 nuevos en `tests/jobs`). Contra
+   Supabase: dos instancias a la vez → la segunda sale con
+   `status=skipped` y código 0; la primera exporta el 30/09 (0 filas: solo
+   hay eventos del 01/10) y el pipeline termina en 24 s; la repetición se
+   omite por duplicado. Con SQLite local: CSV de 12 filas sintéticas,
+   fallo con `telemetry_events` ausente → fila `failed` y código 1.
+- No verificado: el contenedor `scheduler` (Docker no está instalado en
+   esta máquina); el crontab no se ha ejecutado con supercronic.
+- Pendiente: `docker compose up --build scheduler` y revisar su primera
+   ejecución nocturna; aviso cuando una noche termine `failed`.
+- Siguiente paso: revisión del PR con la etiqueta `cronjob`.
+
 ### Milestone 09 — Pipeline de desempeño de negocio (subflows, tests y dashboard)
 
 - `data/pipelines/pipeline.py`: el flow principal ya solo coordina cinco

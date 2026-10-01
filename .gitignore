@@ -34,3 +34,7 @@ htmlcov/
 # Salidas locales del pipeline semanal: resultados persistidos de Prefect y snapshots de eval por corrida
 data/raw/weekly_warehouse_client_performance/
 data/eval/weekly_warehouse_client_performance/
+
+# Backups CSV del job nocturno (telemetría con user_id y session_id: no se versionan)
+data/raw/telemetry_*.csv
+data/raw/.telemetry_*.csv.partial
