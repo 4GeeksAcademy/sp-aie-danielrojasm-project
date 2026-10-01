@@ -8,6 +8,20 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Pipeline de desempeño de negocio (diseño)
+
+- `data/pipelines/PIPELINE_DESIGN.md`: diseño del pipeline
+   `weekly_warehouse_client_performance`, que produce el "Reporte Semanal de
+   Desempeño por Almacén y Cliente" (Thomas y Ana) con los cuatro KPIs de
+   `CONTEXT-company.md` a partir de los obligatorios de `telemetry_events`.
+- Destino en el esquema `reporting`: `weekly_warehouse_client_performance`
+   (tal cual el CONTEXT), `pipeline_runs` y `pipeline_run_weeks`. Endpoints
+   planeados en `services/reporting/`: KPIs, último estado y disparo manual.
+- Sin código: no cambian `services/telemetry/analysis.py`,
+   `GET /telemetry/report` ni `telemetry_events`.
+- Siguiente paso: Parte 2, implementar el flow de Prefect, el DDL de
+   `reporting` y `services/reporting/` según el diseño.
+
 ### Milestone 09 — Reporte técnico de telemetría
 
 - `services/telemetry/analysis.py`: cinco métricas con Pandas sobre
@@ -451,6 +465,11 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### Pipeline de desempeño de negocio (diseño)
+
+Diseñado el pipeline semanal que sustituirá el consolidado por almacén y
+cliente que los directores arman a mano cada domingo.
 
 ### Reporte técnico de telemetría
 

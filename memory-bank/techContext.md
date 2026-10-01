@@ -225,6 +225,20 @@ en una sola conexión. Es un reporte técnico: las métricas de negocio quedan p
   esquema de telemetría, así que no emite `page_viewed`.
 - **Dependencia:** `pandas` en `pyproject.toml` y `services/api/requirements.txt` (imagen Docker).
 
+### Pipeline de desempeño de negocio — Milestone 09 (diseño)
+
+Diseño en `data/pipelines/PIPELINE_DESIGN.md`; aún sin código. Decisiones que condicionan la implementación:
+
+- **Separación:** el pipeline lee `telemetry_events` en solo lectura y escribe solo en el esquema `reporting`
+  (`weekly_warehouse_client_performance`, `pipeline_runs`, `pipeline_run_weeks`). El DDL va en un `schema.sql` propio porque
+  `create_all` no crea esquemas ni índices parciales. API en `services/reporting/`, que importa de `data/pipelines/` (nunca al revés).
+- **Cálculo:** semana ISO en UTC por `timestamp`; `outbound_orders_count` solo cuenta `exit_type = 'dispatch'`; dedup por `id` y por
+  clave de negocio (`order_id`, `count_id`); nunca se calcula la semana en curso.
+- **Idempotencia:** recalcular semanas completas (última cerrada + 3 de lookback + las que tengan `received_at` posterior al
+  watermark) y upsert por `unique (warehouse, client_id, week_start)`, una transacción por semana.
+- **Concurrencia:** índice único parcial en `pipeline_runs` (una corrida activa por pipeline) más límite de concurrencia de Prefect.
+- **Prefect:** entra como dependencia en la Parte 2; cron `0 2 * * 1` UTC; blocks `Secret` (`DATABASE_URL`) y `JSON` (umbrales).
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el
