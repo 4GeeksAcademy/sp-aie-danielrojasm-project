@@ -44,7 +44,7 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
 
 **Python:** el CLI y `services/api/incidents_analyzer.py` usan la biblioteca estándar para validar y agregar el CSV en streaming. El analizador y el seed validan con `packages/shared/incidents/csv_validation.py`. La API usa
 FastAPI, `python-multipart` y Uvicorn, declarados en `services/api/requirements.txt`; el reporte de telemetría usa Pandas, y el pipeline semanal
-de `data/pipelines/`, Pandas y Prefect 3.
+de `data/pipelines/`, Pandas y Prefect 3. El modelo de pronóstico de ventas usa scikit-learn, SciPy y matplotlib.
 
 ---
 
@@ -329,6 +329,22 @@ Decisiones del diseño que se mantienen:
 - **Windows sin Docker:** `celery ... worker --pool=solo` (prefork no funciona en Windows; tampoco los límites de tiempo).
 - **Tests:** `tests/tasks` con Celery en modo eager (`.apply()` recorre la cadena de reintentos en el acto) y SQLite.
 
+### Pronóstico de ingresos mensuales — Milestone 09
+
+- **Código:** `data/process/sales_forecast.py` (datos y features), `data/process/forecast_metrics.py` (métricas) y
+  `scripts/train_sales_forecast.py` (entrenamiento, evaluación y gráfico). Detalle en `data/eval/sales_forecast/README.md`.
+- **Split:** por año natural, 8 años de entrenamiento y 2 de prueba; `split_train_test` falla si los años no están completos o no son 10.
+  Los nulos se imputan después del split y solo en entrenamiento.
+- **Target normalizado:** `revenue_t / media de los 12 meses previos`. Los árboles no extrapolan la tendencia (~6 % anual) y la
+  prueba queda por encima del rango de entrenamiento; predecir euros directamente subestima todo 2024–2025.
+- **Sin fuga:** features solo con meses anteriores (24 meses de historia mínima → 72 filas de entrenamiento); `shipments_processed` y
+  `avg_revenue_per_shipment_eur` no se usan porque son contemporáneas al ingreso. La evaluación es recursiva desde 2023-12.
+- **Random Forest** (500 árboles, `min_samples_leaf=2`, `random_state=42`) en vez de XGBoost: pocos datos, explicabilidad para Finanzas
+  y banda de variabilidad a partir de las trayectorias por árbol.
+- **PSI:** bins por cuantiles de la referencia con al menos 6 valores por bin (4 con 24 meses) y suavizado +0,5; con muestras tan
+  pequeñas el valor depende del número de bins.
+- **K2 Score:** se interpreta como R² (`r2_score`); se reporta además el K² de D'Agostino sobre los residuos.
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el
@@ -400,6 +416,7 @@ Todos se ejecutan desde la raíz del monorepo:
 - **API completa** — `uv sync` y `uv run uvicorn services.api.main:app --reload --port 8000 --env-file .env`.
 - **Tests de Python** — `uv run pytest` (o `uv run pytest --cov`) desde la raíz; detalle en `TESTING.md`.
 - **Pipeline semanal** — `uv run python data/pipelines/pipeline.py` (`--week-start YYYY-MM-DD`, `--lookback-weeks N`, `--serve`).
+- **Pronóstico de ventas** — `uv run python scripts/train_sales_forecast.py` (escribe `data/eval/sales_forecast/`).
 - **Job nocturno** — `uv run python scripts/nightly_export.py` (`TARGET_DATE=YYYY-MM-DD` para otra fecha cerrada).
 - **Worker de Celery** — `docker compose up -d redis worker flower` / `docker compose stop worker`; sin Docker,
   `uv run --env-file .env celery -A services.tasks.celery_app worker --loglevel=INFO --queues=default,dead_letter`

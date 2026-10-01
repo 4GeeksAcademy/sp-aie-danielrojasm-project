@@ -18,6 +18,9 @@ dependencies = [
     "python-dotenv>=1.2.3",
     "celery[redis]>=5.5",
     "flower>=2.0",
+    "scikit-learn>=1.9.1",
+    "matplotlib>=3.11.2",
+    "scipy>=1.17.1",
 ]
 
 [project.scripts]

@@ -1,0 +1,59 @@
+{
+  "model": "RandomForestRegressor",
+  "params": {
+    "n_estimators": 500,
+    "min_samples_leaf": 2,
+    "max_features": 1.0,
+    "oob_score": true,
+    "random_state": 42
+  },
+  "features": [
+    "month_of_year",
+    "last_year_index",
+    "trailing_growth",
+    "recent_momentum"
+  ],
+  "train_period": "2016-01..2023-12",
+  "test_period": "2024-01..2025-12",
+  "train_rows": 72,
+  "test_months_evaluated": 24,
+  "oob_r2_revenue_index": 0.8793855226335421,
+  "feature_importance": {
+    "month_of_year": 0.5181,
+    "last_year_index": 0.4155,
+    "trailing_growth": 0.0306,
+    "recent_momentum": 0.0358
+  },
+  "random_forest": {
+    "mse_eur2": 1976509347.8103733,
+    "rmse_eur": 44457.950332987384,
+    "rmse_pct_of_mean_revenue": 3.4222825436114848,
+    "mae_eur": 38173.69646870442,
+    "mape_pct": 2.985806354635508,
+    "bias_pct": -0.054145480471639605,
+    "psi_predicted_vs_actual": 0.07849894269340431,
+    "gini_normalized": 0.9176365462086021,
+    "k2_score_r2": 0.9324755352822631,
+    "residuals_dagostino_k2": 3.7340126364327935,
+    "residuals_dagostino_p_value": 0.15458575034182392
+  },
+  "seasonal_naive_baseline": {
+    "mse_eur2": 11649924921.775156,
+    "rmse_eur": 107934.81793089362,
+    "rmse_pct_of_mean_revenue": 8.308602634312226,
+    "mae_eur": 93013.18628200908,
+    "mape_pct": 7.334761151188028,
+    "bias_pct": -7.000116906983053,
+    "psi_predicted_vs_actual": 0.7399936372879182,
+    "gini_normalized": 0.9210634727690143,
+    "k2_score_r2": 0.6019978629414698,
+    "residuals_dagostino_k2": 1.4370096707438946,
+    "residuals_dagostino_p_value": 0.48748057505850384
+  },
+  "band_coverage_pct": {
+    "p10_p90": 79.16666666666666,
+    "p05_p95": 100.0
+  },
+  "psi_seasonal_index_train_vs_test": 0.07849894269340431,
+  "mean_test_revenue_eur": 1299073.0533333335
+}
