@@ -6,3 +6,7 @@ Cada subcarpeta o archivo dentro de `data/pipelines/` debe representar **un pipe
 
 - **Propósito principal**: unificar en un único lugar la lógica de movimiento y transformación de datos que soporta las aplicaciones y analíticas de la compañía.
 - **Recomendación**: documenta aquí los pipelines que vayas añadiendo, describiendo su objetivo, orígenes/destinos de datos, dependencias y cómo ejecutarlos en desarrollo, pruebas y producción.
+
+## Pipelines
+
+- **`weekly_warehouse_client_performance`** (en diseño): consolidado semanal por almacén y cliente para el reporte ejecutivo. Diseño en [PIPELINE_DESIGN.md](./PIPELINE_DESIGN.md).
