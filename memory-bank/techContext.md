@@ -44,7 +44,7 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
 
 **Python:** el CLI y `services/api/incidents_analyzer.py` usan la biblioteca estándar para validar y agregar el CSV en streaming. El analizador y el seed validan con `packages/shared/incidents/csv_validation.py`. La API usa
 FastAPI, `python-multipart` y Uvicorn, declarados en `services/api/requirements.txt`; el reporte de telemetría usa Pandas, y el pipeline semanal
-de `data/pipelines/`, Pandas y Prefect 3. El modelo de pronóstico de ventas usa scikit-learn, SciPy y matplotlib.
+de `data/pipelines/`, Pandas y Prefect 3. El modelo de pronóstico de ventas usa scikit-learn, SciPy y matplotlib. El RAG usa `qdrant-client` y `openai`.
 
 ---
 
@@ -354,6 +354,26 @@ Decisiones del diseño que se mantienen:
   alterno (~3 %/~9 %). Acción propuesta, aún no implementada: separar el crecimiento anual del bosque
   (`alternating_growth_adjustment`). Detalle en `data/eval/evaluation_report.md`.
 
+### RAG y base de conocimiento comercial — Milestone 09
+
+Diseño completo en `docs/rag/rag-design.md`.
+
+- **Código:** `data/process/rag.py` (`setup`, `embed`, chunking, clientes y configuración) y `data/pipelines/rag.py`
+  (`retrieve`, `search_chunks`, `build_messages`, `generate_answer`, `query`). `services/api/routes/knowledge.py` solo llama a
+  `query()`; la UI está en `uis/backoffice/app/knowledge` + `lib/knowledge.ts` (rewrite `/api/knowledge/*`).
+- **Sin frameworks de orquestación:** SDK `qdrant-client` y SDK `openai` contra el gateway de 4Geeks (compatible con OpenAI).
+  Variables en el `.env` raíz: `LLM_API_URL` (con `/v1`), `LLM_API_KEY`, `LLM_EMBEDDING_MODEL`, `LLM_GENERATION_MODEL`
+  (tienen que ser distintos; si no, `RagConfigurationError`), `QDRANT_URL` (`DOCKER_QDRANT_URL` en Compose) y, opcional,
+  `RAG_MIN_SCORE`.
+- **Qdrant:** colección `trackflow_knowledge` (nombre del CONTEXT), coseno, dimensión leída del primer vector (1024 con
+  `pplx-embed-v1-0.6b`). Payload: `company`, `source_document`, `section`, `language`, `chunk_index`, `text`.
+- **Idempotencia:** `setup()` embebe todo y solo después recrea la colección; IDs `uuid5` por documento, idioma y `chunk_index`.
+- **Contrato del cliente:** `{ "answer" }` y nada más. Scores y fuentes solo en el log `trackflow.rag`. 503 con mensaje propio si
+  Qdrant, la colección o el gateway fallan.
+- **Umbral:** `min_score = 0,40`, afinado con `scripts/evaluate_rag_retrieval.py`. No separa preguntas cercanas al corpus sin
+  respuesta: eso queda en manos del prompt.
+- **Reutilización prevista:** el agente LangGraph llamará a `retrieve()` y `generate_answer()` como nodos separados.
+
 ### 🚫 Sin APIs dentro de `uis/`
 
 Nada de `app/api/*` ni route handlers en las interfaces. Cuando haga falta backend, se crea en `services/<nombre>`. Mientras tanto, el
@@ -405,6 +425,7 @@ describen en "Cola de tareas asíncronas"; `worker` y `flower` usan la imagen de
 - **`uis/talent-pipeline-tracker`** — puerto 3000 por defecto, que choca con la web. Se arranca con `npm run dev -- --port 3003`.
 - **Redis** — puerto **6379** (solo `127.0.0.1`), con `docker compose up -d redis`.
 - **Flower** — puerto **5555** (solo `127.0.0.1`), con `docker compose up -d flower`.
+- **Qdrant** — puerto **6333** (solo `127.0.0.1`), con `docker compose up -d qdrant`.
 
 El backoffice **no** usa el 3001 porque el tracker del Hito 3 usa `http://localhost:3001` como API por defecto cuando no existe
 `NEXT_PUBLIC_TRACKFLOW_API_BASE_URL`.
@@ -427,6 +448,8 @@ Todos se ejecutan desde la raíz del monorepo:
 - **Pipeline semanal** — `uv run python data/pipelines/pipeline.py` (`--week-start YYYY-MM-DD`, `--lookback-weeks N`, `--serve`).
 - **Pronóstico de ventas** — `uv run python scripts/train_sales_forecast.py` (escribe `data/eval/sales_forecast/`).
 - **Evaluación del pronóstico** — `uv run python scripts/evaluate_sales_forecast.py` (CV temporal y curva de aprendizaje en `data/eval/`).
+- **Base de conocimiento (RAG)** — `uv run python -m data.process.rag` indexa `docs/company-knowledge-base/` en Qdrant;
+  `uv run python scripts/evaluate_rag_retrieval.py` mide Recall@3 (`data/eval/rag/retrieval_report.json`).
 - **Job nocturno** — `uv run python scripts/nightly_export.py` (`TARGET_DATE=YYYY-MM-DD` para otra fecha cerrada).
 - **Worker de Celery** — `docker compose up -d redis worker flower` / `docker compose stop worker`; sin Docker,
   `uv run --env-file .env celery -A services.tasks.celery_app worker --loglevel=INFO --queues=default,dead_letter`

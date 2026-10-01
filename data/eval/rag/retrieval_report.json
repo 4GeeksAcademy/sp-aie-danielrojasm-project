@@ -1,0 +1,383 @@
+{
+  "collection": "trackflow_knowledge",
+  "k": 3,
+  "min_score": 0.4,
+  "questions": 15,
+  "documents_covered": [
+    "carrier-coverage",
+    "returns-policy",
+    "sla-delivery",
+    "storage-pricing"
+  ],
+  "recall_at_k": 1.0,
+  "recall_at_k_with_threshold": 1.0,
+  "recall_target": 0.8,
+  "lowest_expected_score": 0.4488,
+  "highest_out_of_scope_score": 0.5879,
+  "out_of_scope_rejected": 3,
+  "out_of_scope_total": 5,
+  "results": [
+    {
+      "id": "returns-window",
+      "expected": "returns-policy#1",
+      "rank": 1,
+      "expected_score": 0.7892,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "returns-policy#1",
+          "score": 0.7892
+        },
+        {
+          "chunk": "returns-policy#0",
+          "score": 0.4825
+        },
+        {
+          "chunk": "returns-policy#3",
+          "score": 0.3849
+        }
+      ]
+    },
+    {
+      "id": "returns-shipping-cost",
+      "expected": "returns-policy#2",
+      "rank": 1,
+      "expected_score": 0.6273,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "returns-policy#2",
+          "score": 0.6273
+        },
+        {
+          "chunk": "returns-policy#0",
+          "score": 0.47
+        },
+        {
+          "chunk": "returns-policy#3",
+          "score": 0.3706
+        }
+      ]
+    },
+    {
+      "id": "returns-international",
+      "expected": "returns-policy#3",
+      "rank": 1,
+      "expected_score": 0.546,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "returns-policy#3",
+          "score": 0.546
+        },
+        {
+          "chunk": "returns-policy#0",
+          "score": 0.4805
+        },
+        {
+          "chunk": "returns-policy#2",
+          "score": 0.4132
+        }
+      ]
+    },
+    {
+      "id": "returns-process",
+      "expected": "returns-policy#0",
+      "rank": 1,
+      "expected_score": 0.663,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "returns-policy#0",
+          "score": 0.663
+        },
+        {
+          "chunk": "returns-policy#3",
+          "score": 0.4575
+        },
+        {
+          "chunk": "returns-policy#1",
+          "score": 0.4387
+        }
+      ]
+    },
+    {
+      "id": "carrier-rural-aragon",
+      "expected": "carrier-coverage#1",
+      "rank": 1,
+      "expected_score": 0.646,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "carrier-coverage#1",
+          "score": 0.646
+        },
+        {
+          "chunk": "carrier-coverage#0",
+          "score": 0.3576
+        },
+        {
+          "chunk": "carrier-coverage#2",
+          "score": 0.3452
+        }
+      ]
+    },
+    {
+      "id": "carrier-heavy-us",
+      "expected": "carrier-coverage#0",
+      "rank": 1,
+      "expected_score": 0.6608,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "carrier-coverage#0",
+          "score": 0.6608
+        },
+        {
+          "chunk": "sla-delivery#0",
+          "score": 0.4108
+        },
+        {
+          "chunk": "carrier-coverage#1",
+          "score": 0.3829
+        }
+      ]
+    },
+    {
+      "id": "carrier-manual-choice",
+      "expected": "carrier-coverage#2",
+      "rank": 1,
+      "expected_score": 0.6992,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "carrier-coverage#2",
+          "score": 0.6992
+        },
+        {
+          "chunk": "carrier-coverage#0",
+          "score": 0.3499
+        },
+        {
+          "chunk": "storage-pricing#2",
+          "score": 0.3403
+        }
+      ]
+    },
+    {
+      "id": "sla-express",
+      "expected": "sla-delivery#0",
+      "rank": 1,
+      "expected_score": 0.7594,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "sla-delivery#0",
+          "score": 0.7594
+        },
+        {
+          "chunk": "carrier-coverage#0",
+          "score": 0.5408
+        },
+        {
+          "chunk": "sla-delivery#2",
+          "score": 0.5247
+        }
+      ]
+    },
+    {
+      "id": "sla-compensation",
+      "expected": "sla-delivery#1",
+      "rank": 1,
+      "expected_score": 0.6181,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "sla-delivery#1",
+          "score": 0.6181
+        },
+        {
+          "chunk": "sla-delivery#2",
+          "score": 0.3309
+        },
+        {
+          "chunk": "sla-delivery#0",
+          "score": 0.2921
+        }
+      ]
+    },
+    {
+      "id": "sla-black-friday",
+      "expected": "sla-delivery#2",
+      "rank": 1,
+      "expected_score": 0.6125,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "sla-delivery#2",
+          "score": 0.6125
+        },
+        {
+          "chunk": "sla-delivery#1",
+          "score": 0.3983
+        },
+        {
+          "chunk": "sla-delivery#0",
+          "score": 0.3903
+        }
+      ]
+    },
+    {
+      "id": "sla-rebajas",
+      "expected": "sla-delivery#2",
+      "rank": 1,
+      "expected_score": 0.4488,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "sla-delivery#2",
+          "score": 0.4488
+        },
+        {
+          "chunk": "sla-delivery#0",
+          "score": 0.3591
+        },
+        {
+          "chunk": "sla-delivery#1",
+          "score": 0.3003
+        }
+      ]
+    },
+    {
+      "id": "storage-rate-zaragoza",
+      "expected": "storage-pricing#0",
+      "rank": 1,
+      "expected_score": 0.5799,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "storage-pricing#0",
+          "score": 0.5799
+        },
+        {
+          "chunk": "storage-pricing#2",
+          "score": 0.5233
+        },
+        {
+          "chunk": "carrier-coverage#1",
+          "score": 0.415
+        }
+      ]
+    },
+    {
+      "id": "storage-aged-inventory",
+      "expected": "storage-pricing#0",
+      "rank": 1,
+      "expected_score": 0.5475,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "storage-pricing#0",
+          "score": 0.5475
+        },
+        {
+          "chunk": "storage-pricing#1",
+          "score": 0.4253
+        },
+        {
+          "chunk": "storage-pricing#2",
+          "score": 0.3139
+        }
+      ]
+    },
+    {
+      "id": "storage-discount",
+      "expected": "storage-pricing#2",
+      "rank": 1,
+      "expected_score": 0.675,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "storage-pricing#2",
+          "score": 0.675
+        },
+        {
+          "chunk": "storage-pricing#0",
+          "score": 0.471
+        },
+        {
+          "chunk": "storage-pricing#1",
+          "score": 0.3946
+        }
+      ]
+    },
+    {
+      "id": "storage-aging-report",
+      "expected": "storage-pricing#1",
+      "rank": 1,
+      "expected_score": 0.8366,
+      "hit_at_k": true,
+      "hit_at_k_with_threshold": true,
+      "top_k": [
+        {
+          "chunk": "storage-pricing#1",
+          "score": 0.8366
+        },
+        {
+          "chunk": "storage-pricing#0",
+          "score": 0.2798
+        },
+        {
+          "chunk": "storage-pricing#2",
+          "score": 0.2619
+        }
+      ]
+    }
+  ],
+  "out_of_scope": [
+    {
+      "id": "insurance",
+      "best_chunk": "carrier-coverage#0",
+      "best_score": 0.5002,
+      "rejected_by_threshold": false
+    },
+    {
+      "id": "mexico-warehouse",
+      "best_chunk": "storage-pricing#0",
+      "best_score": 0.3391,
+      "rejected_by_threshold": true
+    },
+    {
+      "id": "pick-pack-fee",
+      "best_chunk": "storage-pricing#0",
+      "best_score": 0.5879,
+      "rejected_by_threshold": false
+    },
+    {
+      "id": "payment-terms",
+      "best_chunk": "storage-pricing#0",
+      "best_score": 0.3037,
+      "rejected_by_threshold": true
+    },
+    {
+      "id": "unrelated",
+      "best_chunk": "sla-delivery#0",
+      "best_score": 0.1413,
+      "rejected_by_threshold": true
+    }
+  ]
+}

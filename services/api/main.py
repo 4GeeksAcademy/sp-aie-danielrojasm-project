@@ -31,6 +31,7 @@ from services.api.routes.incidents import (
 )
 from services.api.routes.incidents import router as incidents_router
 from services.api.routes.inventory import router as inventory_router
+from services.api.routes.knowledge import router as knowledge_router
 from services.api.routes.profiles import router as profiles_router
 from services.api.routes.suppliers import router as suppliers_router
 from services.api.routes.telemetry import router as telemetry_router
@@ -116,6 +117,7 @@ app.include_router(telemetry_router)
 app.include_router(telemetry_report_router)
 app.include_router(reporting_router)
 app.include_router(tasks_router)
+app.include_router(knowledge_router)
 app.add_exception_handler(IncidentValidationError, handle_incident_validation_error)
 
 

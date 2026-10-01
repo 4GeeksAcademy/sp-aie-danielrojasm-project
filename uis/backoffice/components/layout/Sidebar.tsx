@@ -29,6 +29,7 @@ const navItems: NavItem[] = [
   { key: "incidents_new", label: "Registrar incidencia", href: "/incidents/new" },
   { key: "incidents_analyzer", label: "Análisis CSV de incidencias", href: "/incidents/analyzer" },
   { key: "suppliers", label: "Directorio de proveedores", href: "/suppliers" },
+  { key: "knowledge_assistant", label: "Asistente comercial", href: "/knowledge" },
   { key: "telemetry_report", label: "Telemetría técnica", href: "/telemetry" },
   { key: "profile", label: "Mi perfil", href: "/account/profile" },
   { key: "returns", label: "Devoluciones", href: "#", upcoming: true },
