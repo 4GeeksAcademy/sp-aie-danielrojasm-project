@@ -36,7 +36,7 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
 `src/**/*.ts`.
 
 **Python:** el CLI y `services/api/incidents_analyzer.py` usan la biblioteca estándar para validar y agregar el CSV en streaming. El analizador y el seed validan con `packages/shared/incidents/csv_validation.py`. La API usa
-FastAPI, `python-multipart` y Uvicorn, declarados en `services/api/requirements.txt`.
+FastAPI, `python-multipart` y Uvicorn, declarados en `services/api/requirements.txt`; el reporte de telemetría usa Pandas.
 
 ---
 
@@ -204,6 +204,26 @@ prueba), `product_id` = código SKU.
   dispara comparando stock anterior y resultante en la salida; una recepción concurrente no bloquea la fila del SKU, así que en una
   carrera `stock_after` puede quedar desfasado hasta que exista `stock_threshold_alerts`. La ingesta no exige token ni toma
   `userId` del JWT: cualquiera que alcance la API puede escribir eventos de navegador (no los de la API).
+
+### Reporte técnico de telemetría — Milestone 09
+
+`services/telemetry/analysis.py` (paquete fuera de `services/api`, importado como `services.telemetry.analysis`) concentra el
+pipeline con Pandas: cinco funciones puras `(bind, start, end) -> list[dict]` que cargan con SQLAlchemy Core solo las columnas y
+los `event_type` necesarios dentro de `[start, end)`, extraen campos de `tags` en Pandas, convierten `timestamp` con
+`pd.to_datetime(utc=True)` antes de agrupar y devuelven tipos nativos (`NaN` → `None`). Días en UTC. `build_report` las ejecuta
+en una sola conexión. Es un reporte técnico: las métricas de negocio quedan para el hito de pipelines de datos.
+
+- **Endpoint:** `GET /telemetry/report` (`routes/telemetry_report.py`, bearer) resuelve el período una vez (7 días por defecto,
+  máximo 90, `start >= end` → 422) y sirve `TelemetryReport` (`telemetry_report_models.py`). `report_cache` (`TTLCache`, 60 s)
+  usa como clave los parámetros recibidos: la petición sin parámetros es `(None, None)` y reutiliza el período calculado. No se
+  invalida al ingerir; el TTL es el retraso máximo.
+- **Fallos:** `ERROR_EVENT_TYPES` clasifica los eventos de fallo en `system` (5xx, caídas, errores de cliente) y `rejected`
+  (login, validación, reglas de inventario). La latencia es la de Web Vitals (`page_load_recorded`, p75), porque
+  `api_latency_recorded` aún no se emite.
+- **Backoffice:** `/telemetry` (`components/telemetry/TelemetryReportView.tsx`) consume el reporte desde `lib/telemetry-report.ts`
+  con `useApiList` (lista de un elemento) y barras CSS, sin librería de gráficos. `/telemetry` no tiene `section` en el
+  esquema de telemetría, así que no emite `page_viewed`.
+- **Dependencia:** `pandas` en `pyproject.toml` y `services/api/requirements.txt` (imagen Docker).
 
 ### 🚫 Sin APIs dentro de `uis/`
 

@@ -8,6 +8,32 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Reporte técnico de telemetría
+
+- `services/telemetry/analysis.py`: cinco métricas con Pandas sobre
+   `telemetry_events` (cargar en SQL → refinar → `to_datetime(utc=True)` →
+   `groupby` → `agg`, sin bucles): `events_per_day` (día × emisor, con
+   sesiones), `events_by_type` (peso y `last_seen`), `error_rate_by_type`
+   (fallos `system`/`rejected` sobre el total del día),
+   `page_load_by_route` (p75 de Web Vitals por ruta y día) y
+   `auth_failure_rate` (fallidos / intentos por día).
+- `GET /telemetry/report` con bearer, `start_date`/`end_date` ISO 8601
+   opcionales (7 días por defecto, máximo 90) y caché de 60 s por
+   parámetros. Backoffice: vista `/telemetry` con barras y tablas y el
+   período visible; enlace «Telemetría técnica» en el sidebar.
+- Verificado: `uv run pytest` 295 (22 nuevos en `tests/telemetry`);
+   Jest 126; `npm run verify` exit 0. Contra Supabase: sin token 401;
+   primera petición 910 ms y segunda 7,6 ms con el mismo cuerpo (caché);
+   `start >= end` → 422. `/telemetry` en Chrome headless a 1440, 1024 y
+   375 px sin desbordamiento ni errores de consola.
+- Las pruebas en navegador usaron el backoffice del puerto 3002 con la
+   telemetría activa: sus `page_viewed` y `page_load_recorded` (rutas
+   `/login` y `/telemetry`) quedaron en `telemetry_events`, que no admite
+   DELETE.
+- Pendiente: emitir `api_latency_recorded` para medir la latencia de la
+   API; `section` de telemetría para `/telemetry`; token en la ingesta.
+- Siguiente paso: revisión del PR `feat: telemetry report endpoint`.
+
 ### Milestone 09 — Almacenamiento de telemetría
 
 - Tabla `telemetry_events` en Supabase (la crea `create_all` al arrancar la
@@ -425,6 +451,12 @@ endpoint en `services/` (Hito 5).
 ---
 
 ## Historial
+
+### Reporte técnico de telemetría
+
+El equipo de ingeniería ve la salud del sistema (volumen, fallos, carga de
+páginas y logins fallidos) por día en `/telemetry`, calculada con Pandas a
+partir de `telemetry_events` y servida con caché de 60 s.
 
 ### Almacenamiento de telemetría
 
