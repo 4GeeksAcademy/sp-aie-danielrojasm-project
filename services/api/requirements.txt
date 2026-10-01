@@ -13,3 +13,5 @@ prefect>=3
 python-dotenv>=1.2.3
 celery[redis]>=5.5
 flower>=2.0
+qdrant-client>=1.15
+openai>=1.100

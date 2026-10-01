@@ -8,6 +8,30 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — RAG y base de conocimiento comercial (ticket de Miguel Torres)
+
+- Asistente para account managers: responde con la voz de un vendedor de TrackFlow sobre SLA de entrega, devoluciones,
+   cobertura de transportistas y tarifas de almacenamiento, solo con los acuerdos estándar y citando la fuente.
+- Corpus: los 4 documentos de `00-general-contexts/trackflow/` copiados sin cambios en `docs/company-knowledge-base/`.
+- `data/process/rag.py`: `setup()` (chunking semántico, limpiar y recargar + IDs `uuid5`) y `embed()`.
+   `data/pipelines/rag.py`: `retrieve()` (k=5, `min_score` 0,40), `generate_answer()` y `query()` = las dos anteriores.
+- `POST /knowledge/query` (bearer, devuelve solo `answer`, 503 si falta Qdrant o el gateway) y página `/knowledge`
+   ("Asistente comercial") en el backoffice. Qdrant 1.19.1 en Compose (`127.0.0.1:6333`).
+- Modelos del gateway de 4Geeks: embeddings `pplx-embed-v1-0.6b` (1024 dim., coseno) y generación `deepseek-v4-flash`.
+- Verificado: colección `trackflow_knowledge` con 14 chunks (3/5/3/3), idéntica tras dos `setup()` seguidos;
+   Recall@3 100 % (15/15, el chunk esperado siempre en primera posición) con umbral; `uv run pytest` 473 (32 nuevos en
+   `tests/pipelines/test_rag.py` y `tests/http/test_knowledge_api.py`); `npm run verify` y Jest 137 (5 nuevos).
+   `/knowledge` responde 200 en `npm run dev` y la pregunta real pasa por el rewrite hasta el modelo (≈3 s).
+   Respuestas reales revisadas: Black Friday sin SLA garantizado, descuento solo con Miguel Torres, devolución internacional
+   manual con Sofía Ramos, preguntas fuera del corpus → "no hay información".
+- Riesgo conocido: preguntas cercanas al corpus sin respuesta (pick and pack 0,59, seguro 0,50) superan el umbral; las frena el
+   prompt, no `retrieve()`. El gateway devuelve 429 si se encadenan llamadas (el SDK reintenta).
+- No verificado: el contenedor `api` de Docker con las nuevas dependencias (estaba `unhealthy` antes de esta tarea; hay que
+   reconstruirlo con `docker compose up --build -V api`).
+- Siguiente paso: PR `feat: rag knowledge base`; después, el agente LangGraph reutilizará `retrieve()` y `generate_answer()`
+   como nodos separados.
+
+
 ### Milestone 09 — Evaluación técnica del modelo de pronóstico (ticket del tech lead)
 
 - `scripts/evaluate_sales_forecast.py` + `data/process/forecast_validation.py`: validación cruzada `TimeSeriesSplit` de 5 folds

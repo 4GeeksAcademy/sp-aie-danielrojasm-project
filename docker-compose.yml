@@ -14,6 +14,8 @@ services:
       PASSWORD_RESET_URL: ${DOCKER_PASSWORD_RESET_URL:?Falta DOCKER_PASSWORD_RESET_URL en .env}
       # La API solo encola: mismo Redis que el worker, por nombre de servicio.
       REDIS_URL: ${DOCKER_REDIS_URL:?Falta DOCKER_REDIS_URL en .env}
+      # Base de conocimiento comercial (RAG): Qdrant por nombre de servicio.
+      QDRANT_URL: ${DOCKER_QDRANT_URL:?Falta DOCKER_QDRANT_URL en .env}
     ports:
       - "8000:8000"
     volumes:
@@ -34,6 +36,20 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      qdrant:
+        condition: service_started
+
+  # Base vectorial del RAG (colección `trackflow_knowledge`). La indexa
+  # `data/process/rag.py` (`setup()`); la API solo consulta.
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    ports:
+      # Sin API key: solo accesible desde esta máquina.
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant-data:/qdrant/storage
+    networks:
+      - trackflow
 
   # Broker y result backend de Celery. `noeviction`: con la memoria llena Redis
   # rechaza escrituras en vez de borrar mensajes de la cola. AOF para que los
@@ -154,3 +170,4 @@ networks:
 
 volumes:
   redis-data:
+  qdrant-data:

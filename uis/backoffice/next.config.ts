@@ -77,6 +77,11 @@ const nextConfig: NextConfig = {
         destination: `${apiOrigin}/reporting/:path*`,
       },
       {
+        // Asistente comercial (RAG, `POST /knowledge/query`).
+        source: "/api/knowledge/:path*",
+        destination: `${apiOrigin}/knowledge/:path*`,
+      },
+      {
         source: "/api/auth/:path*",
         destination: `${apiOrigin}/auth/:path*`,
       },

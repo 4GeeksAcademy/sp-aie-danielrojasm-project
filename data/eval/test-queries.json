@@ -1,0 +1,90 @@
+{
+  "description": "Preguntas de prueba de la base de conocimiento comercial (colección trackflow_knowledge). Cada pregunta indica el chunk que debe aparecer entre los 3 primeros resultados (source_document + chunk_index, que setup() asigna de forma determinista). out_of_scope son preguntas sin respuesta en los documentos: sirven para afinar min_score. Lo ejecuta scripts/evaluate_rag_retrieval.py.",
+  "collection": "trackflow_knowledge",
+  "k": 3,
+  "recall_target": 0.8,
+  "queries": [
+    {
+      "id": "returns-window",
+      "question": "¿Cuál es la ventana de devolución estándar?",
+      "expected": { "source_document": "returns-policy", "chunk_index": 1, "section": "Política de Devoluciones › Ventana de devolución estándar" }
+    },
+    {
+      "id": "returns-shipping-cost",
+      "question": "¿Quién paga el envío de vuelta cuando el cliente final devuelve un producto?",
+      "expected": { "source_document": "returns-policy", "chunk_index": 2, "section": "Política de Devoluciones › Costos de devolución" }
+    },
+    {
+      "id": "returns-international",
+      "question": "Un comprador pidió en Estados Unidos y quiere devolver el producto en España, ¿se tramita automáticamente?",
+      "expected": { "source_document": "returns-policy", "chunk_index": 3, "section": "Política de Devoluciones › Las devoluciones internacionales" }
+    },
+    {
+      "id": "returns-process",
+      "question": "¿Cómo funciona el proceso de devolución desde que el cliente final la solicita?",
+      "expected": { "source_document": "returns-policy", "chunk_index": 0, "section": "Política de Devoluciones › El proceso estándar de devoluciones" }
+    },
+    {
+      "id": "carrier-rural-aragon",
+      "question": "¿Qué transportista cubre mejor Aragón rural?",
+      "expected": { "source_document": "carrier-coverage", "chunk_index": 1, "section": "Cobertura de Transportistas › España (Zaragoza)" }
+    },
+    {
+      "id": "carrier-heavy-us",
+      "question": "¿Con qué transportista salen los paquetes pesados de más de 5 kg desde Los Ángeles?",
+      "expected": { "source_document": "carrier-coverage", "chunk_index": 0, "section": "Cobertura de Transportistas › Estados Unidos (Los Ángeles)" }
+    },
+    {
+      "id": "carrier-manual-choice",
+      "question": "¿Puede un account manager elegir manualmente el transportista de un envío?",
+      "expected": { "source_document": "carrier-coverage", "chunk_index": 2, "section": "Cobertura de Transportistas › La selección de transportista para cada envío la determina el sistema según…" }
+    },
+    {
+      "id": "sla-express",
+      "question": "¿En cuánto tiempo entrega TrackFlow un envío express?",
+      "expected": { "source_document": "sla-delivery", "chunk_index": 0, "section": "SLA de Entrega › TrackFlow gestiona la última milla en Estados Unidos" }
+    },
+    {
+      "id": "sla-compensation",
+      "question": "¿Qué compensación recibe el cliente si no se cumple el 90% de entregas a tiempo?",
+      "expected": { "source_document": "sla-delivery", "chunk_index": 1, "section": "SLA de Entrega › El SLA comprometido contractualmente es un 90% de entregas a tiempo por mes" }
+    },
+    {
+      "id": "sla-black-friday",
+      "question": "¿Garantizamos los plazos de entrega durante Black Friday?",
+      "expected": { "source_document": "sla-delivery", "chunk_index": 2, "section": "SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados" }
+    },
+    {
+      "id": "sla-rebajas",
+      "question": "En las Rebajas de enero, ¿los pedidos llegan en el plazo habitual?",
+      "expected": { "source_document": "sla-delivery", "chunk_index": 2, "section": "SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados" }
+    },
+    {
+      "id": "storage-rate-zaragoza",
+      "question": "¿Cuánto cuesta almacenar un metro cúbico al mes en Zaragoza?",
+      "expected": { "source_document": "storage-pricing", "chunk_index": 0, "section": "Tarifas de Almacenamiento › TrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado" }
+    },
+    {
+      "id": "storage-aged-inventory",
+      "question": "¿Qué se cobra por el inventario que lleva más de seis meses sin movimiento?",
+      "expected": { "source_document": "storage-pricing", "chunk_index": 0, "section": "Tarifas de Almacenamiento › TrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado" }
+    },
+    {
+      "id": "storage-discount",
+      "question": "¿Puedo ofrecerle un descuento en almacenamiento a un cliente con mucho volumen?",
+      "expected": { "source_document": "storage-pricing", "chunk_index": 2, "section": "Tarifas de Almacenamiento › Clientes con más de 50 metros cúbicos de volumen promedio mensual pueden…" }
+    },
+    {
+      "id": "storage-aging-report",
+      "question": "¿El cliente puede pedir un reporte de antigüedad de su inventario?",
+      "expected": { "source_document": "storage-pricing", "chunk_index": 1, "section": "Tarifas de Almacenamiento › El cliente puede solicitar un reporte de antigüedad de inventario en cualquier…" }
+    }
+  ],
+  "out_of_scope": [
+    { "id": "insurance", "question": "¿TrackFlow incluye seguro de la mercancía en el contrato?" },
+    { "id": "mexico-warehouse", "question": "¿Tenéis almacén propio en Ciudad de México?" },
+    { "id": "pick-pack-fee", "question": "¿Cuánto cobra TrackFlow por preparar cada pedido (pick and pack)?" },
+    { "id": "payment-terms", "question": "¿Cuáles son los plazos de pago de las facturas?" },
+    { "id": "unrelated", "question": "¿Cuál es la capital de Francia?" }
+  ]
+}
