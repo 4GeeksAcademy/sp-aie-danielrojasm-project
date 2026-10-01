@@ -1,5 +1,5 @@
 # Contenedor de la API FastAPI para desarrollo, con recarga en caliente.
-# El código (services/ y packages/) llega por bind mount desde
+# El código (services/, packages/ y data/) llega por bind mount desde
 # docker-compose.yml; la imagen aporta Python y las dependencias.
 FROM python:3.12-slim
 
@@ -19,4 +19,5 @@ COPY . ./services
 EXPOSE 8000
 
 CMD ["uvicorn", "services.api.main:app", "--host", "0.0.0.0", "--port", "8000", \
-     "--reload", "--reload-dir", "services", "--reload-dir", "packages"]
+     "--reload", "--reload-dir", "services", "--reload-dir", "packages", "--reload-dir", "data/pipelines", \
+     "--reload-dir", "data/process"]

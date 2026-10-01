@@ -8,6 +8,42 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Pipeline de desempeño de negocio (implementación)
+
+- `data/pipelines/pipeline.py`: flow de Prefect 3
+   `weekly-warehouse-client-performance` con 9 tasks (abrir corrida →
+   semanas objetivo → extracción → transformación → contratos →
+   reconciliación → carga → snapshot de eval → cierre). Cálculo puro en
+   `data/process/weekly_performance.py`; E/S en
+   `data/pipelines/weekly_warehouse_client_performance/`.
+- Resiliencia: reintentos justificados en las tasks con Supabase (3 en
+   extracción y carga, 30/60/120 s) solo para fallos transitorios;
+   reconciliación y snapshot opcionales con `return_state=True`; caché de
+   1 h en la transformación (clave = hash de los `id` + semanas + versión).
+- Idempotencia: upsert por `unique (warehouse, client_id, week_start)` que
+   no toca filas sin cambios, una transacción por semana. Log en
+   `reporting.pipeline_runs` y `pipeline_run_weeks`.
+- `services/reporting/`: `GET /reporting/weekly-warehouse-client-performance`,
+   `GET /reporting/pipeline-runs/latest` y `POST /reporting/pipeline-runs`
+   (admin; corre el flow en segundo plano en la API, sin worker de Prefect).
+- Verificado: `uv run pytest` 340 (45 nuevos en `tests/reporting`, flow con
+   `prefect_test_harness`: dos corridas dejan filas idénticas, evento tardío,
+   fallos de reconciliación/snapshot, reintento de carga, contrato roto).
+   Contra Supabase: `python data/pipelines/pipeline.py` termina `Completed`
+   y crea el esquema `reporting` (RLS, índice parcial, `gen_random_uuid()`);
+   upsert real 1 → 0 → 1 filas cambiadas dentro de una transacción
+   deshecha. API en Uvicorn: 401, 200, 422, 404, 403, 202 y 409; la corrida
+   manual termina `completed`.
+- Las semanas cerradas aún no tienen eventos obligatorios en Supabase (solo
+   hay actividad de la semana en curso), así que las corridas reales
+   cargaron 0 filas; los valores de los KPIs se validan en los tests.
+- No verificado: `docker compose up --build` (Docker Desktop apagado); la
+   imagen ahora instala Prefect y monta `data/`.
+- Pendiente: worker/servidor de Prefect para usar `run_deployment`, flow de
+   backfill, umbral de caída de captura frente a la media de 4 semanas.
+- Siguiente paso: Parte 3 (subflows y tests) y dashboard ejecutivo sobre
+   `GET /reporting/weekly-warehouse-client-performance`.
+
 ### Milestone 09 — Pipeline de desempeño de negocio (diseño)
 
 - `data/pipelines/PIPELINE_DESIGN.md`: diseño del pipeline

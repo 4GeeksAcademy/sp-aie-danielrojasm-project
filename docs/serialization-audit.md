@@ -225,6 +225,20 @@ Son las rutas de mayor riesgo y por eso se auditan primero. Reglas aplicadas:
 
 ---
 
+## 6. Reporte semanal (`/reporting`), añadido después de la auditoría
+
+Rutas nuevas de `services/reporting/router.py`, que ya nacen con la convención; el guardarraíl las cuenta (49 operaciones).
+
+| Método y ruta | Propósito | Respuesta |
+|---|---|---|
+| `GET /reporting/weekly-warehouse-client-performance` | KPIs semanales por almacén y cliente (dashboard ejecutivo) | `WeeklyPerformanceReport` con `entries: WeeklyPerformanceEntry[]` (contrato de `CONTEXT-company.md`) |
+| `GET /reporting/pipeline-runs/latest` | Estado de la última corrida del pipeline | `PipelineRunRead` (sin `prefect_flow_run_id`, `heartbeat_at` ni `source_watermark`, internos del pipeline) |
+| `POST /reporting/pipeline-runs` | Disparo manual (solo `admin`) | `202` con `PipelineRunTriggered`; entrada `PipelineRunTriggerRequest` con `extra="forbid"`; `409` con `detail` y `active_run_id` |
+
+Los handlers construyen el modelo a partir de lo que devuelven las funciones de `data/pipelines/`, nunca filas de SQLAlchemy.
+
+---
+
 ## Cambios en el backoffice
 
 Los contratos nuevos se reflejan en `uis/backoffice`:

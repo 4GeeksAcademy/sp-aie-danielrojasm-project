@@ -30,3 +30,7 @@ __pycache__/
 # Cobertura de pytest
 .coverage
 htmlcov/
+
+# Salidas locales del pipeline semanal: resultados persistidos de Prefect y snapshots de eval por corrida
+data/raw/weekly_warehouse_client_performance/
+data/eval/weekly_warehouse_client_performance/

@@ -9,4 +9,4 @@ Cada subcarpeta o archivo dentro de `data/pipelines/` debe representar **un pipe
 
 ## Pipelines
 
-- **`weekly_warehouse_client_performance`** (en diseño): consolidado semanal por almacén y cliente para el reporte ejecutivo. Diseño en [PIPELINE_DESIGN.md](./PIPELINE_DESIGN.md).
+- **`weekly_warehouse_client_performance`** (implementado, Prefect 3): consolidado semanal por almacén y cliente para el reporte ejecutivo, en `reporting.weekly_warehouse_client_performance`. Se ejecuta desde la raíz con `uv run python data/pipelines/pipeline.py` (`--serve` para la programación de los lunes a las 02:00 UTC). Diseño y comandos en [PIPELINE_DESIGN.md](./PIPELINE_DESIGN.md).
