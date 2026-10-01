@@ -25,7 +25,7 @@ from data.pipelines.weekly_warehouse_client_performance.schema import (
     pipeline_run_weeks,
     weekly_warehouse_client_performance,
 )
-from data.process.weekly_performance import EVENT_TYPES, KPI_COLUMNS, OUTPUT_COLUMNS, week_start_of
+from data.process.weekly_performance import EVENT_TYPES, KPI_COLUMNS, OUTPUT_COLUMNS, total_events, week_start_of
 
 
 Bind = Engine | Connection
@@ -219,3 +219,19 @@ def _native(value: Any) -> Any:
         return value.item()
     return value
 
+
+
+def loaded_event_totals(bind: Bind, from_week: date, to_week: date) -> dict[date, int]:
+    """Eventos por semana en `[from_week, to_week)` según la última carga `loaded` de cada semana."""
+    statement = (
+        select(pipeline_run_weeks.c.week_start, pipeline_run_weeks.c.events_by_type)
+        .where(
+            pipeline_run_weeks.c.status == "loaded",
+            pipeline_run_weeks.c.week_start >= from_week,
+            pipeline_run_weeks.c.week_start < to_week,
+        )
+        .order_by(pipeline_run_weeks.c.loaded_at)
+    )
+    with _connection(bind) as connection:
+        latest = {week: counts for week, counts in connection.execute(statement)}
+    return {week: total_events(counts or {}) for week, counts in latest.items()}

@@ -16,6 +16,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { key: "dashboard", label: "Panel de operaciones", href: "/" },
+  { key: "weekly_performance_report", label: "Reporte semanal de desempeño", href: "/reporting" },
   { key: "inventory_stock", label: "Stock por SKU", href: "/inventory/products" },
   { key: "inventory_inbound", label: "Registrar entrada de stock", href: "/inventory/orders/inbound" },
   { key: "inventory_outbound", label: "Registrar salida de stock", href: "/inventory/orders/outbound" },

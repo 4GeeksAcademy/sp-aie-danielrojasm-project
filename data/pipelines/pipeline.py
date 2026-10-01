@@ -16,12 +16,20 @@ Ejecución (desde la raíz del monorepo; lee `DATABASE_URL` del entorno o del `.
 Frecuencia prevista: semanal, los lunes a las 02:00 UTC, para que el reporte
 esté listo antes del lunes laboral en Zaragoza y Los Ángeles.
 
-Etapas (cada una es una task con entradas y salidas explícitas):
+El flow principal solo coordina subflows (cada uno con entradas y salidas
+explícitas, ejecutable por separado) y el log de la corrida:
 
-    open_pipeline_run → resolve_target_weeks → extract_business_events
-      → transform_weekly_performance (caché 1 h) → validate_weekly_performance
-      → reconcile_with_domain_tables (opcional) → load_weekly_performance
-      → write_eval_snapshot (opcional) → close_pipeline_run
+    open_pipeline_run
+      → extract_business_events_flow          resolve_target_weeks → extract_business_events
+      → transform_weekly_kpis_flow            prepare_business_events (caché 1 h)
+                                                → compute_inbound_volume · compute_outbound_throughput
+                                                  · compute_stockout_frequency · compute_discrepancy_rate
+                                                → assemble_weekly_performance → validate_weekly_performance
+      → reconcile_with_domain_tables_flow     (opcional, return_state=True) reconcile_with_domain_tables
+                                                → detect_capture_drop
+      → load_weekly_performance_flow          load_weekly_performance
+      → write_eval_snapshot_flow              (opcional, return_state=True) write_eval_snapshot
+    close_pipeline_run
 """
 
 import argparse
@@ -60,13 +68,25 @@ from data.pipelines.weekly_warehouse_client_performance.database import (  # noq
 from data.pipelines.weekly_warehouse_client_performance.schema import ensure_schema  # noqa: E402
 from data.process.weekly_performance import (  # noqa: E402
     CALCULATION_VERSION,
+    CAPTURE_BASELINE_WEEKS,
+    CAPTURE_DROP_THRESHOLD,
+    CleanBusinessEvents,
+    MalformedBusinessEventsError,
     WeeklyPerformance,
-    compute_weekly_performance,
+    assemble_weekly_rows,
+    capture_drops,
+    clean_business_events,
     contract_violations,
     current_week_start,
+    discrepancy_rate,
+    inbound_units_count,
     last_closed_week,
+    outbound_orders_count,
     reconcile,
+    stockout_events_count,
+    total_events,
     week_bounds,
+    weekly_performance_from,
 )
 
 
@@ -93,6 +113,7 @@ class PipelineConfig:
     late_event_horizon_days: int = 90
     stale_after_days: int = 8
     heartbeat_timeout_minutes: int = 15
+    capture_drop_threshold: float = CAPTURE_DROP_THRESHOLD
 
 
 def load_config() -> PipelineConfig:
@@ -103,7 +124,8 @@ def load_config() -> PipelineConfig:
         values = JSON.load(CONFIG_BLOCK).value
     except Exception:  # sin block (o sin servidor) se usan los valores por defecto
         return PipelineConfig()
-    known = {name: int(values[name]) for name in asdict(PipelineConfig()) if name in values}
+    defaults = asdict(PipelineConfig())
+    known = {name: type(default)(values[name]) for name, default in defaults.items() if name in values}
     return PipelineConfig(**known)
 
 
@@ -142,7 +164,13 @@ class ContractViolationError(RuntimeError):
     """La transformación produjo filas que no cumplen el contrato de la tabla de destino."""
 
 
-NON_RETRYABLE = (InvalidWeekError, ContractViolationError, runs.PipelineAlreadyRunningError, DatabaseNotConfiguredError)
+NON_RETRYABLE = (
+    InvalidWeekError,
+    ContractViolationError,
+    MalformedBusinessEventsError,
+    runs.PipelineAlreadyRunningError,
+    DatabaseNotConfiguredError,
+)
 
 
 def retry_transient_only(task, task_run, state: State) -> bool:
@@ -157,19 +185,10 @@ def validate_week_start(week_start: date, now: datetime) -> None:
         raise InvalidWeekError(f"La semana {week_start} aún no ha cerrado: nunca se calcula la semana en curso.")
 
 
-# ---------------------------------------------------------------------------
-# Tasks
-# ---------------------------------------------------------------------------
 
-@dataclass(frozen=True)
-class TargetWeeks:
-    weeks: list[date]
-    window_start: datetime
-    window_end: datetime
-    current_week: date
-    # Solo las corridas que buscan eventos tardíos guardan watermark (ver `runs.last_watermark`).
-    detects_late_events: bool
-
+# ---------------------------------------------------------------------------
+# Tasks de control (flow principal)
+# ---------------------------------------------------------------------------
 
 # Sin reintentos: su único fallo esperable es chocar con otra corrida activa
 # (`pipeline_runs_one_active`), y reintentar no lo arregla.
@@ -188,6 +207,51 @@ def open_pipeline_run(run_id: UUID | None, trigger: str, triggered_by: str, hear
     )
     get_run_logger().info("Corrida %s abierta (%s, %s).", opened, trigger, triggered_by)
     return opened
+
+
+# 2 reintentos (5 s y 15 s): si no se puede cerrar la fila, la corrida quedaría
+# `running` hasta que caduque su heartbeat y bloquearía el siguiente disparo manual.
+@task(retries=2, retry_delay_seconds=[5, 15])
+def close_pipeline_run(run_id: UUID, summary: dict[str, Any]) -> None:
+    """Estado final `completed`, métricas, watermark y duración en `reporting.pipeline_runs`."""
+    runs.complete_run(
+        pipeline_engine(),
+        run_id,
+        rows_upserted=summary["rows_upserted"],
+        rows_changed=summary["rows_changed"],
+        source_watermark=summary["source_watermark"],
+    )
+    get_run_logger().info("Corrida %s completada.", run_id)
+
+
+def _checkpoint(run_id: UUID, phase: str, **values: Any) -> None:
+    """Fase alcanzada y heartbeat. Best effort: si falla, la siguiente task con BD fallará y reintentará."""
+    try:
+        runs.checkpoint(pipeline_engine(), run_id, phase=phase, **values)
+    except Exception:
+        get_run_logger().warning("Corrida %s: no se pudo registrar la fase %s.", run_id, phase)
+
+
+# ---------------------------------------------------------------------------
+# Subflow 1 · Extracción de los eventos de negocio
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class TargetWeeks:
+    weeks: list[date]
+    window_start: datetime
+    window_end: datetime
+    current_week: date
+    # Solo las corridas que buscan eventos tardíos guardan watermark (ver `runs.last_watermark`).
+    detects_late_events: bool
+
+
+@dataclass(frozen=True)
+class BusinessEventsExtract:
+    """Salida del subflow de extracción: semanas objetivo y sus eventos de `telemetry_events`."""
+
+    target: TargetWeeks
+    business_events: pd.DataFrame
 
 
 # 2 reintentos (10 s y 30 s): una lectura corta que solo falla si Supabase no responde;
@@ -235,8 +299,30 @@ def extract_business_events(run_id: UUID, window_start: datetime, window_end: da
     return events
 
 
-def transform_cache_key(context, parameters: dict[str, Any]) -> str:
-    """Clave de caché de `transform_weekly_performance`.
+@flow(name="extract-business-events")
+def extract_business_events_flow(
+    run_id: UUID, week_start: date | None, lookback_weeks: int, late_event_horizon_days: int
+) -> BusinessEventsExtract:
+    """Semanas objetivo y eventos `inbound_order_created`, `outbound_order_created`,
+    `stock_threshold_triggered` e `inventory_discrepancy_detected` de su ventana."""
+    target = resolve_target_weeks(run_id, week_start, lookback_weeks, late_event_horizon_days)
+    _checkpoint(
+        run_id,
+        "extract",
+        weeks_requested=target.weeks,
+        window_start=target.window_start,
+        window_end=target.window_end,
+    )
+    events = extract_business_events(run_id, target.window_start, target.window_end)
+    return BusinessEventsExtract(target=target, business_events=events)
+
+
+# ---------------------------------------------------------------------------
+# Subflow 2 · Transformación en los cuatro KPIs semanales
+# ---------------------------------------------------------------------------
+
+def prepare_cache_key(context, parameters: dict[str, Any]) -> str:
+    """Clave de caché de `prepare_business_events`.
 
     La define el conjunto exacto de eventos de entrada (hash de sus `id`
     ordenados), las semanas objetivo y `CALCULATION_VERSION`. Como
@@ -249,18 +335,56 @@ def transform_cache_key(context, parameters: dict[str, Any]) -> str:
     digest.update(CALCULATION_VERSION.encode())
     digest.update(",".join(week.isoformat() for week in sorted(parameters["weeks"])).encode())
     digest.update("\n".join(sorted(events["id"].astype(str))).encode())
-    return f"{FLOW_NAME}-transform-{digest.hexdigest()}"
+    return f"{FLOW_NAME}-prepare-{digest.hexdigest()}"
 
 
 # Caché de 1 hora (`cache_expiration`): una corrida repetida dentro de la hora con
 # exactamente los mismos eventos (p. ej. un reintento manual tras un fallo de la
-# carga) reutiliza el resultado persistido en lugar de recalcular. Pasada la hora
-# se recalcula aunque la clave coincida, para no servir un resultado antiguo si se
-# corrige un bug sin subir `CALCULATION_VERSION`. Es determinista: sin reintentos.
-@task(cache_key_fn=transform_cache_key, cache_expiration=TRANSFORM_CACHE_TTL, persist_result=True)
-def transform_weekly_performance(business_events: pd.DataFrame, weeks: list[date]) -> WeeklyPerformance:
-    """Dedup, semana ISO y agregación por (warehouse, client_id, week_start) (`data/process/weekly_performance.py`)."""
-    return compute_weekly_performance(business_events, weeks)
+# carga) reutiliza el resultado persistido en lugar de recalcular la parte cara
+# (tipos, deduplicación). Pasada la hora se recalcula aunque la clave coincida, para
+# no servir un resultado antiguo si se corrige un bug sin subir `CALCULATION_VERSION`.
+# Es determinista: sin reintentos, igual que las tasks de KPI.
+@task(cache_key_fn=prepare_cache_key, cache_expiration=TRANSFORM_CACHE_TTL, persist_result=True)
+def prepare_business_events(business_events: pd.DataFrame, weeks: list[date]) -> CleanBusinessEvents:
+    """Tipos, semana ISO, rechazo de filas sin dimensión válida y deduplicación (`data/process/weekly_performance.py`)."""
+    return clean_business_events(business_events, weeks)
+
+
+@task
+def compute_inbound_volume(clean_events: pd.DataFrame) -> pd.DataFrame:
+    """KPI «Volumen de entrada» → `inbound_units_count`."""
+    return inbound_units_count(clean_events)
+
+
+@task
+def compute_outbound_throughput(clean_events: pd.DataFrame) -> pd.DataFrame:
+    """KPI «Throughput de salida» → `outbound_orders_count`."""
+    return outbound_orders_count(clean_events)
+
+
+@task
+def compute_stockout_frequency(clean_events: pd.DataFrame) -> pd.DataFrame:
+    """KPI «Frecuencia de quiebre de stock» → `stockout_events_count`."""
+    return stockout_events_count(clean_events)
+
+
+@task
+def compute_discrepancy_rate(clean_events: pd.DataFrame) -> pd.DataFrame:
+    """KPI «Tasa de discrepancia» → `discrepancy_events_count` y `discrepancy_rate`."""
+    return discrepancy_rate(clean_events)
+
+
+@task
+def assemble_weekly_performance(
+    clean: CleanBusinessEvents,
+    inbound_volume: pd.DataFrame,
+    outbound_throughput: pd.DataFrame,
+    stockout_frequency: pd.DataFrame,
+    discrepancy: pd.DataFrame,
+) -> WeeklyPerformance:
+    """Una fila por (warehouse, client_id, week_start) con los cuatro KPIs, más el rastro por semana del log."""
+    rows = assemble_weekly_rows(inbound_volume, outbound_throughput, stockout_frequency, discrepancy)
+    return weekly_performance_from(clean, rows)
 
 
 # Sin reintentos: es una comprobación pura; un contrato roto falla igual cada vez y
@@ -281,8 +405,37 @@ def validate_weekly_performance(run_id: UUID, performance: WeeklyPerformance, we
     return len(performance.rows)
 
 
+@flow(name="transform-weekly-warehouse-client-kpis")
+def transform_weekly_kpis_flow(
+    run_id: UUID, business_events: pd.DataFrame, weeks: list[date], current_week: date
+) -> WeeklyPerformance:
+    """Volumen de entrada, throughput de salida, frecuencia de quiebre de stock y tasa de
+    discrepancia por almacén, cliente y semana, validados contra el contrato de la tabla de destino."""
+    _checkpoint(run_id, "transform", events_extracted=len(business_events))
+    clean = prepare_business_events(business_events, weeks)
+    performance = assemble_weekly_performance(
+        clean,
+        compute_inbound_volume(clean.events),
+        compute_outbound_throughput(clean.events),
+        compute_stockout_frequency(clean.events),
+        compute_discrepancy_rate(clean.events),
+    )
+    _checkpoint(
+        run_id,
+        "validate",
+        duplicates_dropped=performance.duplicates_dropped,
+        rows_rejected=performance.rows_rejected,
+    )
+    validate_weekly_performance(run_id, performance, weeks, current_week)
+    return performance
+
+
+# ---------------------------------------------------------------------------
+# Subflow opcional · Reconciliación con las tablas de dominio y caída de captura
+# ---------------------------------------------------------------------------
+
 # Opcional: 2 reintentos (10 s y 30 s) para un corte breve; si se agotan, el flow
-# registra la reconciliación como `unavailable` y sigue con la carga.
+# principal registra la reconciliación como `unavailable` y sigue con la carga.
 @task(retries=2, retry_delay_seconds=[10, 30])
 def reconcile_with_domain_tables(
     run_id: UUID, performance: WeeklyPerformance, weeks: list[date], window_start: datetime, window_end: datetime
@@ -295,6 +448,53 @@ def reconcile_with_domain_tables(
         get_run_logger().warning("Corrida %s: eventos y movimientos no cuadran en %s.", run_id, ", ".join(gaps))
     return result
 
+
+# 2 reintentos (10 s y 30 s), como la reconciliación: una lectura corta de
+# `pipeline_run_weeks`. Si se agotan, la semana se carga sin el dato de captura.
+@task(retries=2, retry_delay_seconds=[10, 30])
+def detect_capture_drop(run_id: UUID, performance: WeeklyPerformance, threshold: float) -> dict[date, dict]:
+    """Eventos de cada semana frente a la media de las 4 semanas anteriores ya cargadas (sección 11 del diseño)."""
+    weekly = {week: total_events(counts) for week, counts in performance.events_by_type.items()}
+    first = min(weekly) - timedelta(weeks=CAPTURE_BASELINE_WEEKS)
+    history = storage.loaded_event_totals(pipeline_engine(), first, max(weekly))
+    result = capture_drops(weekly, history, threshold=threshold)
+    dropped = [week.isoformat() for week, detail in result.items() if detail["dropped"]]
+    if dropped:
+        get_run_logger().warning(
+            "Corrida %s: eventos por debajo del %d %% de la media de las %d semanas anteriores en %s.",
+            run_id,
+            round(threshold * 100),
+            CAPTURE_BASELINE_WEEKS,
+            ", ".join(dropped),
+        )
+    return result
+
+
+@flow(name="reconcile-with-domain-tables")
+def reconcile_with_domain_tables_flow(
+    run_id: UUID,
+    performance: WeeklyPerformance,
+    weeks: list[date],
+    window_start: datetime,
+    window_end: datetime,
+    capture_drop_threshold: float,
+) -> dict[date, dict]:
+    """Por semana: `ok`/`gap` frente a los movimientos reales y, si hay historial, la señal `capture`.
+
+    Una caída de captura con `gap` apunta a eventos perdidos; con `ok`, a menos actividad real.
+    """
+    result = reconcile_with_domain_tables(run_id, performance, weeks, window_start, window_end)
+    capture_state = detect_capture_drop(run_id, performance, capture_drop_threshold, return_state=True)
+    if not capture_state.is_completed():
+        get_run_logger().warning("Corrida %s: caída de captura no evaluada (%s).", run_id, capture_state.message)
+        return result
+    capture = capture_state.result()
+    return {week: {**detail, "capture": capture[week]} if week in capture else detail for week, detail in result.items()}
+
+
+# ---------------------------------------------------------------------------
+# Subflow 3 · Carga en `reporting.weekly_warehouse_client_performance`
+# ---------------------------------------------------------------------------
 
 @dataclass(frozen=True)
 class LoadResult:
@@ -353,6 +553,19 @@ def load_weekly_performance(
     return LoadResult(rows_upserted=upserted, rows_changed=changed)
 
 
+@flow(name="load-weekly-warehouse-client-performance")
+def load_weekly_performance_flow(
+    run_id: UUID, performance: WeeklyPerformance, weeks: list[date], reconciliation: dict[date, dict]
+) -> LoadResult:
+    """Publica los KPIs validados en `reporting.weekly_warehouse_client_performance` y una fila por semana en `pipeline_run_weeks`."""
+    _checkpoint(run_id, "load")
+    return load_weekly_performance(run_id, performance, weeks, reconciliation)
+
+
+# ---------------------------------------------------------------------------
+# Subflow opcional · Snapshot de validación
+# ---------------------------------------------------------------------------
+
 # Sin reintentos: escribir un JSON local solo falla por disco o permisos, y
 # reintentar no lo arregla. Es opcional: su fallo no afecta a los KPIs publicados.
 @task(retries=0)
@@ -365,32 +578,15 @@ def write_eval_snapshot(run_id: UUID, summary: dict[str, Any], reconciliation: d
     return str(path)
 
 
-# 2 reintentos (5 s y 15 s): si no se puede cerrar la fila, la corrida quedaría
-# `running` hasta que caduque su heartbeat y bloquearía el siguiente disparo manual.
-@task(retries=2, retry_delay_seconds=[5, 15])
-def close_pipeline_run(run_id: UUID, summary: dict[str, Any]) -> None:
-    """Estado final `completed`, métricas, watermark y duración en `reporting.pipeline_runs`."""
-    runs.complete_run(
-        pipeline_engine(),
-        run_id,
-        rows_upserted=summary["rows_upserted"],
-        rows_changed=summary["rows_changed"],
-        source_watermark=summary["source_watermark"],
-    )
-    get_run_logger().info("Corrida %s completada.", run_id)
+@flow(name="write-eval-snapshot")
+def write_eval_snapshot_flow(run_id: UUID, summary: dict[str, Any], reconciliation: dict[date, dict]) -> str:
+    """Resumen de la corrida y reconciliación por semana en `data/eval/`, para revisar a mano un número publicado."""
+    return write_eval_snapshot(run_id, summary, reconciliation)
 
 
 # ---------------------------------------------------------------------------
-# Flow
+# Flow principal
 # ---------------------------------------------------------------------------
-
-def _checkpoint(run_id: UUID, phase: str, **values: Any) -> None:
-    """Fase alcanzada y heartbeat. Best effort: si falla, la siguiente task con BD fallará y reintentará."""
-    try:
-        runs.checkpoint(pipeline_engine(), run_id, phase=phase, **values)
-    except Exception:
-        get_run_logger().warning("Corrida %s: no se pudo registrar la fase %s.", run_id, phase)
-
 
 def record_flow_failure(flow, flow_run, state: State) -> None:
     """Hook `on_failure`/`on_crashed`/`on_cancellation`: estado final y error en `pipeline_runs`."""
@@ -407,68 +603,18 @@ def record_flow_failure(flow, flow_run, state: State) -> None:
         logger.exception("No se pudo registrar el fallo del flow run %s.", flow_run.id)
 
 
-@flow(
-    name=FLOW_NAME,
-    on_failure=[record_flow_failure],
-    on_crashed=[record_flow_failure],
-    on_cancellation=[record_flow_failure],
-)
-def weekly_warehouse_client_performance_flow(
-    week_start: date | None = None,
-    lookback_weeks: int | None = None,
-    trigger: Literal["schedule", "manual"] = "manual",
-    triggered_by: str = "cli",
-    run_id: UUID | None = None,
+def run_summary(
+    run_id: UUID,
+    trigger: str,
+    triggered_by: str,
+    extract: BusinessEventsExtract,
+    performance: WeeklyPerformance,
+    loaded: LoadResult,
 ) -> dict[str, Any]:
-    """Extract → transform → load del reporte semanal, con log de corrida en `reporting.pipeline_runs`.
-
-    Sin `week_start`: última semana cerrada + `lookback_weeks` (3) + semanas con
-    eventos tardíos. Con `week_start`: esa semana (y `lookback_weeks` anteriores si se indica).
-    """
-    logger = get_run_logger()
-    config = load_config()
-    lookback = lookback_weeks if lookback_weeks is not None else (config.lookback_weeks if week_start is None else 0)
-
-    run_id = open_pipeline_run(run_id, trigger, triggered_by, config.heartbeat_timeout_minutes)
-    target = resolve_target_weeks(run_id, week_start, lookback, config.late_event_horizon_days)
-    _checkpoint(
-        run_id,
-        "extract",
-        weeks_requested=target.weeks,
-        window_start=target.window_start,
-        window_end=target.window_end,
-    )
-
-    events = extract_business_events(run_id, target.window_start, target.window_end)
-    _checkpoint(run_id, "transform", events_extracted=len(events))
-
-    performance = transform_weekly_performance(events, target.weeks)
-    _checkpoint(
-        run_id,
-        "validate",
-        duplicates_dropped=performance.duplicates_dropped,
-        rows_rejected=performance.rows_rejected,
-    )
-    validate_weekly_performance(run_id, performance, target.weeks, target.current_week)
-
-    # Fallo manejado explícitamente: sin reconciliación los KPIs siguen siendo
-    # correctos (salen de los eventos); solo se pierde el aviso de eventos perdidos.
-    reconciliation_state = reconcile_with_domain_tables(
-        run_id, performance, target.weeks, target.window_start, target.window_end, return_state=True
-    )
-    if reconciliation_state.is_completed():
-        reconciliation = reconciliation_state.result()
-    else:
-        logger.warning(
-            "Corrida %s: reconciliación no disponible (%s); se carga igualmente.", run_id, reconciliation_state.message
-        )
-        reconciliation = {week: {"status": "unavailable"} for week in target.weeks}
-
-    _checkpoint(run_id, "load")
-    loaded = load_weekly_performance(run_id, performance, target.weeks, reconciliation)
-
+    """Resumen de la corrida: métricas de `pipeline_runs`, snapshot de eval y salida de la CLI."""
+    target, events = extract.target, extract.business_events
     watermark = pd.to_datetime(events["received_at"], utc=True).max() if not events.empty else None
-    summary = {
+    return {
         "run_id": str(run_id),
         "trigger": trigger,
         "triggered_by": triggered_by,
@@ -485,9 +631,59 @@ def weekly_warehouse_client_performance_flow(
         "events_by_type": {week.isoformat(): counts for week, counts in performance.events_by_type.items()},
     }
 
+
+@flow(
+    name=FLOW_NAME,
+    on_failure=[record_flow_failure],
+    on_crashed=[record_flow_failure],
+    on_cancellation=[record_flow_failure],
+)
+def weekly_warehouse_client_performance_flow(
+    week_start: date | None = None,
+    lookback_weeks: int | None = None,
+    trigger: Literal["schedule", "manual"] = "manual",
+    triggered_by: str = "cli",
+    run_id: UUID | None = None,
+) -> dict[str, Any]:
+    """Extracción → transformación → carga del reporte semanal, con log de corrida en `reporting.pipeline_runs`.
+
+    Sin `week_start`: última semana cerrada + `lookback_weeks` (3) + semanas con
+    eventos tardíos. Con `week_start`: esa semana (y `lookback_weeks` anteriores si se indica).
+    """
+    logger = get_run_logger()
+    config = load_config()
+    lookback = lookback_weeks if lookback_weeks is not None else (config.lookback_weeks if week_start is None else 0)
+
+    run_id = open_pipeline_run(run_id, trigger, triggered_by, config.heartbeat_timeout_minutes)
+    extract = extract_business_events_flow(run_id, week_start, lookback, config.late_event_horizon_days)
+    target = extract.target
+    performance = transform_weekly_kpis_flow(run_id, extract.business_events, target.weeks, target.current_week)
+
+    # Fallo manejado explícitamente: sin reconciliación los KPIs siguen siendo
+    # correctos (salen de los eventos); solo se pierde el aviso de eventos perdidos.
+    reconciliation_state = reconcile_with_domain_tables_flow(
+        run_id,
+        performance,
+        target.weeks,
+        target.window_start,
+        target.window_end,
+        config.capture_drop_threshold,
+        return_state=True,
+    )
+    if reconciliation_state.is_completed():
+        reconciliation = reconciliation_state.result()
+    else:
+        logger.warning(
+            "Corrida %s: reconciliación no disponible (%s); se carga igualmente.", run_id, reconciliation_state.message
+        )
+        reconciliation = {week: {"status": "unavailable"} for week in target.weeks}
+
+    loaded = load_weekly_performance_flow(run_id, performance, target.weeks, reconciliation)
+    summary = run_summary(run_id, trigger, triggered_by, extract, performance, loaded)
+
     # Paso opcional: si falla, se registra y la corrida termina `completed` igualmente.
-    snapshot_state = write_eval_snapshot(run_id, summary, reconciliation, return_state=True)
-    if snapshot_state.is_failed():
+    snapshot_state = write_eval_snapshot_flow(run_id, summary, reconciliation, return_state=True)
+    if not snapshot_state.is_completed():
         logger.warning("Corrida %s: no se pudo escribir el snapshot de eval (%s).", run_id, snapshot_state.message)
 
     close_pipeline_run(run_id, summary)

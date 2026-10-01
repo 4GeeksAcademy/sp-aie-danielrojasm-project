@@ -1,8 +1,9 @@
 # Diseño — Pipeline de Desempeño de Negocio (`weekly_warehouse_client_performance`)
 
-Documento de diseño (Parte 1 de 3), ya implementado en la Parte 2: aquí se fija qué produce el pipeline, de dónde lee, dónde
-escribe, cómo se comporta ante fallos y cómo se organiza en Prefect. La [sección 16](#16-implementación-parte-2) resume el código,
-el comando de ejecución, la frecuencia y las diferencias con este diseño. La división en subflows con tests (Parte 3) parte de aquí.
+Documento de diseño (Parte 1 de 3), implementado en la Parte 2 y llevado a producción en la Parte 3: aquí se fija qué produce el
+pipeline, de dónde lee, dónde escribe, cómo se comporta ante fallos y cómo se organiza en Prefect. La
+[sección 16](#16-implementación-parte-2) resume el código, el comando de ejecución, la frecuencia y las diferencias con este diseño;
+la [sección 17](#17-subflows-tests-y-dashboard-parte-3) describe los subflows, los tests unitarios, el dashboard y la mejora adicional.
 
 **Ejecución:** `uv run python data/pipelines/pipeline.py` desde la raíz (lee `DATABASE_URL` del entorno o del `.env` raíz).
 **Frecuencia:** semanal, los lunes a las 02:00 UTC (`0 2 * * 1`), con `uv run python data/pipelines/pipeline.py --serve`.
@@ -25,6 +26,7 @@ el comando de ejecución, la frecuencia y las diferencias con este diseño. La d
 14. [Preguntas de diseño respondidas](#14-preguntas-de-diseño-respondidas)
 15. [Fuera de alcance y riesgos](#15-fuera-de-alcance-y-riesgos)
 16. [Implementación (Parte 2)](#16-implementación-parte-2)
+17. [Subflows, tests y dashboard (Parte 3)](#17-subflows-tests-y-dashboard-parte-3)
 
 ---
 
@@ -205,7 +207,7 @@ flowchart LR
         O[open_pipeline_run<br/>lock + fila en pipeline_runs]
         R[resolve_target_weeks<br/>semana cerrada + lookback<br/>+ semanas con eventos tardíos]
         E[extract_business_events<br/>SQL: 4 event_type, ventana UTC]
-        T[transform_weekly_performance<br/>Pandas: dedup · semana ISO · groupby]
+        T[transform_weekly_kpis_flow<br/>Pandas: dedup · semana ISO · una task por KPI]
         V[validate_weekly_performance<br/>contratos y reconciliación]
         L[load_weekly_performance<br/>upsert por semana, 1 transacción]
         C[close_pipeline_run<br/>estado final + métricas]
@@ -241,9 +243,9 @@ Las tres etapas centrales están separadas por contratos explícitos:
 
 | Etapa | Entrada | Salida |
 |---|---|---|
-| **Extracción** (`extract_business_events`) | Ventana `[window_start, window_end)` | DataFrame `business_events` con una fila por evento y las columnas de la consulta. |
-| **Transformación** (`transform_weekly_performance`) | `business_events` | DataFrame `weekly_performance` con el grano y las columnas exactas de la tabla de destino, más `events_by_type` por semana para el log. |
-| **Carga** (`load_weekly_performance`) | `weekly_performance` agrupado por `week_start` | Filas en `reporting.weekly_warehouse_client_performance` y una fila por semana en `reporting.pipeline_run_weeks`. |
+| **Extracción** (subflow `extract_business_events_flow`) | Ventana `[window_start, window_end)` | DataFrame `business_events` con una fila por evento y las columnas de la consulta. |
+| **Transformación** (subflow `transform_weekly_kpis_flow`) | `business_events` | DataFrame `weekly_performance` con el grano y las columnas exactas de la tabla de destino, más `events_by_type` por semana para el log. |
+| **Carga** (subflow `load_weekly_performance_flow`) | `weekly_performance` agrupado por `week_start` | Filas en `reporting.weekly_warehouse_client_performance` y una fila por semana en `reporting.pipeline_run_weeks`. |
 
 ## 6. Transformación y reglas de cálculo
 
@@ -494,7 +496,7 @@ Tres señales distintas, cada una con su comprobación:
 | Situación | Señal | Comprobación |
 |---|---|---|
 | El pipeline no corrió | No hay fila en `pipeline_runs` con `status = 'completed'` cuya `weeks_requested` incluya la última semana cerrada. | `GET /reporting/pipeline-runs/latest` devuelve `stale: true` si la última corrida completada tiene más de 8 días. El backoffice lo muestra en la cabecera del reporte. |
-| Corrió pero la captura falló | `pipeline_run_weeks.events_by_type` por debajo del 50 % de la media de las 4 semanas anteriores **y** la reconciliación con `stock_exits`/`stock_entries` muestra movimientos sin evento. | `reconcile_with_domain_tables` registra un `WARNING` con la diferencia y marca la semana con `reconciliation.status = 'gap'`; la corrida termina `completed` pero el endpoint de KPIs devuelve el aviso. |
+| Corrió pero la captura falló | `pipeline_run_weeks.events_by_type` por debajo del 50 % de la media de las 4 semanas anteriores **y** la reconciliación con `stock_exits`/`stock_entries` muestra movimientos sin evento. | `reconcile_with_domain_tables` registra un `WARNING` con la diferencia y marca la semana con `reconciliation.status = 'gap'`; `detect_capture_drop` añade `reconciliation.capture` (`events`, `baseline`, `dropped`) y otro `WARNING` si la captura cae (Parte 3). La corrida termina `completed`, pero el endpoint de KPIs devuelve el aviso y el dashboard lo muestra. |
 | Actividad real cero | Los eventos y los movimientos de las tablas de dominio coinciden en cero para esa combinación. | No hay fila para esa combinación, la semana está `loaded` y la reconciliación está `ok`. |
 
 ### Reconciliación con las tablas de dominio
@@ -521,7 +523,7 @@ corrige los KPIs con estos conteos: los reporta.
 | Fallo | Comportamiento |
 |---|---|
 | Caída de Supabase en la extracción | Task `extract_business_events` con `retries=3` (30 s, 60 s, 120 s). Si se agotan, la corrida termina `failed`, `phase = 'extract'`, sin escrituras. |
-| Pandas termina y falla el `INSERT` | El resultado de `transform_weekly_performance` está persistido como resultado de Prefect (clave: hash de los `id` de los eventos + semanas + `CALCULATION_VERSION`, válida 1 hora). Dentro de la misma corrida, el reintento de la carga recibe el mismo resultado en memoria; una corrida repetida en la hora siguiente con los mismos eventos lo reutiliza sin recalcular. |
+| Pandas termina y falla el `INSERT` | El resultado de `prepare_business_events` (la parte cara de la transformación) está persistido como resultado de Prefect (clave: hash de los `id` de los eventos + semanas + `CALCULATION_VERSION`, válida 1 hora). Dentro de la misma corrida, el reintento de la carga recibe el mismo resultado en memoria; una corrida repetida en la hora siguiente con los mismos eventos lo reutiliza sin recalcular. |
 | Fallo a mitad de la carga | Las semanas `loaded` ya están confirmadas; la semana que fallaba hizo rollback completo. Reintentar recarga todo con upsert ([sección 9](#9-idempotencia)). |
 | El proceso del worker muere | Prefect marca el flow run `Crashed`. La fila queda `running` sin heartbeat; la siguiente corrida la pasa a `crashed` (si `heartbeat_at` tiene más de 15 min), libera el lock y crea la suya con `retry_of`. |
 
@@ -553,7 +555,12 @@ data/
 | Flow | Parámetros | Uso |
 |---|---|---|
 | `weekly_warehouse_client_performance_flow` (principal) | `week_start: date \| None = None`, `lookback_weeks: int \| None = None`, `trigger: Literal["schedule", "manual"]`, `triggered_by: str`, `run_id: UUID \| None` | Deployment `weekly-warehouse-client-performance/weekly` con cron `0 2 * * 1` en UTC. Sin `week_start` calcula la última semana cerrada. |
-| `weekly_warehouse_client_performance_backfill_flow` (opcional) | `from_week: date`, `to_week: date` | Pendiente (opcional en la Parte 1): hoy un rango se recalcula con `--week-start` y `--lookback-weeks`. La Parte 3 dividirá extracción, transformación y carga en subflows. |
+| `extract_business_events_flow` (subflow) | `run_id`, `week_start`, `lookback_weeks`, `late_event_horizon_days` | Semanas objetivo y eventos de su ventana (`BusinessEventsExtract`). |
+| `transform_weekly_kpis_flow` (subflow) | `run_id`, `business_events`, `weeks`, `current_week` | Los cuatro KPIs validados (`WeeklyPerformance`). |
+| `reconcile_with_domain_tables_flow` (subflow opcional) | `run_id`, `performance`, `weeks`, `window_start`, `window_end`, `capture_drop_threshold` | Reconciliación y caída de captura por semana. Se invoca con `return_state=True`. |
+| `load_weekly_performance_flow` (subflow) | `run_id`, `performance`, `weeks`, `reconciliation` | Upsert por semana (`LoadResult`). |
+| `write_eval_snapshot_flow` (subflow opcional) | `run_id`, `summary`, `reconciliation` | Snapshot JSON en `data/eval/`. Se invoca con `return_state=True`. |
+| `weekly_warehouse_client_performance_backfill_flow` (opcional) | `from_week: date`, `to_week: date` | Pendiente: hoy un rango se recalcula con `--week-start` y `--lookback-weeks`. Con los subflows sería un bucle de extracción → transformación → carga por tramo. |
 
 ### Tasks
 
@@ -562,9 +569,12 @@ data/
 | `open_pipeline_run` | Control | 0 | Aplica `ensure_schema`, marca como `crashed` las corridas sin heartbeat, inserta la fila `running` (o adopta la `pending` creada por el endpoint). Si choca con `pipeline_runs_one_active`, falla sin reintentar. |
 | `resolve_target_weeks` | Control | 2 (10 s, 30 s) | Última semana cerrada + `lookback_weeks` + semanas con eventos tardíos (`received_at > last_watermark`). |
 | `extract_business_events` | **Extracción** | 3 (30 s, 60 s, 120 s) | Consulta de la [sección 4](#consulta) sobre la ventana de las semanas objetivo. Devuelve el DataFrame `business_events`. |
-| `transform_weekly_performance` | **Transformación** | 0 (es determinista) | Llama a `data/process/weekly_performance.py`. Resultado persistido con caché de 1 hora (`cache_key_fn` = hash de los `id` de los eventos + semanas + `CALCULATION_VERSION`). |
+| `prepare_business_events` | **Transformación** | 0 (es determinista) | Tipos, semana ISO, rechazos y deduplicación (`clean_business_events`). Resultado persistido con caché de 1 hora (`cache_key_fn` = hash de los `id` de los eventos + semanas + `CALCULATION_VERSION`). |
+| `compute_inbound_volume` · `compute_outbound_throughput` · `compute_stockout_frequency` · `compute_discrepancy_rate` | **Transformación** | 0 (son puras) | Un KPI de `CONTEXT-company.md` cada una, sobre los eventos limpios. |
+| `assemble_weekly_performance` | **Transformación** | 0 (es pura) | Une los KPIs por el grano en las columnas de la tabla de destino. |
 | `validate_weekly_performance` | **Transformación** | 0 (es pura) | Contratos (grano único, enteros ≥ 0, `discrepancy_rate` coherente, nada de la semana en curso). Un contrato roto falla la corrida antes de cargar. |
-| `reconcile_with_domain_tables` | **Transformación** (opcional) | 2 (10 s, 30 s) | Reconciliación con `stock_entries`, `stock_exits` e `inventory_counts`. Se invoca con `return_state=True`: si falla, la semana se registra con `reconciliation = {"status": "unavailable"}` y la carga sigue. |
+| `reconcile_with_domain_tables` | **Transformación** (opcional) | 2 (10 s, 30 s) | Reconciliación con `stock_entries`, `stock_exits` e `inventory_counts`. Su subflow se invoca con `return_state=True`: si falla, la semana se registra con `reconciliation = {"status": "unavailable"}` y la carga sigue. |
+| `detect_capture_drop` | **Transformación** (opcional) | 2 (10 s, 30 s) | Eventos de cada semana frente a la media de las 4 anteriores ya cargadas. Si falla, la semana se carga sin `capture`. |
 | `load_weekly_performance` | **Carga** | 3 (30 s, 60 s, 120 s) | Por cada semana: una transacción con el upsert y la fila de `pipeline_run_weeks`. Un reintento salta las semanas que esta corrida ya dejó `loaded`. |
 | `write_eval_snapshot` | Eval (opcional) | 0 | JSON de la corrida en `data/eval/weekly_warehouse_client_performance/<run_id>.json`. Se invoca con `return_state=True`: su fallo solo deja un `WARNING`. |
 | `close_pipeline_run` | Control | 2 (5 s, 15 s) | Escribe `status = 'completed'`, `phase = 'done'`, métricas, `source_watermark`, `finished_at`, `duration_ms`. Si el flow falla, los hooks `on_failure`/`on_crashed`/`on_cancellation` registran `status`, `error_type` y `error_message`. |
@@ -591,7 +601,7 @@ registra la fase alcanzada y renueva el heartbeat (`runs.checkpoint`).
 |---|---|---|
 | `supabase-database-url` | `Secret` | `DATABASE_URL` de Supabase (Transaction pooler), el mismo que usa la API. Nunca en código ni en parámetros del flow. |
 | `weekly-performance-config` | `JSON` | `lookback_weeks` (3), `late_event_horizon_days` (90), `stale_after_days` (8), `capture_drop_threshold` (0.5), `heartbeat_timeout_minutes` (15). Cambiar un umbral no exige desplegar. |
-| `weekly-performance-results` | `LocalFileSystem` (o `S3Bucket` en producción) | Almacenamiento de resultados persistidos de `transform_weekly_performance`. |
+| `weekly-performance-results` | `LocalFileSystem` (o `S3Bucket` en producción) | Almacenamiento de resultados persistidos de `prepare_business_events`. |
 
 Concurrencia: límite global de Prefect `weekly-warehouse-client-performance` = 1 en el deployment, además del índice único
 parcial en `pipeline_runs` (que protege también si alguien ejecuta el flow fuera del deployment).
@@ -727,7 +737,7 @@ temporal en cada ejecución (unos 10 s de arranque).
 | Tolerar fallos parciales | `reconcile_with_domain_tables` y `write_eval_snapshot` se invocan con `return_state=True`; el flow comprueba el estado, deja un `WARNING` y continúa con extract → transform → load. |
 | Reintentos en servicios externos | Todas las tasks que tocan Supabase llevan `retries` y `retry_delay_seconds`, con el número justificado en un comentario junto a cada task. |
 | Ejecutable como script | Bloque `if __name__ == "__main__"` con `argparse`. |
-| No repetir lo que ya corrió en la última hora | `transform_weekly_performance` con `cache_key_fn` y `cache_expiration = 1 h`. |
+| No repetir lo que ya corrió en la última hora | `prepare_business_events` (en la Parte 2, `transform_weekly_performance`) con `cache_key_fn` y `cache_expiration = 1 h`. |
 | Carga idempotente | `storage.upsert_week`: `on conflict (warehouse, client_id, week_start) do update ... where ... is distinct from`, una transacción por semana. |
 | Metadata de cada corrida | `reporting.pipeline_runs`: `started_at`, `finished_at`, `duration_ms`, `events_extracted`, `rows_upserted`, `rows_changed`, `status`, `phase`, `error_type`, `error_message` (más `pipeline_run_weeks` por semana). |
 
@@ -740,10 +750,69 @@ temporal en cada ejecución (unos 10 s de arranque).
   sustituye por `run_deployment(..., timeout=0)` sin cambiar el contrato del endpoint.
 - **Reconciliación como task propia y opcional.** Se separó de `validate_weekly_performance` para que un fallo al leer las tablas de
   dominio no impida publicar los KPIs, que salen de los eventos. La comparación con la media de las 4 semanas anteriores (umbral
-  `capture_drop_threshold`) no está implementada: `gap` se marca solo cuando eventos y movimientos reales no cuadran.
+  `capture_drop_threshold`) se implementó en la Parte 3 ([sección 17](#mejora-adicional-caída-de-captura)).
 - **Blocks opcionales.** `weekly-performance-config` (JSON) y `supabase-database-url` (Secret) se usan si existen; si no, valores
   del diseño y `DATABASE_URL`. Prefect 3 no acepta un block `LocalFileSystem` sin guardar en el servidor, así que los resultados
   persistidos van a `PREFECT_LOCAL_STORAGE_PATH` (`data/raw/weekly_warehouse_client_performance/prefect-results`).
 - **Watermark solo en corridas completas.** Solo las corridas sin `week_start` (que buscan eventos tardíos) guardan
   `source_watermark`; una corrida manual de una sola semana no puede dar por vistos los eventos tardíos de las demás.
 - **`schema.py` en lugar de `schema.sql`** y **flow de backfill pendiente** (ver [sección 12](#12-mapeo-a-prefect)).
+
+## 17. Subflows, tests y dashboard (Parte 3)
+
+### Subflows
+
+`data/pipelines/pipeline.py` sigue siendo el punto de entrada (`python data/pipelines/pipeline.py`, mismos argumentos que en la
+Parte 2). El flow principal `weekly_warehouse_client_performance_flow` solo abre y cierra la corrida y coordina los subflows; no
+contiene lógica de extracción, cálculo ni carga. Cada subflow recibe y devuelve valores explícitos (sin variables globales entre
+ellos) y se puede ejecutar por separado:
+
+```
+weekly_warehouse_client_performance_flow
+  open_pipeline_run
+  → extract_business_events_flow        → BusinessEventsExtract(target, business_events)
+  → transform_weekly_kpis_flow          → WeeklyPerformance
+  → reconcile_with_domain_tables_flow   (opcional, return_state=True) → reconciliación por semana
+  → load_weekly_performance_flow        → LoadResult
+  → write_eval_snapshot_flow            (opcional, return_state=True) → ruta del snapshot
+  close_pipeline_run
+```
+
+La transformación ya no es una sola task: `prepare_business_events` (cacheada) limpia los eventos y una task por KPI calcula
+Volumen de entrada, Throughput de salida, Frecuencia de quiebre de stock y Tasa de discrepancia; `assemble_weekly_performance` las
+une y `validate_weekly_performance` aplica los contratos. Las funciones puras equivalentes están en
+`data/process/weekly_performance.py` (`clean_business_events`, `inbound_units_count`, `outbound_orders_count`,
+`stockout_events_count`, `discrepancy_rate`, `assemble_weekly_rows`); `compute_weekly_performance` las compone en una sola llamada.
+Un DataFrame sin las columnas esperadas lanza `MalformedBusinessEventsError`, que no se reintenta.
+
+### Tests unitarios
+
+`tests/pipelines/test_pipeline.py` (`python -m pytest tests/pipelines/test_pipeline.py`) prueba las tasks de transformación
+llamando a su función (`task.fn`) con eventos en memoria con la forma de la extracción: sin base de datos, sin servidor de Prefect y
+sin APIs externas. Cubre cada KPI con valores calculados a mano según `CONTEXT-company.md`, la fila completa de una semana, el
+rechazo de filas inválidas (cliente nulo, cantidad no numérica, nula o negativa, almacén desconocido), los errores claros ante
+columnas que faltan, el contrato de la tasa y la ejecución aislada del subflow de transformación. Los tests de flow de punta a
+punta siguen en `tests/reporting/`.
+
+### Dashboard
+
+`uis/backoffice` → `/reporting` («Reporte semanal de desempeño» en el menú) consume `GET /reporting/weekly-warehouse-client-performance`
+y `GET /reporting/pipeline-runs/latest` por el rewrite `/api/reporting/*`. Muestra el período (semana ISO, de lunes a domingo en
+UTC), la última actualización, los avisos de reporte desactualizado y de reconciliación en lenguaje de negocio, los totales de los
+cuatro KPIs, un gráfico de barras por KPI con cada almacén y cliente, y la tabla de detalle. Permite ir a semanas anteriores; una
+semana sin calcular o sin actividad se muestra como estado vacío, no como error.
+
+### Mejora adicional: caída de captura
+
+- **Pregunta que responde:** *Observabilidad → «Silencio vs. ausencia real»* ([sección 14](#observabilidad)). El diseño separaba
+  tres señales, pero la Parte 2 solo implementó dos (corrida inexistente con `stale` y descuadre con las tablas de dominio): la
+  comparación con la media de las 4 semanas anteriores quedó pendiente ([sección 16](#diferencias-con-el-diseño)).
+- **Qué se construyó:** la task `detect_capture_drop` dentro del subflow opcional de reconciliación. Suma `events_by_type` de cada
+  semana, lo compara con la media de las 4 semanas anteriores (las ya cargadas en `pipeline_run_weeks` o las recalculadas en la
+  misma corrida) y guarda `reconciliation.capture = {events, baseline, baseline_weeks, dropped}` por semana, con un `WARNING` si
+  la captura cae por debajo de `capture_drop_threshold` (0,5, configurable en el block `weekly-performance-config`). Sin historial
+  no hay base y nunca se marca caída.
+- **Por qué se priorizó:** es la única señal que permite a Ana distinguir una semana floja de verdad de una semana en la que se
+  perdieron eventos (sin outbox, el riesgo ya está identificado en la [sección 15](#15-fuera-de-alcance-y-riesgos)). Combinada con
+  `gap`, una caída apunta a pérdida de captura; con `ok`, a menos actividad real. Es barata (una lectura de `pipeline_run_weeks`)
+  y, como es opcional, si falla la semana se publica igual.

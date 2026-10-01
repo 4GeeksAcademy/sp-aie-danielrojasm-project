@@ -72,6 +72,11 @@ const nextConfig: NextConfig = {
         destination: `${apiOrigin}/telemetry/:path*`,
       },
       {
+        // Reporte semanal de desempeño (pipeline de negocio, `services/reporting/`).
+        source: "/api/reporting/:path*",
+        destination: `${apiOrigin}/reporting/:path*`,
+      },
+      {
         source: "/api/auth/:path*",
         destination: `${apiOrigin}/auth/:path*`,
       },

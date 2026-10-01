@@ -12,9 +12,10 @@ Convierte los cuatro eventos obligatorios de `telemetry_events` en una fila por
 | `discrepancy_rate`          | Tasa de discrepancia           | `discrepancy_events_count / outbound_orders_count` (4 decimales; 0 sin pedidos). |
 
 Mismo orden que el reporte técnico: convertir tipos → semana ISO → descartar
-filas sin dimensión → deduplicar → agrupar → agregar. Sin E/S: con los mismos
-eventos devuelve siempre lo mismo (de eso depende la caché de la task de
-transformación). Reglas y decisiones en `data/pipelines/PIPELINE_DESIGN.md`, sección 6.
+filas sin dimensión → deduplicar (`clean_business_events`) → agrupar → agregar
+(una función por KPI, unidas por `assemble_weekly_rows`). Sin E/S: con los
+mismos eventos devuelve siempre lo mismo (de eso depende la caché de la task de
+preparación). Reglas y decisiones en `data/pipelines/PIPELINE_DESIGN.md`, sección 6.
 """
 
 from collections.abc import Sequence
@@ -73,6 +74,25 @@ EVENT_COUNT_KEYS = (
 # Cambiar una regla de cálculo exige subir la versión: forma parte de la clave
 # de caché de la transformación y deja inservibles los resultados anteriores.
 CALCULATION_VERSION = "1"
+
+# Caída de captura (sección 11 del diseño): eventos de la semana por debajo de
+# esta fracción de la media de las `CAPTURE_BASELINE_WEEKS` semanas anteriores.
+CAPTURE_DROP_THRESHOLD = 0.5
+CAPTURE_BASELINE_WEEKS = 4
+
+
+class MalformedBusinessEventsError(ValueError):
+    """Los eventos no tienen la forma que devuelve la extracción (faltan columnas)."""
+
+
+@dataclass(frozen=True)
+class CleanBusinessEvents:
+    """Eventos listos para agregar: tipados, de las semanas objetivo, válidos y sin duplicados."""
+
+    events: pd.DataFrame
+    weeks: list[date]
+    duplicates_dropped: int
+    rows_rejected: int
 
 
 @dataclass(frozen=True)
@@ -133,6 +153,12 @@ def _key_text(values: pd.Series) -> pd.Series:
     return as_text.fillna(values.astype("string"))
 
 
+def _require_columns(events: pd.DataFrame, columns: Sequence[str], step: str) -> None:
+    missing = [name for name in columns if name not in events.columns]
+    if missing:
+        raise MalformedBusinessEventsError(f"{step}: faltan las columnas {', '.join(missing)}.")
+
+
 def _convert_types(events: pd.DataFrame) -> pd.DataFrame:
     events = events.loc[:, list(SOURCE_COLUMNS)].copy()
     # Siempre a datetime UTC antes de agrupar por semana.
@@ -191,20 +217,89 @@ def _deduplicate(events: pd.DataFrame) -> pd.DataFrame:
     return ordered.drop_duplicates(subset="business_key", keep="first").drop(columns="business_key")
 
 
-def _aggregate(events: pd.DataFrame) -> pd.DataFrame:
-    kind = events["event_type"]
-    measures = events.loc[:, GRAIN].assign(
-        inbound_units_count=events["quantity"].where(kind == INBOUND, 0).fillna(0).astype("int64"),
-        outbound_orders_count=((kind == OUTBOUND) & (events["exit_type"] == "dispatch")).astype("int64"),
-        stockout_events_count=(kind == STOCKOUT).astype("int64"),
-        discrepancy_events_count=(kind == DISCREPANCY).astype("int64"),
+def clean_business_events(events: pd.DataFrame, weeks: Sequence[date]) -> CleanBusinessEvents:
+    """Tipos, semana ISO, filtro de semanas objetivo, rechazo de filas inválidas y deduplicación.
+
+    Solo cuentan los eventos cuyo `timestamp` cae en una semana objetivo; los
+    demás de la ventana leída se ignoran (no son rechazos). Lanza
+    `MalformedBusinessEventsError` si faltan columnas de la extracción.
+    """
+    target = sorted(set(weeks))
+    if events.empty:
+        empty = pd.DataFrame({name: pd.Series(dtype="object") for name in [*SOURCE_COLUMNS, "week_start"]})
+        return CleanBusinessEvents(events=empty, weeks=target, duplicates_dropped=0, rows_rejected=0)
+    _require_columns(events, SOURCE_COLUMNS, "Eventos de telemetry_events")
+
+    events = _convert_types(events)
+    events["week_start"] = _week_start_series(events["timestamp"])
+    events = events[events["week_start"].isin(target)]
+
+    valid = _valid_rows(events)
+    rows_rejected = int((~valid).sum())
+    events = events[valid]
+
+    deduplicated = _deduplicate(events)
+    return CleanBusinessEvents(
+        events=deduplicated.reset_index(drop=True),
+        weeks=target,
+        duplicates_dropped=len(events) - len(deduplicated),
+        rows_rejected=rows_rejected,
     )
-    rows = measures.groupby(GRAIN, as_index=False, sort=True)[COUNT_COLUMNS].sum()
-    outbound = rows["outbound_orders_count"]
-    rows["discrepancy_rate"] = np.where(
-        outbound > 0, (rows["discrepancy_events_count"] / outbound.where(outbound > 0, 1)).round(4), 0.0
-    )
-    return rows.loc[:, OUTPUT_COLUMNS].reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# Un KPI por función: cada una recibe eventos limpios y devuelve una fila por
+# combinación (warehouse, client_id, week_start) con actividad de cualquier tipo.
+# ---------------------------------------------------------------------------
+
+def _per_combination(events: pd.DataFrame, column: str, values: pd.Series) -> pd.DataFrame:
+    measures = events.loc[:, GRAIN].assign(**{column: values.astype("int64")})
+    return measures.groupby(GRAIN, as_index=False, sort=True)[[column]].sum()
+
+
+def _rate(discrepancies: pd.Series, outbound: pd.Series) -> np.ndarray:
+    """`discrepancias / pedidos despachados` con 4 decimales; 0 sin pedidos (no se recorta por encima de 1)."""
+    return np.where(outbound > 0, (discrepancies / outbound.where(outbound > 0, 1)).round(4), 0.0)
+
+
+def inbound_units_count(events: pd.DataFrame) -> pd.DataFrame:
+    """Volumen de entrada: suma de `quantity` de `inbound_order_created`."""
+    _require_columns(events, [*GRAIN, "event_type", "quantity"], "Volumen de entrada")
+    quantity = events["quantity"].where(events["event_type"] == INBOUND, 0).fillna(0)
+    return _per_combination(events, "inbound_units_count", quantity)
+
+
+def outbound_orders_count(events: pd.DataFrame) -> pd.DataFrame:
+    """Throughput de salida: conteo de `outbound_order_created` con `exit_type = dispatch` (`loss` no es un pedido)."""
+    _require_columns(events, [*GRAIN, "event_type", "exit_type"], "Throughput de salida")
+    dispatched = (events["event_type"] == OUTBOUND) & (events["exit_type"] == "dispatch")
+    return _per_combination(events, "outbound_orders_count", dispatched.fillna(False))
+
+
+def stockout_events_count(events: pd.DataFrame) -> pd.DataFrame:
+    """Frecuencia de quiebre de stock: conteo de `stock_threshold_triggered` (`low` y `out`)."""
+    _require_columns(events, [*GRAIN, "event_type"], "Frecuencia de quiebre de stock")
+    return _per_combination(events, "stockout_events_count", events["event_type"] == STOCKOUT)
+
+
+def discrepancy_rate(events: pd.DataFrame) -> pd.DataFrame:
+    """Tasa de discrepancia: `discrepancy_events_count / outbound_orders_count` (con su conteo de apoyo)."""
+    _require_columns(events, [*GRAIN, "event_type", "exit_type"], "Tasa de discrepancia")
+    discrepancies = _per_combination(events, "discrepancy_events_count", events["event_type"] == DISCREPANCY)
+    rows = discrepancies.merge(outbound_orders_count(events), on=GRAIN, validate="one_to_one")
+    rows["discrepancy_rate"] = _rate(rows["discrepancy_events_count"], rows["outbound_orders_count"])
+    return rows.loc[:, [*GRAIN, "discrepancy_events_count", "discrepancy_rate"]]
+
+
+def assemble_weekly_rows(*kpi_frames: pd.DataFrame) -> pd.DataFrame:
+    """Une los KPIs por el grano en las columnas exactas de la tabla de destino."""
+    rows = kpi_frames[0]
+    for frame in kpi_frames[1:]:
+        rows = rows.merge(frame, on=GRAIN, how="outer", validate="one_to_one")
+    _require_columns(rows, OUTPUT_COLUMNS, "Filas del reporte semanal")
+    rows[COUNT_COLUMNS] = rows[COUNT_COLUMNS].fillna(0).astype("int64")
+    rows["discrepancy_rate"] = rows["discrepancy_rate"].fillna(0.0).astype(float)
+    return rows.sort_values(GRAIN, kind="stable").loc[:, OUTPUT_COLUMNS].reset_index(drop=True)
 
 
 def _events_by_type(events: pd.DataFrame, weeks: Sequence[date]) -> dict[date, dict[str, int]]:
@@ -226,40 +321,39 @@ def _max_received_at(events: pd.DataFrame, weeks: Sequence[date]) -> dict[date, 
     }
 
 
-def compute_weekly_performance(events: pd.DataFrame, weeks: Sequence[date]) -> WeeklyPerformance:
-    """Filas de `reporting.weekly_warehouse_client_performance` para `weeks`.
-
-    Solo cuentan los eventos cuyo `timestamp` cae en una semana objetivo; los
-    demás de la ventana leída se ignoran (no son rechazos). Una combinación sin
-    eventos esa semana no tiene fila.
-    """
-    target = sorted(set(weeks))
-    if events.empty:
-        empty = pd.DataFrame({name: pd.Series(dtype="object") for name in OUTPUT_COLUMNS})
+def weekly_performance_from(clean: CleanBusinessEvents, rows: pd.DataFrame) -> WeeklyPerformance:
+    """Filas del reporte y rastro para el log (`events_by_type`, `max_received_at`) por semana objetivo."""
+    if clean.events.empty:
         return WeeklyPerformance(
-            rows=empty,
-            duplicates_dropped=0,
-            rows_rejected=0,
-            events_by_type={week: dict.fromkeys(EVENT_COUNT_KEYS, 0) for week in target},
-            max_received_at=dict.fromkeys(target),
+            rows=pd.DataFrame({name: pd.Series(dtype="object") for name in OUTPUT_COLUMNS}),
+            duplicates_dropped=clean.duplicates_dropped,
+            rows_rejected=clean.rows_rejected,
+            events_by_type={week: dict.fromkeys(EVENT_COUNT_KEYS, 0) for week in clean.weeks},
+            max_received_at=dict.fromkeys(clean.weeks),
         )
-
-    events = _convert_types(events)
-    events["week_start"] = _week_start_series(events["timestamp"])
-    events = events[events["week_start"].isin(target)]
-
-    valid = _valid_rows(events)
-    rows_rejected = int((~valid).sum())
-    events = events[valid]
-
-    deduplicated = _deduplicate(events)
     return WeeklyPerformance(
-        rows=_aggregate(deduplicated),
-        duplicates_dropped=len(events) - len(deduplicated),
-        rows_rejected=rows_rejected,
-        events_by_type=_events_by_type(deduplicated, target),
-        max_received_at=_max_received_at(deduplicated, target),
+        rows=rows,
+        duplicates_dropped=clean.duplicates_dropped,
+        rows_rejected=clean.rows_rejected,
+        events_by_type=_events_by_type(clean.events, clean.weeks),
+        max_received_at=_max_received_at(clean.events, clean.weeks),
     )
+
+
+def compute_weekly_performance(events: pd.DataFrame, weeks: Sequence[date]) -> WeeklyPerformance:
+    """Filas de `reporting.weekly_warehouse_client_performance` para `weeks` en una sola llamada.
+
+    Es la misma composición que hace el subflow de transformación, task a task.
+    Una combinación sin eventos esa semana no tiene fila.
+    """
+    clean = clean_business_events(events, weeks)
+    rows = assemble_weekly_rows(
+        inbound_units_count(clean.events),
+        outbound_orders_count(clean.events),
+        stockout_events_count(clean.events),
+        discrepancy_rate(clean.events),
+    )
+    return weekly_performance_from(clean, rows)
 
 
 # ---------------------------------------------------------------------------
@@ -288,9 +382,7 @@ def contract_violations(rows: pd.DataFrame, weeks: Sequence[date], current_week:
     if (rows[COUNT_COLUMNS] < 0).any().any():
         problems.append("Hay conteos negativos.")
     outbound = rows["outbound_orders_count"]
-    expected_rate = np.where(
-        outbound > 0, (rows["discrepancy_events_count"] / outbound.where(outbound > 0, 1)).round(4), 0.0
-    )
+    expected_rate = _rate(rows["discrepancy_events_count"], outbound)
     if not np.allclose(rows["discrepancy_rate"].astype(float), expected_rate):
         problems.append("discrepancy_rate no coincide con discrepancy_events_count / outbound_orders_count.")
     return problems
@@ -342,4 +434,40 @@ def reconcile(rows: pd.DataFrame, movements: pd.DataFrame, weeks: Sequence[date]
                 gap = gap or events != real
             warehouses[warehouse] = measures
         result[week] = {"status": "gap" if gap else "ok", "warehouses": warehouses}
+    return result
+
+
+def total_events(events_by_type: dict[str, int]) -> int:
+    return int(sum(events_by_type.values()))
+
+
+def capture_drops(
+    weekly_events: dict[date, int],
+    history: dict[date, int],
+    threshold: float = CAPTURE_DROP_THRESHOLD,
+    baseline_weeks: int = CAPTURE_BASELINE_WEEKS,
+) -> dict[date, dict]:
+    """Por semana de `weekly_events`: eventos frente a la media de las `baseline_weeks` anteriores.
+
+    `history` son los totales de semanas ya cargadas; si una semana está en los
+    dos, manda el recálculo de esta corrida. Sin semanas anteriores no hay base
+    (`baseline = None`) y nunca se marca caída. `dropped` solo dice que la
+    captura bajó; si además la reconciliación da `gap`, se perdieron eventos.
+    """
+    known = {**history, **weekly_events}
+    result: dict[date, dict] = {}
+    for week in sorted(weekly_events):
+        previous = [
+            known[earlier]
+            for earlier in (week - timedelta(weeks=offset) for offset in range(1, baseline_weeks + 1))
+            if earlier in known
+        ]
+        baseline = round(sum(previous) / len(previous), 2) if previous else None
+        events = weekly_events[week]
+        result[week] = {
+            "events": events,
+            "baseline": baseline,
+            "baseline_weeks": len(previous),
+            "dropped": bool(baseline) and events < threshold * baseline,
+        }
     return result

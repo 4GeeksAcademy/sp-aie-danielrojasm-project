@@ -231,10 +231,16 @@ en una sola conexión. Es un reporte técnico: las métricas de negocio quedan p
 
 ### Pipeline de desempeño de negocio — Milestone 09
 
-Diseño e implementación en `data/pipelines/PIPELINE_DESIGN.md` (sección 16: comandos y diferencias con el diseño).
+Diseño e implementación en `data/pipelines/PIPELINE_DESIGN.md` (sección 16: comandos y diferencias con el diseño; sección 17:
+subflows, tests y dashboard).
 
-- **Código:** `data/pipelines/pipeline.py` (flow, tasks, CLI y `--serve`), `data/pipelines/weekly_warehouse_client_performance/`
-  (`schema.py`, `database.py`, `storage.py`, `runs.py`, `queries.py`) y `data/process/weekly_performance.py` (Pandas puro).
+- **Código:** `data/pipelines/pipeline.py` (flow principal, subflows, tasks, CLI y `--serve`),
+  `data/pipelines/weekly_warehouse_client_performance/` (`schema.py`, `database.py`, `storage.py`, `runs.py`, `queries.py`) y
+  `data/process/weekly_performance.py` (Pandas puro: una función por KPI más `clean_business_events` y `assemble_weekly_rows`).
+- **Subflows:** el flow principal solo abre/cierra la corrida y llama a extracción, transformación, carga y a los opcionales de
+  reconciliación y snapshot (`return_state=True`). Se pasan DataFrames entre subflows: los parámetros no se guardan en el servidor de
+  Prefect, solo en memoria del proceso. Los tests parchean las tasks como atributos del módulo, así que los subflows las buscan
+  por nombre en `pipeline` en cada llamada.
   `data/`, `data/pipelines/` y `data/process/` son paquetes Python; `pipeline.py` añade la raíz a `sys.path` para poder
   ejecutarse como script. El pipeline no importa nada de `services/` (motor propio desde `DATABASE_URL`, tablas fuente con
   `table()`); `services/reporting/` sí importa de `data/pipelines/`.
@@ -246,6 +252,10 @@ Diseño e implementación en `data/pipelines/PIPELINE_DESIGN.md` (sección 16: c
   heartbeat (15 min).
 - **Tests:** `tests/reporting` usa SQLite con `reporting` adjunto (`ATTACH`) y `prefect_test_harness` (sesión). Las fixtures
   vacían `services.api.database.get_engine.cache_clear()`: la API cachea su motor al volcar eventos de telemetría.
+  `tests/pipelines/test_pipeline.py` prueba las tasks con `task.fn` y DataFrames en memoria (sin BD ni Prefect).
+- **Dashboard:** `uis/backoffice/app/reporting` + `lib/reporting.ts` por el rewrite `/api/reporting/*`. Un 404 de la API es estado
+  vacío (semana sin calcular), no error. En SQLite, `services.api.database.get_engine` no adjunta `reporting`: para probar la API
+  en local con SQLite hay que usar `engine_for` del pipeline; en Supabase no hace falta.
 - **Docker:** la imagen instala Prefect y `docker-compose.yml` monta `./data` en `/app/data`.
 
 Decisiones del diseño que se mantienen:
