@@ -6,6 +6,10 @@ con lo que ya trajeron esas fuentes y recibe la respuesta y, si aplica, una prop
 `query()`. Un ticket que no se pudo confirmar nunca llega al modelo: se avisa con un texto fijo, para que el agente
 no invente su estado.
 
+Guardrails: `input_guard` decide antes que nada si el mensaje se responde, se reconduce (`small_talk_reply`) o se
+rechaza con un texto fijo (`guardrail_refusal`), sin tocar la memoria, las tools ni el modelo. `generate_answer` aísla
+el contenido externo antes de enviarlo al modelo, y toda respuesta pasa por `output_guard` antes de devolverse.
+
 Memoria: `load_pending_proposal` y `resolve_proposal` cierran la propuesta del turno anterior con una decisión
 explícita del usuario antes de responder; `propose_memory` valida la propuesta del modelo y se la pregunta al
 usuario dentro de la misma respuesta. Nada se escribe en la memoria sin esa decisión.
@@ -20,12 +24,18 @@ from langgraph.graph import END
 
 from data.pipelines import rag
 from data.process.rag import RagServiceError
+from services.support_agent.guardrails import events
+from services.support_agent.guardrails.events import GuardrailEvent
+from services.support_agent.guardrails.input_guard import check_input
+from services.support_agent.guardrails.isolation import sanitize_fragment
+from services.support_agent.guardrails.output_guard import SMALL_TALK_FALLBACK, check_output
 from services.support_agent.memory import policy
 from services.support_agent.memory.decision import classify_decision, resolve
 from services.support_agent.memory.models import MemoryDraft, MemoryProposal
 from services.support_agent.memory.self_evaluation import AgentReply, generate_reply, memory_fragment
 from services.support_agent.memory.store import MemoryUnavailableError, get_memory_store
 from services.support_agent.routing import plan_route
+from services.support_agent.small_talk import brief_reply
 from services.support_agent.state import AgentState
 from services.support_agent.tools.incidents import Ticket, TicketQuery, get_ticket, ticket_fragment
 
@@ -34,6 +44,10 @@ logger = logging.getLogger("trackflow.agent")
 
 RECEIVE_QUESTION = "receive_question"
 REJECT_QUESTION = "reject_question"
+INPUT_GUARD = "input_guard"
+GUARDRAIL_REFUSAL = "guardrail_refusal"
+SMALL_TALK_REPLY = "small_talk_reply"
+OUTPUT_GUARD = "output_guard"
 LOAD_PENDING_PROPOSAL = "load_pending_proposal"
 RESOLVE_PROPOSAL = "resolve_proposal"
 RECALL_MEMORY = "recall_memory"
@@ -67,6 +81,11 @@ DECISION_NOTICES = {
     "discarded": "No he guardado la propuesta anterior («{fact}») porque no quedó clara tu decisión. Si quieres que "
     "lo recuerde, vuelve a decírmelo.",
 }
+# Acción registrada por el guard de entrada según su decisión (`allow` con aviso = respuesta acotada).
+INPUT_ACTIONS = {"block": "block", "redirect": "redirect", "allow": "constrain"}
+# Origen del contenido externo para el motivo del evento de aislamiento.
+EXTERNAL_ORIGINS = {"incident-manager": "incident_manager", "agent-memory": "agent_memory"}
+
 MEMORY_UNAVAILABLE = (
     "La memoria del agente no está disponible ahora mismo: en esta respuesta no puedo recordar ni guardar nada."
 )
@@ -81,6 +100,51 @@ def receive_question(state: AgentState) -> AgentState:
 def reject_question(state: AgentState) -> AgentState:
     """Termina la corrida sin consultar ninguna fuente: no hay pregunta que responder."""
     return {"error": EMPTY_QUESTION_ERROR}
+
+
+def input_guard(state: AgentState) -> AgentState:
+    """Clasifica el mensaje (`guardrails.input_guard`) y registra la activación si no es una consulta de dominio."""
+    verdict = check_input(state["message"], state.get("authorized_orders", []))
+    recorded = []
+    if verdict.failure_type:
+        event = GuardrailEvent(
+            guardrail="input_guard",
+            failure_type=verdict.failure_type,
+            action=INPUT_ACTIONS[verdict.decision],
+            reason=verdict.category,
+        )
+        recorded.append(_record(state, event))
+    return {"guardrail": verdict.model_dump(), "guardrail_events": recorded}
+
+
+def guardrail_refusal(state: AgentState) -> AgentState:
+    """Rechazo fijo del guard de entrada: no se consulta ninguna fuente ni se llama al modelo."""
+    return {"answer": state["guardrail"]["message"]}
+
+
+def small_talk_reply(state: AgentState) -> AgentState:
+    """Respuesta breve sin RAG ni tools; `output_guard` le añade la reconducción hacia TrackFlow."""
+    try:
+        answer = brief_reply(state["question"])
+    except RagServiceError:
+        logger.warning("small_talk_reply sin respuesta del modelo: se usa el texto fijo.")
+        answer = SMALL_TALK_FALLBACK
+    return {"answer": _with_memory_notices(state, answer)}
+
+
+def output_guard(state: AgentState) -> AgentState:
+    """Valida la respuesta antes de devolverla: fuga de instrucciones, datos sensibles y formato."""
+    guardrail = state.get("guardrail") or {}
+    check = check_output(
+        state["answer"],
+        mode="small_talk" if guardrail.get("category") == "small_talk" else "answer",
+        sections=[str(fragment.get("section", "")) for fragment in _fragments(state)],
+        authorized_orders=state.get("authorized_orders", []),
+    )
+    answer = check.answer
+    if guardrail.get("category") == "country_policy_mix":
+        answer = f"{guardrail['message']}\n\n{answer}"
+    return {"answer": answer, "guardrail_events": [_record(state, event) for event in check.events]}
 
 
 def load_pending_proposal(state: AgentState) -> AgentState:
@@ -160,15 +224,15 @@ def retrieve(state: AgentState) -> AgentState:
 
 def generate_answer(state: AgentState) -> AgentState:
     """Respuesta y auto-evaluación de memoria, a partir del contexto, los tickets confirmados y la memoria recordada."""
-    context = [
-        *state.get("context", []),
-        *(ticket_fragment(Ticket.model_validate(lookup["ticket"])) for lookup in _found(state)),
-        *state.get("memories", []),
-    ]
+    context, recorded = _isolate(state, _fragments(state))
     reply = generate_reply(state["question"], context)
     notices = _unconfirmed_notices(state)
     answer = "\n".join([*notices, reply.answer]) if notices else reply.answer
-    return {"answer": _with_memory_notices(state, answer), "memory_candidate": _candidate(reply)}
+    return {
+        "answer": _with_memory_notices(state, answer),
+        "memory_candidate": _candidate(reply),
+        "guardrail_events": recorded,
+    }
 
 
 def ticket_fallback(state: AgentState) -> AgentState:
@@ -236,17 +300,22 @@ def propose_memory(state: AgentState) -> AgentState:
     }
 
 
-def route_after_question(state: AgentState) -> Literal["reject_question", "load_pending_proposal"]:
-    return REJECT_QUESTION if not state["question"] else LOAD_PENDING_PROPOSAL
+def route_after_question(state: AgentState) -> Literal["reject_question", "input_guard"]:
+    return REJECT_QUESTION if not state["question"] else INPUT_GUARD
 
 
-def route_after_pending(state: AgentState) -> Literal["resolve_proposal", "recall_memory"]:
-    return RESOLVE_PROPOSAL if state.get("pending_proposal") else RECALL_MEMORY
+def route_after_input_guard(state: AgentState) -> Literal["guardrail_refusal", "load_pending_proposal"]:
+    return GUARDRAIL_REFUSAL if state["guardrail"]["decision"] == "block" else LOAD_PENDING_PROPOSAL
 
 
-def route_after_resolution(state: AgentState) -> Literal["recall_memory", "__end__"]:
+def route_after_pending(state: AgentState) -> Literal["resolve_proposal", "small_talk_reply", "recall_memory"]:
+    # Con una propuesta pendiente, también el small talk ("gracias, sí, guárdalo") pasa por la decisión.
+    return RESOLVE_PROPOSAL if state.get("pending_proposal") else _answer_route(state)
+
+
+def route_after_resolution(state: AgentState) -> Literal["small_talk_reply", "recall_memory", "__end__"]:
     # Si el mensaje solo respondía a la propuesta, la confirmación de la decisión es la respuesta.
-    return END if state.get("answer") else RECALL_MEMORY
+    return END if state.get("answer") else _answer_route(state)
 
 
 def route_after_plan(state: AgentState) -> Literal["lookup_tickets", "retrieve"]:
@@ -269,6 +338,44 @@ def route_after_retrieve(state: AgentState) -> Literal["generate_answer", "ticke
 
 def route_after_answer(state: AgentState) -> Literal["propose_memory", "__end__"]:
     return PROPOSE_MEMORY if state.get("memory_candidate") else END
+
+
+def _answer_route(state: AgentState) -> Literal["small_talk_reply", "recall_memory"]:
+    return SMALL_TALK_REPLY if state["guardrail"]["decision"] == "redirect" else RECALL_MEMORY
+
+
+def _fragments(state: AgentState) -> list[dict[str, Any]]:
+    """Todo el contenido externo de la corrida: base de conocimiento, tickets confirmados y memoria recordada."""
+    return [
+        *state.get("context", []),
+        *(ticket_fragment(Ticket.model_validate(lookup["ticket"])) for lookup in _found(state)),
+        *state.get("memories", []),
+    ]
+
+
+def _isolate(
+    state: AgentState, fragments: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Fragmentos sin órdenes incrustadas, y una activación registrada por cada fragmento que hubo que limpiar."""
+    clean = []
+    recorded = []
+    for fragment in fragments:
+        sanitized, removed = sanitize_fragment(fragment)
+        clean.append(sanitized)
+        if removed:
+            origin = EXTERNAL_ORIGINS.get(str(fragment.get("source_document")), "knowledge_base")
+            event = GuardrailEvent(
+                guardrail="external_content_isolation",
+                failure_type="security",
+                action="sanitize",
+                reason=f"embedded_instruction_in_{origin}",
+            )
+            recorded.append(_record(state, event))
+    return clean, recorded
+
+
+def _record(state: AgentState, event: GuardrailEvent) -> dict[str, Any]:
+    return events.record(event, run_id=state.get("run_id"), conversation_id=state.get("conversation_id"))
 
 
 def _found(state: AgentState) -> list[dict[str, Any]]:

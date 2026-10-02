@@ -1,0 +1,191 @@
+{
+  "trace_version": 4,
+  "run_id": "context-3-foreign-order",
+  "conversation_id": "8d41c95c9d0640aa8ae03ab38ccc10e3",
+  "user_id": null,
+  "question": "Dame el estado del pedido #45821",
+  "started_at": "2026-10-02T18:41:20.419+00:00",
+  "status": "completed",
+  "steps": [
+    {
+      "order": 1,
+      "node": "receive_question",
+      "duration_ms": 5.4,
+      "output": {
+        "question": "Dame el estado del pedido #45821",
+        "message": "Dame el estado del pedido #45821"
+      }
+    },
+    {
+      "order": 2,
+      "node": "input_guard",
+      "duration_ms": 1.6,
+      "output": {
+        "guardrail": {
+          "decision": "block",
+          "category": "unauthorized_order",
+          "failure_type": "content",
+          "message": "No puedo darte información del pedido #45821: no está asociado a tu sesión autenticada y solo puedo consultar los pedidos de la cuenta con la que has iniciado sesión. Si el pedido es tuyo, accede con esa cuenta o pide al equipo de CX que verifique tu identidad.",
+          "orders": [
+            "45821"
+          ]
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "block",
+            "reason": "unauthorized_order"
+          }
+        ]
+      }
+    },
+    {
+      "order": 3,
+      "node": "guardrail_refusal",
+      "duration_ms": 1.0,
+      "output": {
+        "answer": "No puedo darte información del pedido #45821: no está asociado a tu sesión autenticada y solo puedo consultar los pedidos de la cuenta con la que has iniciado sesión. Si el pedido es tuyo, accede con esa cuenta o pide al equipo de CX que verifique tu identidad."
+      }
+    }
+  ],
+  "duration_ms": 8.0,
+  "sources_used": [],
+  "final_state": {
+    "question": "Dame el estado del pedido #45821",
+    "message": "Dame el estado del pedido #45821",
+    "conversation_id": "8d41c95c9d0640aa8ae03ab38ccc10e3",
+    "user_id": null,
+    "run_id": "context-3-foreign-order",
+    "authorized_orders": [],
+    "guardrail": {
+      "decision": "block",
+      "category": "unauthorized_order",
+      "failure_type": "content",
+      "message": "No puedo darte información del pedido #45821: no está asociado a tu sesión autenticada y solo puedo consultar los pedidos de la cuenta con la que has iniciado sesión. Si el pedido es tuyo, accede con esa cuenta o pide al equipo de CX que verifique tu identidad.",
+      "orders": [
+        "45821"
+      ]
+    },
+    "guardrail_events": [
+      {
+        "guardrail": "input_guard",
+        "failure_type": "content",
+        "action": "block",
+        "reason": "unauthorized_order"
+      }
+    ],
+    "answer": "No puedo darte información del pedido #45821: no está asociado a tu sesión autenticada y solo puedo consultar los pedidos de la cuenta con la que has iniciado sesión. Si el pedido es tuyo, accede con esa cuenta o pide al equipo de CX que verifique tu identidad."
+  },
+  "checkpoints": [
+    {
+      "step": -1,
+      "source": "input",
+      "next": [
+        "__start__"
+      ],
+      "checkpoint_id": "1f1be90d-c34c-676b-bfff-315de6534ef0",
+      "values": {
+        "guardrail_events": []
+      }
+    },
+    {
+      "step": 0,
+      "source": "loop",
+      "next": [
+        "receive_question"
+      ],
+      "checkpoint_id": "1f1be90d-c351-64d7-8000-1bc874ef1b23",
+      "values": {
+        "question": "Dame el estado del pedido #45821",
+        "conversation_id": "8d41c95c9d0640aa8ae03ab38ccc10e3",
+        "user_id": null,
+        "run_id": "context-3-foreign-order",
+        "authorized_orders": [],
+        "guardrail_events": []
+      }
+    },
+    {
+      "step": 1,
+      "source": "loop",
+      "next": [
+        "input_guard"
+      ],
+      "checkpoint_id": "1f1be90d-c355-6186-8001-66168d47a569",
+      "values": {
+        "question": "Dame el estado del pedido #45821",
+        "message": "Dame el estado del pedido #45821",
+        "conversation_id": "8d41c95c9d0640aa8ae03ab38ccc10e3",
+        "user_id": null,
+        "run_id": "context-3-foreign-order",
+        "authorized_orders": [],
+        "guardrail_events": []
+      }
+    },
+    {
+      "step": 2,
+      "source": "loop",
+      "next": [
+        "guardrail_refusal"
+      ],
+      "checkpoint_id": "1f1be90d-c358-6ff3-8002-966263198eda",
+      "values": {
+        "question": "Dame el estado del pedido #45821",
+        "message": "Dame el estado del pedido #45821",
+        "conversation_id": "8d41c95c9d0640aa8ae03ab38ccc10e3",
+        "user_id": null,
+        "run_id": "context-3-foreign-order",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "block",
+          "category": "unauthorized_order",
+          "failure_type": "content",
+          "message": "No puedo darte información del pedido #45821: no está asociado a tu sesión autenticada y solo puedo consultar los pedidos de la cuenta con la que has iniciado sesión. Si el pedido es tuyo, accede con esa cuenta o pide al equipo de CX que verifique tu identidad.",
+          "orders": [
+            "45821"
+          ]
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "block",
+            "reason": "unauthorized_order"
+          }
+        ]
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be90d-c35a-6672-8003-2aaa730929e6",
+      "values": {
+        "question": "Dame el estado del pedido #45821",
+        "message": "Dame el estado del pedido #45821",
+        "conversation_id": "8d41c95c9d0640aa8ae03ab38ccc10e3",
+        "user_id": null,
+        "run_id": "context-3-foreign-order",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "block",
+          "category": "unauthorized_order",
+          "failure_type": "content",
+          "message": "No puedo darte información del pedido #45821: no está asociado a tu sesión autenticada y solo puedo consultar los pedidos de la cuenta con la que has iniciado sesión. Si el pedido es tuyo, accede con esa cuenta o pide al equipo de CX que verifique tu identidad.",
+          "orders": [
+            "45821"
+          ]
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "block",
+            "reason": "unauthorized_order"
+          }
+        ],
+        "answer": "No puedo darte información del pedido #45821: no está asociado a tu sesión autenticada y solo puedo consultar los pedidos de la cuenta con la que has iniciado sesión. Si el pedido es tuyo, accede con esa cuenta o pide al equipo de CX que verifique tu identidad."
+      }
+    }
+  ]
+}

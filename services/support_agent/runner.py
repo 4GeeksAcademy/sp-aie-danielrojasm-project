@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import time
 import uuid
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,7 @@ from typing import Any
 from langgraph.graph.state import CompiledStateGraph
 
 from services.support_agent.graph import graph as default_graph
+from services.support_agent.guardrails.input_guard import canonical_order
 from services.support_agent.state import AgentState
 from services.support_agent.tracing import TRACE_VERSION, load_trace, sources_used, trace_path, write_trace
 
@@ -47,11 +49,16 @@ def run_agent(
     *,
     conversation_id: str | None = None,
     user_id: str | None = None,
+    authorized_orders: Iterable[str] = (),
     compiled: CompiledStateGraph | None = None,
     directory: Path | None = None,
     run_id: str | None = None,
 ) -> AgentRun:
-    """Un turno de conversación. Sin `user_id` el agente recuerda, pero no propone ni resuelve escrituras de memoria."""
+    """Un turno de conversación. Sin `user_id` el agente recuerda, pero no propone ni resuelve escrituras de memoria.
+
+    `authorized_orders` son los pedidos vinculados a la sesión autenticada; el guard de entrada rechaza cualquier
+    otro por falta de autorización.
+    """
     run_id = run_id or uuid.uuid4().hex
     conversation_id = conversation_id or uuid.uuid4().hex
     trace = _new_trace(run_id, question, conversation_id, user_id)
@@ -60,6 +67,7 @@ def run_agent(
         "conversation_id": conversation_id,
         "user_id": user_id,
         "run_id": run_id,
+        "authorized_orders": sorted({canonical_order(order) for order in authorized_orders}),
     }
     return _execute(compiled or default_graph, graph_input, trace, directory)
 
