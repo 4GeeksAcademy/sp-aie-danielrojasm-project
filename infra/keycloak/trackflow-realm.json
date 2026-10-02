@@ -1,0 +1,78 @@
+{
+  "realm": "trackflow",
+  "enabled": true,
+  "sslRequired": "none",
+  "accessTokenLifespan": 300,
+  "defaultDefaultClientScopes": [],
+  "defaultOptionalClientScopes": [],
+  "clientScopes": [
+    {
+      "name": "basic",
+      "description": "Claim sub del token (lo exige MCP Auth).",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "false" },
+      "protocolMappers": [
+        { "name": "sub", "protocol": "openid-connect", "protocolMapper": "oidc-sub-mapper", "config": { "access.token.claim": "true", "introspection.token.claim": "true" } }
+      ]
+    },
+    {
+      "name": "incidents:read",
+      "description": "Consultar el estado de un ticket del gestor de incidencias.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true" },
+      "protocolMappers": [
+        { "name": "audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": { "included.custom.audience": "trackflow-mcp", "access.token.claim": "true", "introspection.token.claim": "true" } }
+      ]
+    },
+    {
+      "name": "incidents:write",
+      "description": "Crear tickets y cambiar su estado en el gestor de incidencias.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true" },
+      "protocolMappers": [
+        { "name": "audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": { "included.custom.audience": "trackflow-mcp", "access.token.claim": "true", "introspection.token.claim": "true" } }
+      ]
+    },
+    {
+      "name": "inventory:read",
+      "description": "Consultar el inventario (SKUs, stock y movimientos). No existe scope de escritura.",
+      "protocol": "openid-connect",
+      "attributes": { "include.in.token.scope": "true" },
+      "protocolMappers": [
+        { "name": "audience", "protocol": "openid-connect", "protocolMapper": "oidc-audience-mapper", "config": { "included.custom.audience": "trackflow-mcp", "access.token.claim": "true", "introspection.token.claim": "true" } }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "support-agent",
+      "name": "Agente de soporte (LangGraph)",
+      "description": "Cliente MCP del agente: solo consulta tickets.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${KEYCLOAK_AGENT_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": false,
+      "defaultClientScopes": ["basic", "incidents:read"],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "trackflow-operator",
+      "name": "Operador de TrackFlow",
+      "description": "Cliente MCP para pruebas manuales (MCP Playground): tickets y consulta de inventario.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${KEYCLOAK_OPERATOR_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "fullScopeAllowed": false,
+      "defaultClientScopes": ["basic", "incidents:read", "incidents:write", "inventory:read"],
+      "optionalClientScopes": []
+    }
+  ]
+}

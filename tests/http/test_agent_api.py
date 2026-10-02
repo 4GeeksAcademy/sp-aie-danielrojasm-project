@@ -1,11 +1,11 @@
 """`POST /agent/query`: invoca el grafo y traduce su resultado sin exponer detalles internos.
 
 El enrutado usa las reglas (`route_by_rules`) para no depender del modelo. El caso de tickets es de extremo a extremo:
-la tool lee la incidencia con `GET /api/incidents/{id}` de esta misma API (TinyDB temporal del test).
+el agente pide el ticket al servidor MCP (`tests/mcp_harness.py`), que lo lee con `GET /api/incidents/{id}` de esta
+misma API (TinyDB temporal del test).
 """
 
-from functools import partial
-
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -14,8 +14,9 @@ from data.process.rag import RagConfigurationError, RagServiceError
 from services.api.main import app
 from services.support_agent import nodes, router
 from services.support_agent.routing import route_by_rules
-from services.support_agent.tools.incidents import get_ticket
+from services.support_agent.tools import incidents
 from services.support_agent.tracing import load_trace, trace_path
+from tests.mcp_harness import issue_token, running_mcp_server
 
 
 PASSWORD = "correct-password"
@@ -40,6 +41,14 @@ def auth_client():
 
 
 @pytest.fixture
+def agent_token(monkeypatch):
+    async def fetch_access_token():
+        return issue_token(["incidents:read"], client_id="support-agent")
+
+    monkeypatch.setattr(incidents, "fetch_access_token", fetch_access_token)
+
+
+@pytest.fixture
 def fake_rag(monkeypatch):
     monkeypatch.setattr(rag, "retrieve", lambda question: [CHUNK])
     monkeypatch.setattr(rag, "generate_answer", lambda question, context: "Son 30 días.")
@@ -61,9 +70,7 @@ def test_returns_the_graph_answer_and_the_run_reference(auth_client, fake_rag):
     assert trace_path(body["run_id"]).exists()
 
 
-# TestClient ignora el timeout de la tool (no hay red); su efecto se prueba en test_incidents_tool.py.
-@pytest.mark.filterwarnings("ignore:You should not use the 'timeout' argument with the TestClient")
-def test_ticket_question_reads_the_live_incident_manager(auth_client, monkeypatch):
+def test_ticket_question_reads_the_live_incident_manager_through_the_mcp_server(auth_client, agent_token, monkeypatch):
     incident = auth_client.post(
         "/api/incidents",
         json={
@@ -75,14 +82,15 @@ def test_ticket_question_reads_the_live_incident_manager(auth_client, monkeypatc
         },
     ).json()
     auth_client.patch(f"/api/incidents/{incident['id']}/status", json={"status": "in_progress"})
-    monkeypatch.setenv("INCIDENTS_API_URL", str(auth_client.base_url))
-    monkeypatch.setenv("AGENT_SERVICE_USER_ID", auth_client.user_id)
-    monkeypatch.setattr(nodes, "get_ticket", partial(get_ticket, client=auth_client))
     monkeypatch.setattr(rag, "retrieve", lambda question: pytest.fail("una pregunta de ticket no usa el RAG"))
     contexts: list = []
     monkeypatch.setattr(rag, "generate_answer", lambda question, context: contexts.append(context) or "En curso.")
 
-    response = auth_client.post("/agent/query", json={"question": f"¿En qué estado está el ticket {incident['id']}?"})
+    with running_mcp_server(monkeypatch, httpx.ASGITransport(app=app), auth_client.user_id) as mcp_url:
+        monkeypatch.setenv("MCP_SERVER_URL", mcp_url)
+        response = auth_client.post(
+            "/agent/query", json={"question": f"¿En qué estado está el ticket {incident['id']}?"}
+        )
 
     assert response.status_code == 200
     assert response.json()["answer"] == "En curso."
@@ -94,9 +102,8 @@ def test_ticket_question_reads_the_live_incident_manager(auth_client, monkeypatc
     assert lookup["outcome"] == "found" and lookup["ticket"]["status"] == "in_progress"
 
 
-def test_ticket_question_with_the_incident_manager_down_answers_honestly(auth_client, monkeypatch):
-    monkeypatch.setenv("INCIDENTS_API_URL", "http://127.0.0.1:9")
-    monkeypatch.setenv("AGENT_SERVICE_USER_ID", auth_client.user_id)
+def test_ticket_question_with_the_mcp_server_down_answers_honestly(auth_client, agent_token, monkeypatch):
+    monkeypatch.setenv("MCP_SERVER_URL", "http://127.0.0.1:9/mcp")
     monkeypatch.setattr(rag, "generate_answer", lambda question, context: pytest.fail("no debe generar"))
 
     response = auth_client.post("/agent/query", json={"question": "¿En qué estado está el ticket 482?"})

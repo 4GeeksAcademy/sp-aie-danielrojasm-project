@@ -1,7 +1,8 @@
 # `services/support_agent` — Agente de soporte comercial (LangGraph)
 
 Agente de LangGraph con dos fuentes: la base de conocimiento comercial (RAG de `data/pipelines/rag.py`, políticas
-estables) y el gestor de incidencias (tool de solo lectura, datos operativos en tiempo real). El propio agente decide
+estables) y el gestor de incidencias (tool de solo lectura del servidor MCP `mcps/trackflow_tools`, datos operativos en
+tiempo real). El propio agente decide
 qué fuente necesita cada pregunta. Se monta en la API principal (`services/api/main.py`) y convive con
 `/knowledge/query`.
 
@@ -27,7 +28,7 @@ flowchart LR
 | `receive_question` | Normaliza la pregunta | `question` |
 | `reject_question` | Termina sin consultar nada si la pregunta está vacía | `error` |
 | `route_question` | Decide las fuentes (`routing.plan_route`) | `route` |
-| `lookup_tickets` | Tool `get_ticket` por cada ticket de la pregunta | `tickets` |
+| `lookup_tickets` | Tool `get_ticket` (cliente MCP) por cada ticket de la pregunta | `tickets` |
 | `retrieve` | `data.pipelines.rag.retrieve(question)` | `context` |
 | `generate_answer` | `data.pipelines.rag.generate_answer(question, context)` con el contexto recuperado y los tickets confirmados | `answer` |
 | `ticket_fallback` | Respuesta honesta sin llamar al modelo: ningún ticket se pudo confirmar | `answer` |
@@ -52,16 +53,22 @@ desde START y llega a END. Cualquier fallo es un `AgentGraphError` con el motivo
 se conserva y `runner.resume_run(run_id)` continúa desde el último checkpoint sin repetir los nodos terminados. Las
 corridas completadas liberan su hilo; su historial queda en el trace.
 
-## Tool de tickets (`tools/incidents.py`)
+## Tool de tickets (`tools/incidents.py`): cliente del servidor MCP
+
+El agente no llama a la API de incidencias. `lookup_tickets` usa la tool `get_ticket_status` del servidor MCP
+(`mcps/trackflow_tools`), cargada con `langchain-mcp-adapters` (`MultiServerMCPClient`, Streamable HTTP). Es el único
+camino del agente hacia el gestor: la llamada HTTP directa que usaba antes se eliminó.
 
 | | |
 | --- | --- |
 | Entrada | `TicketQuery(ticket_id: int > 0)` |
 | Salida | `TicketLookup(ticket_id, outcome, ticket)`; `outcome` = `found`, `not_found`, `timeout` o `unavailable`; `ticket` = `id`, `title`, `description`, `status`, `category`, `origin`, `branch`, `created_at`, `updated_at` |
-| Servicio | `GET {INCIDENTS_API_URL}/api/incidents/{id}` (por defecto `http://127.0.0.1:8000`); solo `GET` |
-| Auth | Bearer firmado con `JWT_SECRET_KEY` para la cuenta de servicio `AGENT_SERVICE_USER_ID` (una cuenta activa de `auth.json`), válido 5 minutos |
-| Timeout | `INCIDENTS_TIMEOUT_SECONDS` = 4 s |
-| Fallback | 404 → `not_found`; timeout → `timeout`; red caída, 401/5xx o respuesta inválida → `unavailable`. Nunca lanza excepciones al grafo |
+| Servidor | `MCP_SERVER_URL` (por defecto `http://127.0.0.1:8001/mcp`); el agente solo carga `get_ticket_status` |
+| Auth | Token OAuth `client_credentials` del cliente `support-agent` (`AGENT_OAUTH_CLIENT_ID`, `KEYCLOAK_AGENT_CLIENT_SECRET`), pedido al issuer `MCP_OAUTH_ISSUER`. Solo tiene el scope `incidents:read`: el servidor le rechaza crear tickets, cambiar su estado o leer inventario (`INSUFFICIENT_SCOPE`) |
+| Timeout | `INCIDENTS_TIMEOUT_SECONDS` = 4 s (token y llamada MCP) |
+| Fallback | `NOT_FOUND` → `not_found`; timeout → `timeout`; servidor MCP o Keycloak caídos, sin credenciales, otro código de error o respuesta inválida → `unavailable`. Nunca lanza excepciones al grafo |
+
+El enrutado entre RAG y tools no cambia: el nodo y su contrato son los mismos, solo cambia el camino hasta el gestor.
 
 ## Traces
 
@@ -85,7 +92,7 @@ duración, estado final, checkpoints y, si aplica, el nodo y el tipo de error. E
 
 `data/eval/agent/eval-cases.json` define los casos (RAG, tool, ambos, ticket inexistente y gestor caído);
 `scripts/record_agent_traces.py` graba sus traces reales en `data/eval/agent/traces/` (necesita Qdrant indexado, el
-`.env` y la API sirviendo el gestor en `INCIDENTS_API_URL`), y los evals se ejecutan contra esos traces:
+`.env`, Keycloak, la API y el servidor MCP en `MCP_SERVER_URL`), y los evals se ejecutan contra esos traces:
 
 ```bash
 uv run python scripts/record_agent_traces.py
@@ -94,4 +101,4 @@ uv run pytest tests/pipelines/test_agent_evals.py -v
 
 Tests unitarios: `tests/pipelines/test_agent_graph.py` (grafo y fallback), `tests/pipelines/test_agent_routing.py`
 (enrutado), `tests/pipelines/test_incidents_tool.py` (tool) y `tests/http/test_agent_api.py` (endpoint, con un caso de
-extremo a extremo contra el gestor de incidencias).
+extremo a extremo: agente → servidor MCP → gestor de incidencias).

@@ -56,7 +56,7 @@
     {
       "id": "ticket-service-down",
       "question": "¿En qué estado está el ticket 1?",
-      "env": { "INCIDENTS_API_URL": "http://127.0.0.1:9" },
+      "env": { "MCP_SERVER_URL": "http://127.0.0.1:9/mcp" },
       "expected_nodes": ["receive_question", "route_question", "lookup_tickets", "ticket_fallback"],
       "expected_sources": ["incidents_tool"],
       "answer_contains": ["No pude confirmar el estado del ticket 1 ahora mismo"]

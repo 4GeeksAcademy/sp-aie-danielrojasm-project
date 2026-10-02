@@ -51,6 +51,27 @@ services:
     networks:
       - trackflow
 
+  # Proveedor OAuth 2.1 / OIDC del servidor MCP (`mcps/trackflow_tools`). Importa
+  # el realm `trackflow` (scopes y clientes) en cada arranque; sin volumen: el
+  # realm del repo es la única fuente de verdad. `KC_HOSTNAME` fija el issuer de
+  # los tokens (`KEYCLOAK_URL`, el mismo que valida el servidor MCP).
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?Falta KEYCLOAK_ADMIN_USER en .env}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Falta KEYCLOAK_ADMIN_PASSWORD en .env}
+      KC_HOSTNAME: ${KEYCLOAK_URL:?Falta KEYCLOAK_URL en .env}
+      KC_HTTP_PORT: "8080"
+      KEYCLOAK_AGENT_CLIENT_SECRET: ${KEYCLOAK_AGENT_CLIENT_SECRET:?Falta KEYCLOAK_AGENT_CLIENT_SECRET en .env}
+      KEYCLOAK_OPERATOR_CLIENT_SECRET: ${KEYCLOAK_OPERATOR_CLIENT_SECRET:?Falta KEYCLOAK_OPERATOR_CLIENT_SECRET en .env}
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./infra/keycloak:/opt/keycloak/data/import:ro
+    networks:
+      - trackflow
+
   # Broker y result backend de Celery. `noeviction`: con la memoria llena Redis
   # rechaza escrituras en vez de borrar mensajes de la cola. AOF para que los
   # mensajes encolados sobrevivan a un reinicio del contenedor.

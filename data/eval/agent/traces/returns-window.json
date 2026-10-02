@@ -2,13 +2,13 @@
   "trace_version": 2,
   "run_id": "returns-window",
   "question": "¿Cuál es la ventana de devolución estándar?",
-  "started_at": "2026-10-02T13:52:16.922+00:00",
+  "started_at": "2026-10-02T14:43:26.485+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 7.0,
+      "duration_ms": 9.2,
       "output": {
         "question": "¿Cuál es la ventana de devolución estándar?"
       }
@@ -16,7 +16,7 @@
     {
       "order": 2,
       "node": "route_question",
-      "duration_ms": 3185.8,
+      "duration_ms": 3560.6,
       "output": {
         "route": {
           "ticket_ids": [],
@@ -28,7 +28,7 @@
     {
       "order": 3,
       "node": "retrieve",
-      "duration_ms": 414.9,
+      "duration_ms": 450.2,
       "output": {
         "context": [
           {
@@ -53,13 +53,13 @@
     {
       "order": 4,
       "node": "generate_answer",
-      "duration_ms": 4775.3,
+      "duration_ms": 3855.8,
       "output": {
-        "answer": "En TrackFlow, la ventana de devolución estándar es de 30 días desde la entrega, a menos que tu marca haya configurado un plazo distinto en el contrato. Si necesitas confirmar las condiciones específicas de tu cuenta, podemos revisarlo juntos.\n\nFuente: Política de Devoluciones › Ventana de devolución estándar"
+        "answer": "La ventana de devolución estándar en TrackFlow es de 30 días desde la entrega, salvo que hayas configurado una ventana distinta en tu contrato. Si tienes dudas sobre los plazos específicos de tu acuerdo, podemos revisarlo juntos.\n\nFuente: Política de Devoluciones › Ventana de devolución estándar"
       }
     }
   ],
-  "duration_ms": 8383.1,
+  "duration_ms": 7875.8,
   "sources_used": [
     "rag"
   ],
@@ -88,7 +88,7 @@
         "text": "El proceso estándar de devoluciones (reverse logistics) de TrackFlow funciona así:\n1. El cliente final solicita la devolución a través del portal de la marca.\n2. TrackFlow genera automáticamente la etiqueta de devolución si el motivo está dentro de las reglas configuradas por el cliente (ej. talla incorrecta, producto defectuoso).\n3. El producto llega al almacén y un operativo lo inspecta y clasifica en: apto para reventa, apto para reacondicionar, o no apto (descarte)."
       }
     ],
-    "answer": "En TrackFlow, la ventana de devolución estándar es de 30 días desde la entrega, a menos que tu marca haya configurado un plazo distinto en el contrato. Si necesitas confirmar las condiciones específicas de tu cuenta, podemos revisarlo juntos.\n\nFuente: Política de Devoluciones › Ventana de devolución estándar"
+    "answer": "La ventana de devolución estándar en TrackFlow es de 30 días desde la entrega, salvo que hayas configurado una ventana distinta en tu contrato. Si tienes dudas sobre los plazos específicos de tu acuerdo, podemos revisarlo juntos.\n\nFuente: Política de Devoluciones › Ventana de devolución estándar"
   },
   "checkpoints": [
     {
@@ -97,7 +97,7 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be687-aad4-63a7-bfff-36bdea63ba26",
+      "checkpoint_id": "1f1be6fa-047a-62c2-bfff-7ffe4bd9a9a3",
       "values": {}
     },
     {
@@ -106,7 +106,7 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be687-aadd-6119-8000-55084378bf92",
+      "checkpoint_id": "1f1be6fa-047f-611f-8000-476f98cc36b1",
       "values": {
         "question": "¿Cuál es la ventana de devolución estándar?"
       }
@@ -117,7 +117,7 @@
       "next": [
         "route_question"
       ],
-      "checkpoint_id": "1f1be687-aadf-6579-8001-57850ad3b4db",
+      "checkpoint_id": "1f1be6fa-0487-649b-8001-035599ae0412",
       "values": {
         "question": "¿Cuál es la ventana de devolución estándar?"
       }
@@ -128,7 +128,7 @@
       "next": [
         "retrieve"
       ],
-      "checkpoint_id": "1f1be687-c940-6919-8002-9c68231607d8",
+      "checkpoint_id": "1f1be6fa-267c-6868-8002-1148399dbb9e",
       "values": {
         "question": "¿Cuál es la ventana de devolución estándar?",
         "route": {
@@ -144,7 +144,7 @@
       "next": [
         "generate_answer"
       ],
-      "checkpoint_id": "1f1be687-cd35-6e8f-8003-8561b841a5f1",
+      "checkpoint_id": "1f1be6fa-2ac7-6ef0-8003-5bc20e7daa45",
       "values": {
         "question": "¿Cuál es la ventana de devolución estándar?",
         "route": {
@@ -176,7 +176,7 @@
       "step": 4,
       "source": "loop",
       "next": [],
-      "checkpoint_id": "1f1be687-fabb-6379-8004-0b1fd25f6f16",
+      "checkpoint_id": "1f1be6fa-4f8c-6720-8004-57bc2e3a4774",
       "values": {
         "question": "¿Cuál es la ventana de devolución estándar?",
         "route": {
@@ -202,7 +202,7 @@
             "text": "El proceso estándar de devoluciones (reverse logistics) de TrackFlow funciona así:\n1. El cliente final solicita la devolución a través del portal de la marca.\n2. TrackFlow genera automáticamente la etiqueta de devolución si el motivo está dentro de las reglas configuradas por el cliente (ej. talla incorrecta, producto defectuoso).\n3. El producto llega al almacén y un operativo lo inspecta y clasifica en: apto para reventa, apto para reacondicionar, o no apto (descarte)."
           }
         ],
-        "answer": "En TrackFlow, la ventana de devolución estándar es de 30 días desde la entrega, a menos que tu marca haya configurado un plazo distinto en el contrato. Si necesitas confirmar las condiciones específicas de tu cuenta, podemos revisarlo juntos.\n\nFuente: Política de Devoluciones › Ventana de devolución estándar"
+        "answer": "La ventana de devolución estándar en TrackFlow es de 30 días desde la entrega, salvo que hayas configurado una ventana distinta en tu contrato. Si tienes dudas sobre los plazos específicos de tu acuerdo, podemos revisarlo juntos.\n\nFuente: Política de Devoluciones › Ventana de devolución estándar"
       }
     }
   ]

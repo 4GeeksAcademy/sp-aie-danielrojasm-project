@@ -1,11 +1,11 @@
 """Graba los traces que evalúan los evals del agente LangGraph.
 
-Uso (desde la raíz del monorepo, con Qdrant en marcha, `setup()` ya ejecutado, el `.env` con el gateway LLM y
-`AGENT_SERVICE_USER_ID`, y la API sirviendo el gestor de incidencias en `INCIDENTS_API_URL`):
+Uso (desde la raíz del monorepo, con Qdrant en marcha, `setup()` ya ejecutado, el `.env` con el gateway LLM y el
+cliente OAuth del agente, Keycloak en marcha y el servidor MCP en `MCP_SERVER_URL` con la API detrás):
 
     uv run python scripts/record_agent_traces.py
 
-Un caso con `env` cambia esas variables solo durante su corrida (p. ej. el gestor de incidencias caído).
+Un caso con `env` cambia esas variables solo durante su corrida (p. ej. el servidor MCP caído).
 
 Ejecuta el grafo compilado de `services/support_agent` una vez por caso de `data/eval/agent/eval-cases.json` y
 escribe cada trace en `data/eval/agent/traces/<id>.json` (`run_id` = id del caso). Después, los evals se ejecutan

@@ -2,13 +2,13 @@
   "trace_version": 2,
   "run_id": "ticket-service-down",
   "question": "¿En qué estado está el ticket 1?",
-  "started_at": "2026-10-02T13:52:58.028+00:00",
+  "started_at": "2026-10-02T14:44:20.563+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 1.6,
+      "duration_ms": 1.8,
       "output": {
         "question": "¿En qué estado está el ticket 1?"
       }
@@ -16,7 +16,7 @@
     {
       "order": 2,
       "node": "route_question",
-      "duration_ms": 1187.4,
+      "duration_ms": 1160.1,
       "output": {
         "route": {
           "ticket_ids": [
@@ -30,7 +30,7 @@
     {
       "order": 3,
       "node": "lookup_tickets",
-      "duration_ms": 2059.3,
+      "duration_ms": 2098.7,
       "output": {
         "tickets": [
           {
@@ -44,13 +44,13 @@
     {
       "order": 4,
       "node": "ticket_fallback",
-      "duration_ms": 1.1,
+      "duration_ms": 1.7,
       "output": {
         "answer": "No pude confirmar el estado del ticket 1 ahora mismo: el gestor de incidencias no respondió. Vuelve a intentarlo en unos minutos.\nFuente: sin confirmación del gestor de incidencias"
       }
     }
   ],
-  "duration_ms": 3249.4,
+  "duration_ms": 3262.3,
   "sources_used": [
     "incidents_tool"
   ],
@@ -79,7 +79,7 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be689-32d3-6b68-bfff-96a868a65b76",
+      "checkpoint_id": "1f1be6fc-082b-6f21-bfff-dbaf766c3c02",
       "values": {}
     },
     {
@@ -88,7 +88,7 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be689-32d5-608d-8000-5f094cbaa532",
+      "checkpoint_id": "1f1be6fc-082d-669a-8000-e6cb65ecd971",
       "values": {
         "question": "¿En qué estado está el ticket 1?"
       }
@@ -99,7 +99,7 @@
       "next": [
         "route_question"
       ],
-      "checkpoint_id": "1f1be689-32d6-680b-8001-b86a0189b11e",
+      "checkpoint_id": "1f1be6fc-082f-6232-8001-14f87d1f158d",
       "values": {
         "question": "¿En qué estado está el ticket 1?"
       }
@@ -110,7 +110,7 @@
       "next": [
         "lookup_tickets"
       ],
-      "checkpoint_id": "1f1be689-3e28-6849-8002-97f103da08dd",
+      "checkpoint_id": "1f1be6fc-133f-63b8-8002-6283eb839abc",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
         "route": {
@@ -128,7 +128,7 @@
       "next": [
         "ticket_fallback"
       ],
-      "checkpoint_id": "1f1be689-51cc-6f24-8003-8efe3d889beb",
+      "checkpoint_id": "1f1be6fc-2741-694a-8003-a12d19a91310",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
         "route": {
@@ -151,7 +151,7 @@
       "step": 4,
       "source": "loop",
       "next": [],
-      "checkpoint_id": "1f1be689-51ce-6ee2-8004-f29edcd21738",
+      "checkpoint_id": "1f1be6fc-2746-66f5-8004-849721fc9fdc",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
         "route": {

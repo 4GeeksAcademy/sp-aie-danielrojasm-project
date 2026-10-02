@@ -28,8 +28,10 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
   dispara el contenedor `scheduler` (`infra/scheduler/`).
 - **`services/tasks/`** — cola de tareas asíncronas (Celery + Redis): instancia, tarea del pipeline semanal y DLQ. El worker
   es el contenedor `worker`; Flower, el contenedor `flower`.
-- **`agents/`, `skills/`, `mcps/`, `workflows/`, `infra/`** — espacio para el producto de hitos futuros (agentes de la empresa,
-  no del IDE). Solo contienen la plantilla.
+- **`mcps/trackflow_tools/`** — servidor MCP (FastMCP, Streamable HTTP, puerto 8001) con OAuth de MCP Auth: tickets del
+  gestor de incidencias y consulta del inventario. `infra/keycloak/` guarda el realm de su proveedor OAuth.
+- **`agents/`, `skills/`, `workflows/`** — espacio para el producto de hitos futuros (agentes de la empresa, no del IDE).
+  Solo contienen la plantilla.
 
 ---
 
@@ -384,10 +386,11 @@ Detalle en `services/support_agent/README.md`.
 - **Fuentes:** RAG (políticas estables) y la tool `get_ticket` (gestor de incidencias en vivo, nunca indexado en
   Qdrant). Decide `route_question` con el modelo de generación en modo JSON; solo acepta tickets escritos en la
   pregunta y, si el modelo falla, aplica reglas.
-- **Tool de tickets:** HTTP `GET {INCIDENTS_API_URL}/api/incidents/{id}` con `httpx` (dependencia directa),
-  timeout de 4 s. Auth de servicio: token de 5 min firmado con `JWT_SECRET_KEY` para `AGENT_SERVICE_USER_ID`
-  (cuenta activa de `auth.json`). Los fallos son resultados (`not_found`, `timeout`, `unavailable`) que llevan al
-  nodo `ticket_fallback`; un ticket sin confirmar no llega nunca al modelo.
+- **Tool de tickets:** cliente del servidor MCP. Carga solo `get_ticket_status` con `langchain-mcp-adapters` (en
+  `pyproject.toml` y `services/api/requirements.txt`) y se autentica con un token `client_credentials` del cliente
+  `support-agent` (solo `incidents:read`). Timeout de 4 s. Ya no existe la llamada HTTP directa al gestor. Los fallos
+  son resultados (`not_found`, `timeout`, `unavailable`) que llevan al nodo `ticket_fallback`; un ticket sin confirmar
+  no llega nunca al modelo. La fuente sigue llamándose `incidents_tool` en el trace.
 - **Compilación:** al importar `services/support_agent/graph.py`. LangGraph no detecta nodos huérfanos ni sin salida
   (su grafo dibujable une a END cualquier nodo sin aristas), así que `compile_graph()` lo valida sobre las aristas
   declaradas; las aristas condicionales necesitan su `path_map` explícito.
@@ -396,6 +399,29 @@ Detalle en `services/support_agent/README.md`.
 - **Trace:** JSON por corrida en `AGENT_TRACE_DIR` (por defecto `data/raw/agent_traces/`, ignorado por git; los tests lo
   apuntan a un temporal en `tests/conftest.py`). Sin LangSmith.
 - **Evals:** se ejecutan contra traces grabados (`data/eval/agent/traces/`), no contra Qdrant ni el gateway.
+
+### Servidor MCP de herramientas — Milestone 09
+
+Detalle en `mcps/trackflow_tools/README.md`.
+
+- **Stack:** `fastmcp` 3.4 (`>=3.4,<4`: FastMCP 4 trae `mcp` 2.x y `langchain-mcp-adapters` exige `mcp<2`),
+  `mcpauth==0.2.0b1` (la primera versión con Protected Resource Metadata; la 0.1.1 estable no la tiene) y Keycloak
+  26.4 en Compose como proveedor OIDC. La auth integrada de FastMCP no se usa.
+- **Transporte:** Streamable HTTP stateless con respuestas JSON. Varios clientes remotos y bearer por petición; el
+  `AuthInfo` de MCP Auth (contextvar) es siempre el de esa petición.
+- **OAuth:** resource server. Valida firma (JWKS), issuer exacto, audiencia `trackflow-mcp` y expiración; sin token
+  válido responde 401 antes de `tools/list`. Scopes por tool (`incidents:read`, `incidents:write`, `inventory:read`),
+  comprobados en un middleware de FastMCP; no hay scope de escritura de inventario. Realm versionado en
+  `infra/keycloak/trackflow-realm.json` (se reimporta en cada arranque, sin volumen) con los clientes `support-agent`
+  y `trackflow-operator`; los secretos van en el `.env`.
+- **Backend:** la API de TrackFlow por HTTP, con un JWT HS256 de 5 min para `MCP_SERVICE_USER_ID`. Los cambios de
+  estado pasan por `PATCH /api/incidents/{id}/status`. El inventario solo admite `GET /inventory/*`
+  (`InventoryReader`) y las escrituras se rechazan con `INVENTORY_READ_ONLY`.
+- **Errores y logs:** códigos `INSUFFICIENT_SCOPE`, `INVENTORY_READ_ONLY`, `VALIDATION_ERROR`, `NOT_FOUND` y
+  `UPSTREAM_UNAVAILABLE`; un log `trackflow.mcp` por invocación (tool, client, subject, resultado). Códigos de salida:
+  2 sin configuración, 3 issuer inaccesible.
+- **Restricción:** MCP Auth descarga el JWKS en cada petición. Con `localhost`, Windows prueba antes `::1` y cada
+  validación tarda ~2 s, así que las URLs locales usan `127.0.0.1`.
 
 ### 🚫 Sin APIs dentro de `uis/`
 
@@ -449,6 +475,8 @@ describen en "Cola de tareas asíncronas"; `worker` y `flower` usan la imagen de
 - **Redis** — puerto **6379** (solo `127.0.0.1`), con `docker compose up -d redis`.
 - **Flower** — puerto **5555** (solo `127.0.0.1`), con `docker compose up -d flower`.
 - **Qdrant** — puerto **6333** (solo `127.0.0.1`), con `docker compose up -d qdrant`.
+- **Servidor MCP** — puerto **8001**, con `uv run --env-file .env python -m mcps.trackflow_tools`.
+- **Keycloak** — puerto **8080** (solo `127.0.0.1`), con `docker compose up -d keycloak`.
 
 El backoffice **no** usa el 3001 porque el tracker del Hito 3 usa `http://localhost:3001` como API por defecto cuando no existe
 `NEXT_PUBLIC_TRACKFLOW_API_BASE_URL`.
@@ -473,9 +501,11 @@ Todos se ejecutan desde la raíz del monorepo:
 - **Evaluación del pronóstico** — `uv run python scripts/evaluate_sales_forecast.py` (CV temporal y curva de aprendizaje en `data/eval/`).
 - **Base de conocimiento (RAG)** — `uv run python -m data.process.rag` indexa `docs/company-knowledge-base/` en Qdrant;
   `uv run python scripts/evaluate_rag_retrieval.py` mide Recall@3 (`data/eval/rag/retrieval_report.json`).
-- **Evals del agente LangGraph** — `uv run python scripts/record_agent_traces.py` graba los traces (Qdrant, `.env` y
-  la API sirviendo el gestor de incidencias en `INCIDENTS_API_URL`);
+- **Evals del agente LangGraph** — `uv run python scripts/record_agent_traces.py` graba los traces (Qdrant, `.env`,
+  Keycloak, la API y el servidor MCP en `MCP_SERVER_URL`);
   `uv run pytest tests/pipelines/test_agent_evals.py -v` los evalúa.
+- **Servidor MCP** — `docker compose up -d keycloak api` y `uv run --env-file .env python -m mcps.trackflow_tools`;
+  `uv run pytest tests/mcp -v`.
 - **Job nocturno** — `uv run python scripts/nightly_export.py` (`TARGET_DATE=YYYY-MM-DD` para otra fecha cerrada).
 - **Worker de Celery** — `docker compose up -d redis worker flower` / `docker compose stop worker`; sin Docker,
   `uv run --env-file .env celery -A services.tasks.celery_app worker --loglevel=INFO --queues=default,dead_letter`

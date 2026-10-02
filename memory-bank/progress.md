@@ -8,6 +8,32 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Servidor MCP con OAuth para las herramientas de la compañía (RFP del tech lead)
+
+- `mcps/trackflow_tools/`: FastMCP 3.4 sobre Streamable HTTP stateless (puerto 8001) con cuatro tools.
+   `create_ticket`, `update_ticket_status` (vía `PATCH /api/incidents/{id}/status`) y `get_ticket_status` contra el
+   gestor real. `query_inventory` (solo `GET /inventory/*`) rechaza las escrituras con `INVENTORY_READ_ONLY`.
+- OAuth con MCP Auth 0.2.0b1 como resource server (Protected Resource Metadata, JWT contra el JWKS de Keycloak,
+   audiencia `trackflow-mcp`). Keycloak 26.4 en Compose con el realm `infra/keycloak/trackflow-realm.json`. Scopes
+   por tool; el cliente `support-agent` solo tiene `incidents:read`.
+- Errores con código propio (401 de MCP Auth; `INSUFFICIENT_SCOPE`, `INVENTORY_READ_ONLY`, `VALIDATION_ERROR`,
+   `NOT_FOUND`, `UPSTREAM_UNAVAILABLE` en las tools), códigos de salida 2/3 y un log `trackflow.mcp` por invocación
+   (tool, client, subject, resultado).
+- Agente: `lookup_tickets` usa `get_ticket_status` del servidor MCP vía `langchain-mcp-adapters`. La llamada HTTP
+   directa al gestor se eliminó, junto con `AGENT_SERVICE_USER_ID` e `INCIDENTS_API_URL` en `.env.example`.
+- Verificado: `uv run pytest` 608 (34 nuevos en `tests/mcp`, la tool del agente reescrita contra el servidor real);
+   `npm run verify`. Con Keycloak y la API reales, un cliente MCP listó las 4 tools, completó crear → `in_progress` →
+   consultar, consultó el inventario y recibió `INVENTORY_READ_ONLY`, `INSUFFICIENT_SCOPE` (token del agente) y 401
+   sin token o con un token inválido. Los 8 traces de evals se regrabaron: el enrutado RAG/tool/ambos no cambia y
+   el log muestra `get_ticket … via=mcp`.
+- Datos locales: la prueba manual creó los tickets 96–98 («Prueba MCP») en `services/api/incidents.json` (ignorado
+   por git).
+- Contenedor `api`: reconstruido con `langchain-mcp-adapters`. Dentro del contenedor el agente no alcanza el servidor
+   MCP ni Keycloak en `127.0.0.1`, así que ahí sus consultas de ticket terminan en `unavailable`. En local funciona.
+- Pendiente: probar en MCP Playground desde Codespaces con la URL pública reenviada del 8001 (pasos en el README del
+   servidor). Después, PR con el transporte elegido y su motivo.
+
+
 ### Milestone 09 — Agente de soporte con LangGraph, parte 2: tools fuera del RAG (brief del tech lead)
 
 - Tool `get_ticket` (`services/support_agent/tools/incidents.py`): contrato tipado `TicketQuery` → `TicketLookup`, solo
