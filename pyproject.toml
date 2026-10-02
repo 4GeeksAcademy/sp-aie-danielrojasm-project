@@ -25,6 +25,9 @@ dependencies = [
     "openai>=1.100",
     "langgraph>=1.2.12",
     "httpx>=0.28",
+    "fastmcp>=3.4,<4",
+    "mcpauth==0.2.0b1",
+    "langchain-mcp-adapters>=0.3.2",
 ]
 
 [project.scripts]

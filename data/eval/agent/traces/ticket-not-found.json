@@ -2,13 +2,13 @@
   "trace_version": 2,
   "run_id": "ticket-not-found",
   "question": "¿Cómo va la incidencia 9999?",
-  "started_at": "2026-10-02T13:52:54.958+00:00",
+  "started_at": "2026-10-02T14:44:17.146+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 2.2,
+      "duration_ms": 6.6,
       "output": {
         "question": "¿Cómo va la incidencia 9999?"
       }
@@ -16,7 +16,7 @@
     {
       "order": 2,
       "node": "route_question",
-      "duration_ms": 3028.5,
+      "duration_ms": 3097.0,
       "output": {
         "route": {
           "ticket_ids": [
@@ -30,7 +30,7 @@
     {
       "order": 3,
       "node": "lookup_tickets",
-      "duration_ms": 36.6,
+      "duration_ms": 310.2,
       "output": {
         "tickets": [
           {
@@ -44,13 +44,13 @@
     {
       "order": 4,
       "node": "ticket_fallback",
-      "duration_ms": 0.9,
+      "duration_ms": 1.0,
       "output": {
         "answer": "No encuentro el ticket 9999 en el gestor de incidencias; revisa el número antes de responder al cliente.\nFuente: sin confirmación del gestor de incidencias"
       }
     }
   ],
-  "duration_ms": 3068.2,
+  "duration_ms": 3414.8,
   "sources_used": [
     "incidents_tool"
   ],
@@ -79,7 +79,7 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be689-158c-6c16-bfff-890a77b26276",
+      "checkpoint_id": "1f1be6fb-e798-6fc3-bfff-d8da482e0388",
       "values": {}
     },
     {
@@ -88,7 +88,7 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be689-158e-6b80-8000-364605690253",
+      "checkpoint_id": "1f1be6fb-e79f-6092-8000-0264486e118a",
       "values": {
         "question": "¿Cómo va la incidencia 9999?"
       }
@@ -99,7 +99,7 @@
       "next": [
         "route_question"
       ],
-      "checkpoint_id": "1f1be689-1590-6bd6-8001-87ef2a83c361",
+      "checkpoint_id": "1f1be6fb-e7a4-68d2-8001-78f5d6e0d702",
       "values": {
         "question": "¿Cómo va la incidencia 9999?"
       }
@@ -110,7 +110,7 @@
       "next": [
         "lookup_tickets"
       ],
-      "checkpoint_id": "1f1be689-3270-6f81-8002-bda2efb6b502",
+      "checkpoint_id": "1f1be6fc-052e-6536-8002-aecc71c0f100",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
         "route": {
@@ -128,7 +128,7 @@
       "next": [
         "ticket_fallback"
       ],
-      "checkpoint_id": "1f1be689-32cb-6cb6-8003-6232172e8e71",
+      "checkpoint_id": "1f1be6fc-0823-6a7e-8003-a466e7d7840a",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
         "route": {
@@ -151,7 +151,7 @@
       "step": 4,
       "source": "loop",
       "next": [],
-      "checkpoint_id": "1f1be689-32cd-6792-8004-cb1b81bdf0f7",
+      "checkpoint_id": "1f1be6fc-0825-658d-8004-af39c4cee350",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
         "route": {

@@ -1,17 +1,21 @@
-"""Tool `get_ticket`: contrato, auth de la cuenta de servicio, solo lectura, timeout y fallback.
+"""Tool `get_ticket` del agente: lee el ticket como cliente del servidor MCP, nunca contra la API de incidencias.
 
-Las respuestas del gestor llegan por `httpx.MockTransport`, que además registra cada petición.
+El servidor MCP corre de verdad en un hilo (`tests/mcp_harness.py`) y el token OAuth del agente lo firma la clave de
+prueba en lugar de pedirlo a Keycloak. Detrás del servidor, un `MockTransport` hace de gestor de incidencias y
+registra cada petición.
 """
+
+import asyncio
+import contextlib
+import time
 
 import httpx
 import pytest
-from jose import jwt
 from pydantic import ValidationError
 
-from services.api.security import ALGORITHM
 from services.support_agent.tools import incidents
 from services.support_agent.tools.incidents import TicketQuery, get_ticket
-from tests.helpers import TEST_SECRET
+from tests.mcp_harness import issue_token, running_mcp_server
 
 
 INCIDENT = {
@@ -28,96 +32,118 @@ INCIDENT = {
 }
 
 
-@pytest.fixture(autouse=True)
-def service_account(monkeypatch):
-    monkeypatch.setenv("AGENT_SERVICE_USER_ID", "service-user-id")
-    monkeypatch.setenv("INCIDENTS_API_URL", "http://incidents.test/")
+@pytest.fixture
+def agent_token(monkeypatch):
+    """Token del cliente `support-agent`: solo `incidents:read`, como en el realm de Keycloak."""
+    scopes: list[list[str]] = []
+
+    async def fetch_access_token():
+        scopes.append([incidents.MCP_TICKET_SCOPE])
+        return issue_token([incidents.MCP_TICKET_SCOPE], client_id="support-agent")
+
+    monkeypatch.setattr(incidents, "fetch_access_token", fetch_access_token)
+    return scopes
 
 
-def client_answering(handler, requests: list[httpx.Request]) -> httpx.Client:
-    def record(request: httpx.Request) -> httpx.Response:
-        requests.append(request)
-        return handler(request)
+@pytest.fixture
+def mcp_server(monkeypatch):
+    """Arranca el servidor MCP con `handler` como gestor de incidencias y apunta el agente a él."""
+    with contextlib.ExitStack() as stack:
 
-    return httpx.Client(transport=httpx.MockTransport(record))
+        def start(handler, requests: list[httpx.Request]) -> None:
+            def record(request: httpx.Request) -> httpx.Response:
+                requests.append(request)
+                return handler(request)
+
+            url = stack.enter_context(running_mcp_server(monkeypatch, httpx.MockTransport(record)))
+            monkeypatch.setenv("MCP_SERVER_URL", url)
+
+        yield start
 
 
-def test_found_ticket_is_read_with_a_single_authenticated_get():
+def test_found_ticket_is_read_through_the_mcp_server(mcp_server, agent_token):
     requests: list[httpx.Request] = []
-    client = client_answering(lambda request: httpx.Response(200, json=INCIDENT), requests)
+    mcp_server(lambda request: httpx.Response(200, json=INCIDENT), requests)
 
-    lookup = get_ticket(TicketQuery(ticket_id=482), client=client)
+    lookup = get_ticket(TicketQuery(ticket_id=482))
 
     assert lookup.outcome == "found"
     assert lookup.ticket.status == "in_progress" and lookup.ticket.branch == "zaragoza_office"
     assert "reported_by" not in lookup.ticket.model_dump()
+    # La única llamada al gestor la hace el servidor MCP, con su lectura de ciclo de vida.
     (request,) = requests
-    assert (request.method, str(request.url)) == ("GET", "http://incidents.test/api/incidents/482")
-    token = request.headers["Authorization"].removeprefix("Bearer ")
-    assert jwt.decode(token, TEST_SECRET, algorithms=[ALGORITHM])["sub"] == "service-user-id"
+    assert (request.method, request.url.path) == ("GET", "/api/incidents/482")
+    assert agent_token == [["incidents:read"]]
 
 
-def test_timeout_is_numeric_and_applied_to_the_request():
-    requests: list[httpx.Request] = []
-    client = client_answering(lambda request: httpx.Response(200, json=INCIDENT), requests)
+def test_agent_loads_only_the_read_tool_from_the_server(mcp_server, agent_token):
+    mcp_server(lambda request: httpx.Response(200, json=INCIDENT), [])
 
-    get_ticket(TicketQuery(ticket_id=482), client=client)
+    tool = asyncio.run(incidents.load_ticket_tool())
 
-    assert 3 <= incidents.INCIDENTS_TIMEOUT_SECONDS <= 5
-    timeouts = requests[0].extensions["timeout"]
-    assert timeouts == {key: incidents.INCIDENTS_TIMEOUT_SECONDS for key in ("connect", "read", "write", "pool")}
+    assert tool.name == "get_ticket_status"
+    assert "Solo lectura" in tool.description
 
 
-@pytest.mark.parametrize(
-    ("response", "outcome"),
-    [
-        (httpx.Response(404, json={"detail": "Incidencia no encontrada."}), "not_found"),
-        (httpx.Response(401, json={"detail": "Credenciales no válidas"}), "unavailable"),
-        (httpx.Response(500, json={"detail": "Error interno"}), "unavailable"),
-        (httpx.Response(200, text="<html>"), "unavailable"),
-        (httpx.Response(200, json={"id": 482, "status": "lost"}), "unavailable"),
-    ],
-)
-def test_service_answers_that_are_not_a_ticket_become_a_fallback_outcome(response, outcome):
-    lookup = get_ticket(TicketQuery(ticket_id=482), client=client_answering(lambda request: response, []))
+def test_unknown_ticket_is_not_found(mcp_server, agent_token):
+    mcp_server(lambda request: httpx.Response(404, json={"detail": "Incidencia no encontrada."}), [])
 
-    assert lookup.outcome == outcome
-    assert lookup.ticket is None
+    lookup = get_ticket(TicketQuery(ticket_id=482))
+
+    assert lookup.outcome == "not_found" and lookup.ticket is None
 
 
 @pytest.mark.parametrize(
-    ("error", "outcome"),
+    "response",
     [
-        (httpx.ReadTimeout("lenta"), "timeout"),
-        (httpx.ConnectTimeout("lenta"), "timeout"),
-        (httpx.ConnectError("caída"), "unavailable"),
+        httpx.Response(401, json={"detail": "Credenciales no válidas"}),
+        httpx.Response(500, json={"detail": "Error interno"}),
+        httpx.Response(200, json={"id": 482, "status": "lost"}),
     ],
 )
-def test_network_failures_become_a_fallback_outcome(error, outcome):
-    def fail(request):
-        raise error
+def test_manager_failures_behind_the_server_become_unavailable(mcp_server, agent_token, response):
+    mcp_server(lambda request: response, [])
 
-    lookup = get_ticket(TicketQuery(ticket_id=482), client=client_answering(fail, []))
+    lookup = get_ticket(TicketQuery(ticket_id=482))
 
-    assert lookup.outcome == outcome
+    assert lookup.outcome == "unavailable" and lookup.ticket is None
 
 
-def test_real_timeout_does_not_hang(monkeypatch):
-    # 10.255.255.1 no responde: la conexión agota el timeout en lugar de quedarse colgada.
-    monkeypatch.setattr(incidents, "INCIDENTS_TIMEOUT_SECONDS", 0.2)
-    monkeypatch.setenv("INCIDENTS_API_URL", "http://10.255.255.1:81")
+def test_mcp_server_down_is_unavailable(monkeypatch, agent_token):
+    monkeypatch.setenv("MCP_SERVER_URL", "http://127.0.0.1:9/mcp")
+
+    assert get_ticket(TicketQuery(ticket_id=482)).outcome == "unavailable"
+
+
+def test_slow_mcp_server_is_a_timeout(mcp_server, agent_token, monkeypatch):
+    monkeypatch.setattr(incidents, "INCIDENTS_TIMEOUT_SECONDS", 0.3)
+
+    def slow(request):
+        time.sleep(1)
+        return httpx.Response(200, json=INCIDENT)
+
+    mcp_server(slow, [])
 
     assert get_ticket(TicketQuery(ticket_id=482)).outcome in {"timeout", "unavailable"}
 
 
-def test_without_service_credentials_the_tool_does_not_call_the_service(monkeypatch):
-    monkeypatch.delenv("AGENT_SERVICE_USER_ID")
+def test_a_token_without_the_read_scope_is_refused_by_the_server(mcp_server, monkeypatch):
+    async def wrong_scope():
+        return issue_token(["inventory:read"], client_id="support-agent")
+
+    monkeypatch.setattr(incidents, "fetch_access_token", wrong_scope)
     requests: list[httpx.Request] = []
+    mcp_server(lambda request: httpx.Response(200, json=INCIDENT), requests)
 
-    lookup = get_ticket(TicketQuery(ticket_id=482), client=client_answering(lambda request: httpx.Response(200), requests))
-
-    assert lookup.outcome == "unavailable"
+    assert get_ticket(TicketQuery(ticket_id=482)).outcome == "unavailable"
     assert requests == []
+
+
+def test_without_oauth_credentials_the_tool_does_not_call_the_server(monkeypatch):
+    for variable in ("MCP_OAUTH_ISSUER", "AGENT_OAUTH_CLIENT_ID", "KEYCLOAK_AGENT_CLIENT_SECRET"):
+        monkeypatch.delenv(variable, raising=False)
+
+    assert get_ticket(TicketQuery(ticket_id=482)).outcome == "unavailable"
 
 
 @pytest.mark.parametrize("payload", [{"ticket_id": 0}, {"ticket_id": -3}, {"ticket_id": 482, "status": "resolved"}])
@@ -126,10 +152,9 @@ def test_input_contract_rejects_invalid_or_write_like_queries(payload):
         TicketQuery(**payload)
 
 
-def test_fragment_gives_the_model_the_live_status_and_its_source():
-    lookup = get_ticket(
-        TicketQuery(ticket_id=482), client=client_answering(lambda request: httpx.Response(200, json=INCIDENT), [])
-    )
+def test_fragment_gives_the_model_the_live_status_and_its_source(mcp_server, agent_token):
+    mcp_server(lambda request: httpx.Response(200, json=INCIDENT), [])
+    lookup = get_ticket(TicketQuery(ticket_id=482))
 
     fragment = incidents.ticket_fragment(lookup.ticket)
 

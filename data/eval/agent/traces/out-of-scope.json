@@ -2,13 +2,13 @@
   "trace_version": 2,
   "run_id": "out-of-scope",
   "question": "¿Tenéis almacén propio en Ciudad de México?",
-  "started_at": "2026-10-02T13:52:31.453+00:00",
+  "started_at": "2026-10-02T14:43:48.742+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 2.1,
+      "duration_ms": 2.2,
       "output": {
         "question": "¿Tenéis almacén propio en Ciudad de México?"
       }
@@ -16,7 +16,7 @@
     {
       "order": 2,
       "node": "route_question",
-      "duration_ms": 2537.7,
+      "duration_ms": 1620.1,
       "output": {
         "route": {
           "ticket_ids": [],
@@ -28,7 +28,7 @@
     {
       "order": 3,
       "node": "retrieve",
-      "duration_ms": 203.4,
+      "duration_ms": 343.6,
       "output": {
         "context": []
       }
@@ -36,13 +36,13 @@
     {
       "order": 4,
       "node": "no_information",
-      "duration_ms": 0.8,
+      "duration_ms": 1.0,
       "output": {
         "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento"
       }
     }
   ],
-  "duration_ms": 2744.2,
+  "duration_ms": 1966.9,
   "sources_used": [
     "rag"
   ],
@@ -63,7 +63,7 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be688-3564-69a0-bfff-4fbdd5d4f7d4",
+      "checkpoint_id": "1f1be6fa-d8b4-67f3-bfff-de2551798fca",
       "values": {}
     },
     {
@@ -72,7 +72,7 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be688-3566-6839-8000-3f343e924db4",
+      "checkpoint_id": "1f1be6fa-d8b6-685d-8000-d0cca046c7f4",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?"
       }
@@ -83,7 +83,7 @@
       "next": [
         "route_question"
       ],
-      "checkpoint_id": "1f1be688-3568-6782-8001-e1832d5aa157",
+      "checkpoint_id": "1f1be6fa-d8b8-66dc-8001-8d0f2b4d9210",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?"
       }
@@ -94,7 +94,7 @@
       "next": [
         "retrieve"
       ],
-      "checkpoint_id": "1f1be688-4d9b-6f1d-8002-3df24da776ae",
+      "checkpoint_id": "1f1be6fa-e82b-6a6b-8002-7615a72f3830",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
         "route": {
@@ -110,7 +110,7 @@
       "next": [
         "no_information"
       ],
-      "checkpoint_id": "1f1be688-4f8c-69ea-8003-b0c5334ac67f",
+      "checkpoint_id": "1f1be6fa-eb72-68b2-8003-f0455331626e",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
         "route": {
@@ -125,7 +125,7 @@
       "step": 4,
       "source": "loop",
       "next": [],
-      "checkpoint_id": "1f1be688-4f8e-63b7-8004-7ed9f0468e46",
+      "checkpoint_id": "1f1be6fa-eb74-6529-8004-b3977ea0746b",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
         "route": {
