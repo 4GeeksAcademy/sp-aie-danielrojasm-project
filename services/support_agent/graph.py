@@ -1,8 +1,16 @@
 """Definición, validación y compilación del grafo del agente.
 
-    START → receive_question ─┬─ (pregunta vacía) ──→ reject_question → END
-                              └─ (hay pregunta) ────→ retrieve ─┬─ (hay contexto) ──→ generate_answer → END
-                                                                └─ (sin contexto) ──→ no_information → END
+    START → receive_question ─┬─ (pregunta vacía) → reject_question → END
+                              └─ (hay pregunta) → route_question ─┬─ (cita tickets) → lookup_tickets
+                                                                  └─ (sin tickets) → retrieve
+
+    lookup_tickets ─┬─ (también necesita la base de conocimiento) → retrieve
+                    ├─ (algún ticket confirmado) → generate_answer → END
+                    └─ (ningún ticket confirmado) → ticket_fallback → END
+
+    retrieve ─┬─ (hay contexto o tickets confirmados) → generate_answer → END
+              ├─ (sin contexto, tickets sin confirmar) → ticket_fallback → END
+              └─ (sin contexto ni tickets) → no_information → END
 
 `compile_graph()` se ejecuta al importar este módulo, antes de cualquier corrida. A la validación de LangGraph
 (aristas hacia nodos que no existen, falta de entrada) le añade la que LangGraph no hace: todo nodo tiene que ser
@@ -10,6 +18,8 @@ alcanzable desde START y tener un camino hasta END. Cualquier fallo es un `Agent
 """
 
 from __future__ import annotations
+
+from collections.abc import Callable
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
@@ -26,27 +36,44 @@ class AgentGraphError(RuntimeError):
 
 def define_graph() -> StateGraph:
     builder = StateGraph(AgentState)
-    builder.add_node(nodes.RECEIVE_QUESTION, nodes.receive_question)
-    builder.add_node(nodes.REJECT_QUESTION, nodes.reject_question)
-    builder.add_node(nodes.RETRIEVE, nodes.retrieve)
-    builder.add_node(nodes.GENERATE_ANSWER, nodes.generate_answer)
-    builder.add_node(nodes.NO_INFORMATION, nodes.no_information)
+    for name, node in (
+        (nodes.RECEIVE_QUESTION, nodes.receive_question),
+        (nodes.REJECT_QUESTION, nodes.reject_question),
+        (nodes.ROUTE_QUESTION, nodes.route_question),
+        (nodes.LOOKUP_TICKETS, nodes.lookup_tickets),
+        (nodes.RETRIEVE, nodes.retrieve),
+        (nodes.GENERATE_ANSWER, nodes.generate_answer),
+        (nodes.TICKET_FALLBACK, nodes.ticket_fallback),
+        (nodes.NO_INFORMATION, nodes.no_information),
+    ):
+        builder.add_node(name, node)
 
     builder.add_edge(START, nodes.RECEIVE_QUESTION)
-    builder.add_conditional_edges(
-        nodes.RECEIVE_QUESTION,
-        nodes.route_after_question,
-        {nodes.REJECT_QUESTION: nodes.REJECT_QUESTION, nodes.RETRIEVE: nodes.RETRIEVE},
+    _add_routes(builder, nodes.RECEIVE_QUESTION, nodes.route_after_question, nodes.REJECT_QUESTION, nodes.ROUTE_QUESTION)
+    _add_routes(builder, nodes.ROUTE_QUESTION, nodes.route_after_plan, nodes.LOOKUP_TICKETS, nodes.RETRIEVE)
+    _add_routes(
+        builder,
+        nodes.LOOKUP_TICKETS,
+        nodes.route_after_lookup,
+        nodes.RETRIEVE,
+        nodes.GENERATE_ANSWER,
+        nodes.TICKET_FALLBACK,
     )
-    builder.add_conditional_edges(
+    _add_routes(
+        builder,
         nodes.RETRIEVE,
         nodes.route_after_retrieve,
-        {nodes.GENERATE_ANSWER: nodes.GENERATE_ANSWER, nodes.NO_INFORMATION: nodes.NO_INFORMATION},
+        nodes.GENERATE_ANSWER,
+        nodes.TICKET_FALLBACK,
+        nodes.NO_INFORMATION,
     )
-    builder.add_edge(nodes.REJECT_QUESTION, END)
-    builder.add_edge(nodes.GENERATE_ANSWER, END)
-    builder.add_edge(nodes.NO_INFORMATION, END)
+    for final in (nodes.REJECT_QUESTION, nodes.GENERATE_ANSWER, nodes.TICKET_FALLBACK, nodes.NO_INFORMATION):
+        builder.add_edge(final, END)
     return builder
+
+
+def _add_routes(builder: StateGraph, source: str, condition: Callable[[AgentState], str], *targets: str) -> None:
+    builder.add_conditional_edges(source, condition, {target: target for target in targets})
 
 
 def compile_graph(builder: StateGraph, checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:

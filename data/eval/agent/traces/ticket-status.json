@@ -1,0 +1,215 @@
+{
+  "trace_version": 2,
+  "run_id": "ticket-status",
+  "question": "¿En qué estado está el ticket 2?",
+  "started_at": "2026-10-02T13:52:34.203+00:00",
+  "status": "completed",
+  "steps": [
+    {
+      "order": 1,
+      "node": "receive_question",
+      "duration_ms": 1.6,
+      "output": {
+        "question": "¿En qué estado está el ticket 2?"
+      }
+    },
+    {
+      "order": 2,
+      "node": "route_question",
+      "duration_ms": 3457.1,
+      "output": {
+        "route": {
+          "ticket_ids": [
+            2
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        }
+      }
+    },
+    {
+      "order": 3,
+      "node": "lookup_tickets",
+      "duration_ms": 64.6,
+      "output": {
+        "tickets": [
+          {
+            "ticket_id": 2,
+            "outcome": "found",
+            "ticket": {
+              "id": 2,
+              "title": "Outer box crushed, inner product compromised",
+              "description": "Outer box crushed, inner product compromised",
+              "status": "resolved",
+              "category": "carrier_issue",
+              "origin": "customer",
+              "branch": "zaragoza_office",
+              "created_at": "2024-01-11T00:00:00Z",
+              "updated_at": "2024-01-11T00:00:00Z"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "order": 4,
+      "node": "generate_answer",
+      "duration_ms": 7732.5,
+      "output": {
+        "answer": "El ticket 2 que nos consultas ya está resuelto: la incidencia de la caja exterior aplastada con producto interior dañado fue gestionada y cerrada. En TrackFlow siempre revisamos estos casos para asegurarnos de que quede todo claro.\n\nFuente: Gestor de incidencias › Ticket 2"
+      }
+    }
+  ],
+  "duration_ms": 11255.7,
+  "sources_used": [
+    "incidents_tool"
+  ],
+  "final_state": {
+    "question": "¿En qué estado está el ticket 2?",
+    "route": {
+      "ticket_ids": [
+        2
+      ],
+      "needs_knowledge": false,
+      "decided_by": "llm"
+    },
+    "tickets": [
+      {
+        "ticket_id": 2,
+        "outcome": "found",
+        "ticket": {
+          "id": 2,
+          "title": "Outer box crushed, inner product compromised",
+          "description": "Outer box crushed, inner product compromised",
+          "status": "resolved",
+          "category": "carrier_issue",
+          "origin": "customer",
+          "branch": "zaragoza_office",
+          "created_at": "2024-01-11T00:00:00Z",
+          "updated_at": "2024-01-11T00:00:00Z"
+        }
+      }
+    ],
+    "answer": "El ticket 2 que nos consultas ya está resuelto: la incidencia de la caja exterior aplastada con producto interior dañado fue gestionada y cerrada. En TrackFlow siempre revisamos estos casos para asegurarnos de que quede todo claro.\n\nFuente: Gestor de incidencias › Ticket 2"
+  },
+  "checkpoints": [
+    {
+      "step": -1,
+      "source": "input",
+      "next": [
+        "__start__"
+      ],
+      "checkpoint_id": "1f1be688-4f9d-6a09-bfff-b9a601ee5097",
+      "values": {}
+    },
+    {
+      "step": 0,
+      "source": "loop",
+      "next": [
+        "receive_question"
+      ],
+      "checkpoint_id": "1f1be688-4f9e-6e37-8000-7e37dfd7fdea",
+      "values": {
+        "question": "¿En qué estado está el ticket 2?"
+      }
+    },
+    {
+      "step": 1,
+      "source": "loop",
+      "next": [
+        "route_question"
+      ],
+      "checkpoint_id": "1f1be688-4fa0-6561-8001-d47417b78044",
+      "values": {
+        "question": "¿En qué estado está el ticket 2?"
+      }
+    },
+    {
+      "step": 2,
+      "source": "loop",
+      "next": [
+        "lookup_tickets"
+      ],
+      "checkpoint_id": "1f1be688-7097-6aae-8002-fc35b98356de",
+      "values": {
+        "question": "¿En qué estado está el ticket 2?",
+        "route": {
+          "ticket_ids": [
+            2
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [
+        "generate_answer"
+      ],
+      "checkpoint_id": "1f1be688-7135-6f9e-8003-96ca827a5d66",
+      "values": {
+        "question": "¿En qué estado está el ticket 2?",
+        "route": {
+          "ticket_ids": [
+            2
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        },
+        "tickets": [
+          {
+            "ticket_id": 2,
+            "outcome": "found",
+            "ticket": {
+              "id": 2,
+              "title": "Outer box crushed, inner product compromised",
+              "description": "Outer box crushed, inner product compromised",
+              "status": "resolved",
+              "category": "carrier_issue",
+              "origin": "customer",
+              "branch": "zaragoza_office",
+              "created_at": "2024-01-11T00:00:00Z",
+              "updated_at": "2024-01-11T00:00:00Z"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "step": 4,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be688-baf3-63d4-8004-340f1be38419",
+      "values": {
+        "question": "¿En qué estado está el ticket 2?",
+        "route": {
+          "ticket_ids": [
+            2
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        },
+        "tickets": [
+          {
+            "ticket_id": 2,
+            "outcome": "found",
+            "ticket": {
+              "id": 2,
+              "title": "Outer box crushed, inner product compromised",
+              "description": "Outer box crushed, inner product compromised",
+              "status": "resolved",
+              "category": "carrier_issue",
+              "origin": "customer",
+              "branch": "zaragoza_office",
+              "created_at": "2024-01-11T00:00:00Z",
+              "updated_at": "2024-01-11T00:00:00Z"
+            }
+          }
+        ],
+        "answer": "El ticket 2 que nos consultas ya está resuelto: la incidencia de la caja exterior aplastada con producto interior dañado fue gestionada y cerrada. En TrackFlow siempre revisamos estos casos para asegurarnos de que quede todo claro.\n\nFuente: Gestor de incidencias › Ticket 2"
+      }
+    }
+  ]
+}

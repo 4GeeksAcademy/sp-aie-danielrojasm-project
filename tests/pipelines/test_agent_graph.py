@@ -1,7 +1,8 @@
-"""Grafo del agente: compilación, enrutado, contrato de nodos, checkpoints y trace.
+"""Grafo del agente: compilación, enrutado entre RAG y tool, contrato de nodos, fallback, checkpoints y trace.
 
-Sin servicios reales: `retrieve()` y `generate_answer()` de `data/pipelines/rag.py` se sustituyen por dobles que
-registran sus llamadas. Cada test compila su propio grafo con un `InMemorySaver` nuevo.
+Sin servicios reales: `retrieve()`/`generate_answer()` de `data/pipelines/rag.py`, el enrutador (`plan_route`) y la
+tool de tickets (`get_ticket`) se sustituyen por dobles que registran sus llamadas. Cada test compila su propio
+grafo con un `InMemorySaver` nuevo.
 """
 
 import pytest
@@ -12,23 +13,56 @@ from data.pipelines import rag
 from data.process.rag import RagServiceError
 from services.support_agent import nodes
 from services.support_agent.graph import AgentGraphError, compile_graph, define_graph, graph
+from services.support_agent.routing import RoutePlan
 from services.support_agent.runner import AgentRunError, resume_run, run_agent
+from services.support_agent.tools.incidents import Ticket, TicketLookup
 from services.support_agent.tracing import executed_nodes, load_trace, trace_dir
 
 
 CHUNK = {"source_document": "returns-policy", "section": "Ventana", "chunk_index": 1, "text": "30 días."}
+KNOWLEDGE_ONLY = RoutePlan(ticket_ids=[], needs_knowledge=True, decided_by="llm")
+TICKET = Ticket(
+    id=482,
+    title="Paquete perdido en Zaragoza",
+    description="El cliente no recibió el pedido.",
+    status="in_progress",
+    category="lost_parcel",
+    origin="customer",
+    branch="zaragoza_office",
+    created_at="2026-09-01T10:00:00+00:00",
+    updated_at="2026-09-02T12:00:00+00:00",
+)
 
 
 @pytest.fixture
 def calls(monkeypatch):
-    """Sustituye las piezas del RAG; `calls` registra el orden y los argumentos."""
+    """Sustituye RAG, enrutador y tool; `calls` registra el orden y los argumentos. Por defecto, solo RAG."""
     log: list[tuple] = []
     monkeypatch.setattr(rag, "retrieve", lambda question: log.append(("retrieve", question)) or [CHUNK])
     monkeypatch.setattr(
         rag, "generate_answer", lambda question, context: log.append(("generate", question, context)) or "Son 30 días."
     )
     monkeypatch.setattr(rag, "query", lambda question: pytest.fail("ningún nodo debe llamar a query()"))
+    monkeypatch.setattr(nodes, "plan_route", lambda question: KNOWLEDGE_ONLY)
+    monkeypatch.setattr(nodes, "get_ticket", lambda query: pytest.fail("esta pregunta no debe usar la tool"))
     return log
+
+
+def route_to(monkeypatch, ticket_ids: list[int], needs_knowledge: bool) -> None:
+    plan = RoutePlan(ticket_ids=ticket_ids, needs_knowledge=needs_knowledge, decided_by="llm")
+    monkeypatch.setattr(nodes, "plan_route", lambda question: plan)
+
+
+def tool_returns(monkeypatch, calls: list[tuple], **lookups: TicketLookup) -> None:
+    def get_ticket(query):
+        calls.append(("lookup", query.ticket_id))
+        return lookups[str(query.ticket_id)]
+
+    monkeypatch.setattr(nodes, "get_ticket", get_ticket)
+
+
+def found(ticket: Ticket = TICKET) -> TicketLookup:
+    return TicketLookup(ticket_id=ticket.id, outcome="found", ticket=ticket)
 
 
 @pytest.fixture
@@ -44,8 +78,11 @@ def test_module_graph_is_compiled_with_a_checkpointer():
     assert set(graph.get_graph().nodes) >= {
         nodes.RECEIVE_QUESTION,
         nodes.REJECT_QUESTION,
+        nodes.ROUTE_QUESTION,
+        nodes.LOOKUP_TICKETS,
         nodes.RETRIEVE,
         nodes.GENERATE_ANSWER,
+        nodes.TICKET_FALLBACK,
         nodes.NO_INFORMATION,
     }
 
@@ -78,24 +115,36 @@ def test_compilation_fails_clearly_for_an_edge_to_an_unknown_node():
 def test_routes_are_exit_conditions_not_a_fixed_sequence():
     edges = {(edge.source, edge.target): edge.conditional for edge in graph.get_graph().edges}
 
-    assert edges[(nodes.RECEIVE_QUESTION, nodes.REJECT_QUESTION)] is True
-    assert edges[(nodes.RECEIVE_QUESTION, nodes.RETRIEVE)] is True
-    assert edges[(nodes.RETRIEVE, nodes.GENERATE_ANSWER)] is True
-    assert edges[(nodes.RETRIEVE, nodes.NO_INFORMATION)] is True
+    for source, target in [
+        (nodes.RECEIVE_QUESTION, nodes.REJECT_QUESTION),
+        (nodes.RECEIVE_QUESTION, nodes.ROUTE_QUESTION),
+        (nodes.ROUTE_QUESTION, nodes.LOOKUP_TICKETS),
+        (nodes.ROUTE_QUESTION, nodes.RETRIEVE),
+        (nodes.LOOKUP_TICKETS, nodes.RETRIEVE),
+        (nodes.LOOKUP_TICKETS, nodes.GENERATE_ANSWER),
+        (nodes.LOOKUP_TICKETS, nodes.TICKET_FALLBACK),
+        (nodes.RETRIEVE, nodes.GENERATE_ANSWER),
+        (nodes.RETRIEVE, nodes.TICKET_FALLBACK),
+        (nodes.RETRIEVE, nodes.NO_INFORMATION),
+    ]:
+        assert edges[(source, target)] is True, (source, target)
     assert edges[(nodes.GENERATE_ANSWER, END)] is False
 
 
 # --- Enrutado y contrato de nodos -----------------------------------------------------------------
 
 
-def test_question_with_context_is_retrieved_once_and_generated_from_that_context(compiled, calls):
+def test_knowledge_question_is_retrieved_once_and_generated_from_that_context(compiled, calls):
     run = run_agent("  ¿Ventana de devolución?  ", compiled=compiled)
 
     assert calls == [("retrieve", "¿Ventana de devolución?"), ("generate", "¿Ventana de devolución?", [CHUNK])]
-    assert run.state == {"question": "¿Ventana de devolución?", "context": [CHUNK], "answer": "Son 30 días."}
+    assert run.state["answer"] == "Son 30 días."
+    assert run.state["route"] == KNOWLEDGE_ONLY.model_dump()
 
 
-def test_empty_question_ends_with_an_error_without_retrieving(compiled, calls):
+def test_empty_question_ends_with_an_error_without_consulting_any_source(compiled, calls, monkeypatch):
+    monkeypatch.setattr(nodes, "plan_route", lambda question: pytest.fail("no debe enrutar"))
+
     run = run_agent("   ", compiled=compiled)
 
     assert calls == []
@@ -111,6 +160,87 @@ def test_no_context_answers_honestly_without_calling_the_model(compiled, calls, 
     assert run.state["answer"] == nodes.NO_INFORMATION_ANSWER
 
 
+def test_ticket_question_uses_the_tool_and_not_the_rag(compiled, calls, monkeypatch):
+    route_to(monkeypatch, [482], needs_knowledge=False)
+    tool_returns(monkeypatch, calls, **{"482": found()})
+
+    run = run_agent("¿En qué estado está el ticket 482?", compiled=compiled)
+
+    assert [call[0] for call in calls] == ["lookup", "generate"]
+    (fragment,) = calls[1][2]
+    assert fragment["section"] == "Gestor de incidencias › Ticket 482"
+    assert "Estado: en curso (in_progress)" in fragment["text"]
+    assert run.state["answer"] == "Son 30 días."
+    assert load_trace(run.trace_path)["sources_used"] == ["incidents_tool"]
+
+
+def test_mixed_question_uses_the_tool_then_the_rag(compiled, calls, monkeypatch):
+    route_to(monkeypatch, [482], needs_knowledge=True)
+    tool_returns(monkeypatch, calls, **{"482": found()})
+
+    run = run_agent("¿Estado del ticket 482 y ventana de devolución?", compiled=compiled)
+
+    assert [call[0] for call in calls] == ["lookup", "retrieve", "generate"]
+    context = calls[2][2]
+    assert context[0] == CHUNK and context[1]["source_document"] == "incident-manager"
+    assert load_trace(run.trace_path)["sources_used"] == ["incidents_tool", "rag"]
+
+
+# --- Fallback de la tool ----------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("outcome", "message"),
+    [
+        ("not_found", "No encuentro el ticket 482 en el gestor de incidencias"),
+        ("timeout", "No pude confirmar el estado del ticket 482 ahora mismo"),
+        ("unavailable", "No pude confirmar el estado del ticket 482 ahora mismo"),
+    ],
+)
+def test_unconfirmed_ticket_falls_back_without_inventing_a_status(compiled, calls, monkeypatch, outcome, message):
+    route_to(monkeypatch, [482], needs_knowledge=False)
+    tool_returns(monkeypatch, calls, **{"482": TicketLookup(ticket_id=482, outcome=outcome)})
+
+    run = run_agent("¿En qué estado está el ticket 482?", compiled=compiled)
+
+    assert calls == [("lookup", 482)]  # el modelo no llega a ver la pregunta
+    assert executed_nodes(load_trace(run.trace_path))[-1] == nodes.TICKET_FALLBACK
+    assert run.state["answer"].startswith(message)
+    assert run.state["answer"].endswith(nodes.TICKET_FALLBACK_SOURCE)
+
+
+def test_unconfirmed_ticket_keeps_the_knowledge_answer_and_warns_about_the_ticket(compiled, calls, monkeypatch):
+    route_to(monkeypatch, [482], needs_knowledge=True)
+    tool_returns(monkeypatch, calls, **{"482": TicketLookup(ticket_id=482, outcome="timeout")})
+
+    run = run_agent("¿Estado del ticket 482 y ventana de devolución?", compiled=compiled)
+
+    assert [call[0] for call in calls] == ["lookup", "retrieve", "generate"]
+    assert calls[2][2] == [CHUNK]  # el ticket sin confirmar no llega al modelo
+    assert run.state["answer"] == nodes.TICKET_UNCONFIRMED.format(ticket_id=482) + "\nSon 30 días."
+
+
+def test_unconfirmed_ticket_and_no_context_falls_back_for_both_parts(compiled, calls, monkeypatch):
+    route_to(monkeypatch, [482], needs_knowledge=True)
+    tool_returns(monkeypatch, calls, **{"482": TicketLookup(ticket_id=482, outcome="unavailable")})
+    monkeypatch.setattr(rag, "retrieve", lambda question: calls.append(("retrieve", question)) or [])
+
+    run = run_agent("¿Estado del ticket 482 y seguro de mercancía?", compiled=compiled)
+
+    assert [call[0] for call in calls] == ["lookup", "retrieve"]
+    assert nodes.KNOWLEDGE_ALSO_MISSING in run.state["answer"]
+
+
+def test_only_confirmed_tickets_reach_the_model(compiled, calls, monkeypatch):
+    route_to(monkeypatch, [482, 7], needs_knowledge=False)
+    tool_returns(monkeypatch, calls, **{"482": found(), "7": TicketLookup(ticket_id=7, outcome="not_found")})
+
+    run = run_agent("¿Estado de los tickets 482 y 7?", compiled=compiled)
+
+    assert [fragment["chunk_index"] for fragment in calls[-1][2]] == [482]
+    assert run.state["answer"].startswith(nodes.TICKET_NOT_FOUND.format(ticket_id=7))
+
+
 # --- Trace y checkpoints --------------------------------------------------------------------------
 
 
@@ -121,13 +251,21 @@ def test_each_run_writes_a_queryable_trace(compiled, calls):
     trace = load_trace(run.trace_path)
     assert trace["run_id"] == run.run_id
     assert trace["status"] == "completed"
-    assert executed_nodes(trace) == [nodes.RECEIVE_QUESTION, nodes.RETRIEVE, nodes.GENERATE_ANSWER]
-    assert [step["order"] for step in trace["steps"]] == [1, 2, 3]
-    assert trace["steps"][1]["output"] == {"context": [CHUNK]}
+    assert trace["sources_used"] == ["rag"]
+    assert executed_nodes(trace) == [
+        nodes.RECEIVE_QUESTION,
+        nodes.ROUTE_QUESTION,
+        nodes.RETRIEVE,
+        nodes.GENERATE_ANSWER,
+    ]
+    assert [step["order"] for step in trace["steps"]] == [1, 2, 3, 4]
+    assert trace["steps"][1]["output"] == {"route": KNOWLEDGE_ONLY.model_dump()}
+    assert trace["steps"][2]["output"] == {"context": [CHUNK]}
     assert trace["final_state"] == run.state
     assert [checkpoint["next"] for checkpoint in trace["checkpoints"]] == [
         ["__start__"],
         [nodes.RECEIVE_QUESTION],
+        [nodes.ROUTE_QUESTION],
         [nodes.RETRIEVE],
         [nodes.GENERATE_ANSWER],
         [],
@@ -158,7 +296,7 @@ def test_failed_node_is_traced_and_the_run_resumes_from_its_last_checkpoint(comp
         "type": "RagServiceError",
         "message": "El modelo de generación no respondió.",
     }
-    assert executed_nodes(failed) == [nodes.RECEIVE_QUESTION, nodes.RETRIEVE]
+    assert executed_nodes(failed) == [nodes.RECEIVE_QUESTION, nodes.ROUTE_QUESTION, nodes.RETRIEVE]
     assert failed["checkpoints"][-1]["next"] == [nodes.GENERATE_ANSWER]
 
     monkeypatch.setattr(rag, "generate_answer", lambda question, context: "Son 30 días.")
@@ -168,4 +306,9 @@ def test_failed_node_is_traced_and_the_run_resumes_from_its_last_checkpoint(comp
     assert run.state["answer"] == "Son 30 días."
     resumed = load_trace(run.trace_path)
     assert resumed["status"] == "completed" and resumed["resumed"] == 1 and "error" not in resumed
-    assert executed_nodes(resumed) == [nodes.RECEIVE_QUESTION, nodes.RETRIEVE, nodes.GENERATE_ANSWER]
+    assert executed_nodes(resumed) == [
+        nodes.RECEIVE_QUESTION,
+        nodes.ROUTE_QUESTION,
+        nodes.RETRIEVE,
+        nodes.GENERATE_ANSWER,
+    ]

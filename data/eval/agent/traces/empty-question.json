@@ -1,14 +1,14 @@
 {
-  "trace_version": 1,
+  "trace_version": 2,
   "run_id": "empty-question",
   "question": "   ",
-  "started_at": "2026-10-02T13:17:29.427+00:00",
+  "started_at": "2026-10-02T13:52:34.199+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 1.6,
+      "duration_ms": 1.8,
       "output": {
         "question": ""
       }
@@ -16,13 +16,14 @@
     {
       "order": 2,
       "node": "reject_question",
-      "duration_ms": 0.8,
+      "duration_ms": 0.7,
       "output": {
         "error": "La pregunta está vacía: escribe qué quiere saber el cliente."
       }
     }
   ],
-  "duration_ms": 2.4,
+  "duration_ms": 2.5,
+  "sources_used": [],
   "final_state": {
     "question": "",
     "error": "La pregunta está vacía: escribe qué quiere saber el cliente."
@@ -34,7 +35,7 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be639-e6e9-626f-bfff-aa3d2b506d86",
+      "checkpoint_id": "1f1be688-4f94-6642-bfff-08283c86be62",
       "values": {}
     },
     {
@@ -43,7 +44,7 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be639-e6ea-664b-8000-54e4cd8ee504",
+      "checkpoint_id": "1f1be688-4f95-6f6e-8000-5f4d5c109d14",
       "values": {
         "question": "   "
       }
@@ -54,7 +55,7 @@
       "next": [
         "reject_question"
       ],
-      "checkpoint_id": "1f1be639-e6eb-6de3-8001-85babdd78a7c",
+      "checkpoint_id": "1f1be688-4f97-6717-8001-b46c37bdedd5",
       "values": {
         "question": ""
       }
@@ -63,7 +64,7 @@
       "step": 2,
       "source": "loop",
       "next": [],
-      "checkpoint_id": "1f1be639-e6ed-6318-8002-861183cb5acb",
+      "checkpoint_id": "1f1be688-4f98-6c44-8002-bda6532264e3",
       "values": {
         "question": "",
         "error": "La pregunta está vacía: escribe qué quiere saber el cliente."

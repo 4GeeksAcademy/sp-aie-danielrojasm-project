@@ -1,0 +1,175 @@
+{
+  "trace_version": 2,
+  "run_id": "ticket-not-found",
+  "question": "¿Cómo va la incidencia 9999?",
+  "started_at": "2026-10-02T13:52:54.958+00:00",
+  "status": "completed",
+  "steps": [
+    {
+      "order": 1,
+      "node": "receive_question",
+      "duration_ms": 2.2,
+      "output": {
+        "question": "¿Cómo va la incidencia 9999?"
+      }
+    },
+    {
+      "order": 2,
+      "node": "route_question",
+      "duration_ms": 3028.5,
+      "output": {
+        "route": {
+          "ticket_ids": [
+            9999
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        }
+      }
+    },
+    {
+      "order": 3,
+      "node": "lookup_tickets",
+      "duration_ms": 36.6,
+      "output": {
+        "tickets": [
+          {
+            "ticket_id": 9999,
+            "outcome": "not_found",
+            "ticket": null
+          }
+        ]
+      }
+    },
+    {
+      "order": 4,
+      "node": "ticket_fallback",
+      "duration_ms": 0.9,
+      "output": {
+        "answer": "No encuentro el ticket 9999 en el gestor de incidencias; revisa el número antes de responder al cliente.\nFuente: sin confirmación del gestor de incidencias"
+      }
+    }
+  ],
+  "duration_ms": 3068.2,
+  "sources_used": [
+    "incidents_tool"
+  ],
+  "final_state": {
+    "question": "¿Cómo va la incidencia 9999?",
+    "route": {
+      "ticket_ids": [
+        9999
+      ],
+      "needs_knowledge": false,
+      "decided_by": "llm"
+    },
+    "tickets": [
+      {
+        "ticket_id": 9999,
+        "outcome": "not_found",
+        "ticket": null
+      }
+    ],
+    "answer": "No encuentro el ticket 9999 en el gestor de incidencias; revisa el número antes de responder al cliente.\nFuente: sin confirmación del gestor de incidencias"
+  },
+  "checkpoints": [
+    {
+      "step": -1,
+      "source": "input",
+      "next": [
+        "__start__"
+      ],
+      "checkpoint_id": "1f1be689-158c-6c16-bfff-890a77b26276",
+      "values": {}
+    },
+    {
+      "step": 0,
+      "source": "loop",
+      "next": [
+        "receive_question"
+      ],
+      "checkpoint_id": "1f1be689-158e-6b80-8000-364605690253",
+      "values": {
+        "question": "¿Cómo va la incidencia 9999?"
+      }
+    },
+    {
+      "step": 1,
+      "source": "loop",
+      "next": [
+        "route_question"
+      ],
+      "checkpoint_id": "1f1be689-1590-6bd6-8001-87ef2a83c361",
+      "values": {
+        "question": "¿Cómo va la incidencia 9999?"
+      }
+    },
+    {
+      "step": 2,
+      "source": "loop",
+      "next": [
+        "lookup_tickets"
+      ],
+      "checkpoint_id": "1f1be689-3270-6f81-8002-bda2efb6b502",
+      "values": {
+        "question": "¿Cómo va la incidencia 9999?",
+        "route": {
+          "ticket_ids": [
+            9999
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [
+        "ticket_fallback"
+      ],
+      "checkpoint_id": "1f1be689-32cb-6cb6-8003-6232172e8e71",
+      "values": {
+        "question": "¿Cómo va la incidencia 9999?",
+        "route": {
+          "ticket_ids": [
+            9999
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        },
+        "tickets": [
+          {
+            "ticket_id": 9999,
+            "outcome": "not_found",
+            "ticket": null
+          }
+        ]
+      }
+    },
+    {
+      "step": 4,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be689-32cd-6792-8004-cb1b81bdf0f7",
+      "values": {
+        "question": "¿Cómo va la incidencia 9999?",
+        "route": {
+          "ticket_ids": [
+            9999
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        },
+        "tickets": [
+          {
+            "ticket_id": 9999,
+            "outcome": "not_found",
+            "ticket": null
+          }
+        ],
+        "answer": "No encuentro el ticket 9999 en el gestor de incidencias; revisa el número antes de responder al cliente.\nFuente: sin confirmación del gestor de incidencias"
+      }
+    }
+  ]
+}

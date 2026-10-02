@@ -380,7 +380,14 @@ Detalle en `services/support_agent/README.md`.
 
 - **Stack:** `langgraph` 1.2 (en `pyproject.toml` y `services/api/requirements.txt`). El router se monta en la API
   principal; `/knowledge/query` sigue igual.
-- **Estado mínimo:** `question`, `context`, `answer`, `error`. Sin historial de conversación.
+- **Estado mínimo:** `question`, `route`, `tickets`, `context`, `answer`, `error`. Sin historial de conversación.
+- **Fuentes:** RAG (políticas estables) y la tool `get_ticket` (gestor de incidencias en vivo, nunca indexado en
+  Qdrant). Decide `route_question` con el modelo de generación en modo JSON; solo acepta tickets escritos en la
+  pregunta y, si el modelo falla, aplica reglas.
+- **Tool de tickets:** HTTP `GET {INCIDENTS_API_URL}/api/incidents/{id}` con `httpx` (dependencia directa),
+  timeout de 4 s. Auth de servicio: token de 5 min firmado con `JWT_SECRET_KEY` para `AGENT_SERVICE_USER_ID`
+  (cuenta activa de `auth.json`). Los fallos son resultados (`not_found`, `timeout`, `unavailable`) que llevan al
+  nodo `ticket_fallback`; un ticket sin confirmar no llega nunca al modelo.
 - **Compilación:** al importar `services/support_agent/graph.py`. LangGraph no detecta nodos huérfanos ni sin salida
   (su grafo dibujable une a END cualquier nodo sin aristas), así que `compile_graph()` lo valida sobre las aristas
   declaradas; las aristas condicionales necesitan su `path_map` explícito.
@@ -466,7 +473,8 @@ Todos se ejecutan desde la raíz del monorepo:
 - **Evaluación del pronóstico** — `uv run python scripts/evaluate_sales_forecast.py` (CV temporal y curva de aprendizaje en `data/eval/`).
 - **Base de conocimiento (RAG)** — `uv run python -m data.process.rag` indexa `docs/company-knowledge-base/` en Qdrant;
   `uv run python scripts/evaluate_rag_retrieval.py` mide Recall@3 (`data/eval/rag/retrieval_report.json`).
-- **Evals del agente LangGraph** — `uv run python scripts/record_agent_traces.py` graba los traces (Qdrant y `.env`);
+- **Evals del agente LangGraph** — `uv run python scripts/record_agent_traces.py` graba los traces (Qdrant, `.env` y
+  la API sirviendo el gestor de incidencias en `INCIDENTS_API_URL`);
   `uv run pytest tests/pipelines/test_agent_evals.py -v` los evalúa.
 - **Job nocturno** — `uv run python scripts/nightly_export.py` (`TARGET_DATE=YYYY-MM-DD` para otra fecha cerrada).
 - **Worker de Celery** — `docker compose up -d redis worker flower` / `docker compose stop worker`; sin Docker,

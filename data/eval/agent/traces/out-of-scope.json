@@ -1,38 +1,58 @@
 {
-  "trace_version": 1,
+  "trace_version": 2,
   "run_id": "out-of-scope",
   "question": "¿Tenéis almacén propio en Ciudad de México?",
-  "started_at": "2026-10-02T13:17:29.169+00:00",
+  "started_at": "2026-10-02T13:52:31.453+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 1.7,
+      "duration_ms": 2.1,
       "output": {
         "question": "¿Tenéis almacén propio en Ciudad de México?"
       }
     },
     {
       "order": 2,
+      "node": "route_question",
+      "duration_ms": 2537.7,
+      "output": {
+        "route": {
+          "ticket_ids": [],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        }
+      }
+    },
+    {
+      "order": 3,
       "node": "retrieve",
-      "duration_ms": 254.1,
+      "duration_ms": 203.4,
       "output": {
         "context": []
       }
     },
     {
-      "order": 3,
+      "order": 4,
       "node": "no_information",
-      "duration_ms": 1.1,
+      "duration_ms": 0.8,
       "output": {
         "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento"
       }
     }
   ],
-  "duration_ms": 257.0,
+  "duration_ms": 2744.2,
+  "sources_used": [
+    "rag"
+  ],
   "final_state": {
     "question": "¿Tenéis almacén propio en Ciudad de México?",
+    "route": {
+      "ticket_ids": [],
+      "needs_knowledge": true,
+      "decided_by": "llm"
+    },
     "context": [],
     "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento"
   },
@@ -43,7 +63,7 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be639-e471-699f-bfff-0186eaf090f3",
+      "checkpoint_id": "1f1be688-3564-69a0-bfff-4fbdd5d4f7d4",
       "values": {}
     },
     {
@@ -52,7 +72,7 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be639-e473-62dc-8000-420ef6645a17",
+      "checkpoint_id": "1f1be688-3566-6839-8000-3f343e924db4",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?"
       }
@@ -61,9 +81,9 @@
       "step": 1,
       "source": "loop",
       "next": [
-        "retrieve"
+        "route_question"
       ],
-      "checkpoint_id": "1f1be639-e474-6b19-8001-446d39f954ed",
+      "checkpoint_id": "1f1be688-3568-6782-8001-e1832d5aa157",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?"
       }
@@ -72,21 +92,47 @@
       "step": 2,
       "source": "loop",
       "next": [
-        "no_information"
+        "retrieve"
       ],
-      "checkpoint_id": "1f1be639-e6e0-6dac-8002-c15785cafa20",
+      "checkpoint_id": "1f1be688-4d9b-6f1d-8002-3df24da776ae",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
-        "context": []
+        "route": {
+          "ticket_ids": [],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        }
       }
     },
     {
       "step": 3,
       "source": "loop",
-      "next": [],
-      "checkpoint_id": "1f1be639-e6e2-6f08-8003-78982a1b2bcc",
+      "next": [
+        "no_information"
+      ],
+      "checkpoint_id": "1f1be688-4f8c-69ea-8003-b0c5334ac67f",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
+        "route": {
+          "ticket_ids": [],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        },
+        "context": []
+      }
+    },
+    {
+      "step": 4,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be688-4f8e-63b7-8004-7ed9f0468e46",
+      "values": {
+        "question": "¿Tenéis almacén propio en Ciudad de México?",
+        "route": {
+          "ticket_ids": [],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        },
         "context": [],
         "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento"
       }

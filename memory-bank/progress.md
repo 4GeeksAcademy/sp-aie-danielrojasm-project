@@ -8,6 +8,27 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Agente de soporte con LangGraph, parte 2: tools fuera del RAG (brief del tech lead)
+
+- Tool `get_ticket` (`services/support_agent/tools/incidents.py`): contrato tipado `TicketQuery` → `TicketLookup`, solo
+   `GET /api/incidents/{id}` por HTTP, bearer firmado para la cuenta de servicio `AGENT_SERVICE_USER_ID`, timeout de 4 s
+   y fallback sin excepciones (`not_found`, `timeout`, `unavailable`).
+- Nodos nuevos `route_question` (el modelo decide tool, RAG o ambos con salida JSON; reglas si falla), `lookup_tickets`
+   y `ticket_fallback` (respuesta honesta sin modelo). El trace añade `sources_used` con las fuentes en orden.
+- Evals: 8 casos (4 nuevos: ticket, ticket + política, ticket inexistente y gestor caído) y 44 comprobaciones, entre
+   ellas las de enrutado (fuentes en orden) y el anclaje del estado vivo del ticket en la respuesta.
+- Verificado: `uv run pytest` 576 (67 nuevos) y `npm run verify`. En uvicorn, `/agent/query` enruta a la tool
+   (incidencia 7), al RAG (costes de devolución) y a ambos (ticket 13 + costes), y el log muestra
+   `GET /api/incidents/{id} -> 200`.
+- Datos locales: el gestor se cargó con `scripts/seed_incidents.py` (95 incidencias) y se creó la cuenta de servicio
+   `agente-soporte@trackflow.com`; su id va en `AGENT_SERVICE_USER_ID` del `.env` raíz.
+- Contenedor `api` de Docker: estaba `unhealthy` porque su imagen no tenía `openai` (anterior al RAG). Reconstruido con
+   `docker compose up -d --build api`, pasa a `healthy` y `/agent/query` en el 8000 enruta a la tool (ticket 2), al RAG
+   y a ambos (ticket 13), con `GET /api/incidents/{id} -> 200` contra sí mismo. Tras cambiar
+   `services/api/requirements.txt` hay que volver a reconstruirlo.
+- Siguiente paso: PR con la etiqueta `langgraph-external-tools`.
+
+
 ### Milestone 09 — Agente de soporte con LangGraph, parte 1 (ticket del tech lead)
 
 - `services/support_agent/`: el RAG comercial como grafo de LangGraph 1.2. Nodos `receive_question`, `retrieve`,

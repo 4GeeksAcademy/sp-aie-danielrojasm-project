@@ -1,0 +1,330 @@
+{
+  "trace_version": 2,
+  "run_id": "ticket-and-policy",
+  "question": "El cliente del ticket 1 quiere saber cuántos días tiene para devolver un producto: ¿en qué estado está su ticket y cuál es la ventana de devolución estándar?",
+  "started_at": "2026-10-02T13:52:45.461+00:00",
+  "status": "completed",
+  "steps": [
+    {
+      "order": 1,
+      "node": "receive_question",
+      "duration_ms": 1.9,
+      "output": {
+        "question": "El cliente del ticket 1 quiere saber cuántos días tiene para devolver un producto: ¿en qué estado está su ticket y cuál es la ventana de devolución estándar?"
+      }
+    },
+    {
+      "order": 2,
+      "node": "route_question",
+      "duration_ms": 5171.2,
+      "output": {
+        "route": {
+          "ticket_ids": [
+            1
+          ],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        }
+      }
+    },
+    {
+      "order": 3,
+      "node": "lookup_tickets",
+      "duration_ms": 30.2,
+      "output": {
+        "tickets": [
+          {
+            "ticket_id": 1,
+            "outcome": "found",
+            "ticket": {
+              "id": 1,
+              "title": "Return requested within 14-day window, awaiting approval",
+              "description": "Return requested within 14-day window, awaiting approval",
+              "status": "open",
+              "category": "returns_issue",
+              "origin": "customer",
+              "branch": "zaragoza_office",
+              "created_at": "2024-01-08T00:00:00Z",
+              "updated_at": "2024-01-08T00:00:00Z"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "order": 4,
+      "node": "retrieve",
+      "duration_ms": 298.7,
+      "output": {
+        "context": [
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › Ventana de devolución estándar",
+            "language": "es",
+            "chunk_index": 1,
+            "text": "Ventana de devolución estándar: 30 días desde la entrega, salvo que la marca cliente haya configurado una ventana distinta en su contrato."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › El proceso estándar de devoluciones",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "El proceso estándar de devoluciones (reverse logistics) de TrackFlow funciona así:\n1. El cliente final solicita la devolución a través del portal de la marca.\n2. TrackFlow genera automáticamente la etiqueta de devolución si el motivo está dentro de las reglas configuradas por el cliente (ej. talla incorrecta, producto defectuoso).\n3. El producto llega al almacén y un operativo lo inspecta y clasifica en: apto para reventa, apto para reacondicionar, o no apto (descarte)."
+          }
+        ]
+      }
+    },
+    {
+      "order": 5,
+      "node": "generate_answer",
+      "duration_ms": 3992.5,
+      "output": {
+        "answer": "En TrackFlow, la ventana de devolución estándar es de 30 días desde la entrega, a menos que tu marca haya configurado un plazo distinto en el contrato. Tu ticket está actualmente en estado \"abierta\" y pendiente de aprobación, ya que la solicitud de devolución se registró dentro de los primeros 14 días. En cuanto se apruebe, podrás continuar con el proceso habitual de devolución.\n\nFuente: Política de Devoluciones › Ventana de devolución estándar; Gestor de incidencias › Ticket 1"
+      }
+    }
+  ],
+  "duration_ms": 9494.6,
+  "sources_used": [
+    "incidents_tool",
+    "rag"
+  ],
+  "final_state": {
+    "question": "El cliente del ticket 1 quiere saber cuántos días tiene para devolver un producto: ¿en qué estado está su ticket y cuál es la ventana de devolución estándar?",
+    "route": {
+      "ticket_ids": [
+        1
+      ],
+      "needs_knowledge": true,
+      "decided_by": "llm"
+    },
+    "tickets": [
+      {
+        "ticket_id": 1,
+        "outcome": "found",
+        "ticket": {
+          "id": 1,
+          "title": "Return requested within 14-day window, awaiting approval",
+          "description": "Return requested within 14-day window, awaiting approval",
+          "status": "open",
+          "category": "returns_issue",
+          "origin": "customer",
+          "branch": "zaragoza_office",
+          "created_at": "2024-01-08T00:00:00Z",
+          "updated_at": "2024-01-08T00:00:00Z"
+        }
+      }
+    ],
+    "context": [
+      {
+        "company": "trackflow",
+        "source_document": "returns-policy",
+        "section": "Política de Devoluciones › Ventana de devolución estándar",
+        "language": "es",
+        "chunk_index": 1,
+        "text": "Ventana de devolución estándar: 30 días desde la entrega, salvo que la marca cliente haya configurado una ventana distinta en su contrato."
+      },
+      {
+        "company": "trackflow",
+        "source_document": "returns-policy",
+        "section": "Política de Devoluciones › El proceso estándar de devoluciones",
+        "language": "es",
+        "chunk_index": 0,
+        "text": "El proceso estándar de devoluciones (reverse logistics) de TrackFlow funciona así:\n1. El cliente final solicita la devolución a través del portal de la marca.\n2. TrackFlow genera automáticamente la etiqueta de devolución si el motivo está dentro de las reglas configuradas por el cliente (ej. talla incorrecta, producto defectuoso).\n3. El producto llega al almacén y un operativo lo inspecta y clasifica en: apto para reventa, apto para reacondicionar, o no apto (descarte)."
+      }
+    ],
+    "answer": "En TrackFlow, la ventana de devolución estándar es de 30 días desde la entrega, a menos que tu marca haya configurado un plazo distinto en el contrato. Tu ticket está actualmente en estado \"abierta\" y pendiente de aprobación, ya que la solicitud de devolución se registró dentro de los primeros 14 días. En cuanto se apruebe, podrás continuar con el proceso habitual de devolución.\n\nFuente: Política de Devoluciones › Ventana de devolución estándar; Gestor de incidencias › Ticket 1"
+  },
+  "checkpoints": [
+    {
+      "step": -1,
+      "source": "input",
+      "next": [
+        "__start__"
+      ],
+      "checkpoint_id": "1f1be688-bafa-6cf2-bfff-1e6e974fccfb",
+      "values": {}
+    },
+    {
+      "step": 0,
+      "source": "loop",
+      "next": [
+        "receive_question"
+      ],
+      "checkpoint_id": "1f1be688-bafc-668d-8000-c79aac0f7c3c",
+      "values": {
+        "question": "El cliente del ticket 1 quiere saber cuántos días tiene para devolver un producto: ¿en qué estado está su ticket y cuál es la ventana de devolución estándar?"
+      }
+    },
+    {
+      "step": 1,
+      "source": "loop",
+      "next": [
+        "route_question"
+      ],
+      "checkpoint_id": "1f1be688-bafe-6282-8001-4e6061023a61",
+      "values": {
+        "question": "El cliente del ticket 1 quiere saber cuántos días tiene para devolver un producto: ¿en qué estado está su ticket y cuál es la ventana de devolución estándar?"
+      }
+    },
+    {
+      "step": 2,
+      "source": "loop",
+      "next": [
+        "lookup_tickets"
+      ],
+      "checkpoint_id": "1f1be688-ec4f-61b3-8002-22a051427b2b",
+      "values": {
+        "question": "El cliente del ticket 1 quiere saber cuántos días tiene para devolver un producto: ¿en qué estado está su ticket y cuál es la ventana de devolución estándar?",
+        "route": {
+          "ticket_ids": [
+            1
+          ],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [
+        "retrieve"
+      ],
+      "checkpoint_id": "1f1be688-ec98-6da8-8003-813e35733bc9",
+      "values": {
+        "question": "El cliente del ticket 1 quiere saber cuántos días tiene para devolver un producto: ¿en qué estado está su ticket y cuál es la ventana de devolución estándar?",
+        "route": {
+          "ticket_ids": [
+            1
+          ],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        },
+        "tickets": [
+          {
+            "ticket_id": 1,
+            "outcome": "found",
+            "ticket": {
+              "id": 1,
+              "title": "Return requested within 14-day window, awaiting approval",
+              "description": "Return requested within 14-day window, awaiting approval",
+              "status": "open",
+              "category": "returns_issue",
+              "origin": "customer",
+              "branch": "zaragoza_office",
+              "created_at": "2024-01-08T00:00:00Z",
+              "updated_at": "2024-01-08T00:00:00Z"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "step": 4,
+      "source": "loop",
+      "next": [
+        "generate_answer"
+      ],
+      "checkpoint_id": "1f1be688-ef71-6f7e-8004-85ef3e67863c",
+      "values": {
+        "question": "El cliente del ticket 1 quiere saber cuántos días tiene para devolver un producto: ¿en qué estado está su ticket y cuál es la ventana de devolución estándar?",
+        "route": {
+          "ticket_ids": [
+            1
+          ],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        },
+        "tickets": [
+          {
+            "ticket_id": 1,
+            "outcome": "found",
+            "ticket": {
+              "id": 1,
+              "title": "Return requested within 14-day window, awaiting approval",
+              "description": "Return requested within 14-day window, awaiting approval",
+              "status": "open",
+              "category": "returns_issue",
+              "origin": "customer",
+              "branch": "zaragoza_office",
+              "created_at": "2024-01-08T00:00:00Z",
+              "updated_at": "2024-01-08T00:00:00Z"
+            }
+          }
+        ],
+        "context": [
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › Ventana de devolución estándar",
+            "language": "es",
+            "chunk_index": 1,
+            "text": "Ventana de devolución estándar: 30 días desde la entrega, salvo que la marca cliente haya configurado una ventana distinta en su contrato."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › El proceso estándar de devoluciones",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "El proceso estándar de devoluciones (reverse logistics) de TrackFlow funciona así:\n1. El cliente final solicita la devolución a través del portal de la marca.\n2. TrackFlow genera automáticamente la etiqueta de devolución si el motivo está dentro de las reglas configuradas por el cliente (ej. talla incorrecta, producto defectuoso).\n3. El producto llega al almacén y un operativo lo inspecta y clasifica en: apto para reventa, apto para reacondicionar, o no apto (descarte)."
+          }
+        ]
+      }
+    },
+    {
+      "step": 5,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be689-1583-6449-8005-776d56ce034b",
+      "values": {
+        "question": "El cliente del ticket 1 quiere saber cuántos días tiene para devolver un producto: ¿en qué estado está su ticket y cuál es la ventana de devolución estándar?",
+        "route": {
+          "ticket_ids": [
+            1
+          ],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        },
+        "tickets": [
+          {
+            "ticket_id": 1,
+            "outcome": "found",
+            "ticket": {
+              "id": 1,
+              "title": "Return requested within 14-day window, awaiting approval",
+              "description": "Return requested within 14-day window, awaiting approval",
+              "status": "open",
+              "category": "returns_issue",
+              "origin": "customer",
+              "branch": "zaragoza_office",
+              "created_at": "2024-01-08T00:00:00Z",
+              "updated_at": "2024-01-08T00:00:00Z"
+            }
+          }
+        ],
+        "context": [
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › Ventana de devolución estándar",
+            "language": "es",
+            "chunk_index": 1,
+            "text": "Ventana de devolución estándar: 30 días desde la entrega, salvo que la marca cliente haya configurado una ventana distinta en su contrato."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › El proceso estándar de devoluciones",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "El proceso estándar de devoluciones (reverse logistics) de TrackFlow funciona así:\n1. El cliente final solicita la devolución a través del portal de la marca.\n2. TrackFlow genera automáticamente la etiqueta de devolución si el motivo está dentro de las reglas configuradas por el cliente (ej. talla incorrecta, producto defectuoso).\n3. El producto llega al almacén y un operativo lo inspecta y clasifica en: apto para reventa, apto para reacondicionar, o no apto (descarte)."
+          }
+        ],
+        "answer": "En TrackFlow, la ventana de devolución estándar es de 30 días desde la entrega, a menos que tu marca haya configurado un plazo distinto en el contrato. Tu ticket está actualmente en estado \"abierta\" y pendiente de aprobación, ya que la solicitud de devolución se registró dentro de los primeros 14 días. En cuanto se apruebe, podrás continuar con el proceso habitual de devolución.\n\nFuente: Política de Devoluciones › Ventana de devolución estándar; Gestor de incidencias › Ticket 1"
+      }
+    }
+  ]
+}

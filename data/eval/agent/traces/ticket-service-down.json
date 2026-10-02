@@ -1,0 +1,175 @@
+{
+  "trace_version": 2,
+  "run_id": "ticket-service-down",
+  "question": "¿En qué estado está el ticket 1?",
+  "started_at": "2026-10-02T13:52:58.028+00:00",
+  "status": "completed",
+  "steps": [
+    {
+      "order": 1,
+      "node": "receive_question",
+      "duration_ms": 1.6,
+      "output": {
+        "question": "¿En qué estado está el ticket 1?"
+      }
+    },
+    {
+      "order": 2,
+      "node": "route_question",
+      "duration_ms": 1187.4,
+      "output": {
+        "route": {
+          "ticket_ids": [
+            1
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        }
+      }
+    },
+    {
+      "order": 3,
+      "node": "lookup_tickets",
+      "duration_ms": 2059.3,
+      "output": {
+        "tickets": [
+          {
+            "ticket_id": 1,
+            "outcome": "unavailable",
+            "ticket": null
+          }
+        ]
+      }
+    },
+    {
+      "order": 4,
+      "node": "ticket_fallback",
+      "duration_ms": 1.1,
+      "output": {
+        "answer": "No pude confirmar el estado del ticket 1 ahora mismo: el gestor de incidencias no respondió. Vuelve a intentarlo en unos minutos.\nFuente: sin confirmación del gestor de incidencias"
+      }
+    }
+  ],
+  "duration_ms": 3249.4,
+  "sources_used": [
+    "incidents_tool"
+  ],
+  "final_state": {
+    "question": "¿En qué estado está el ticket 1?",
+    "route": {
+      "ticket_ids": [
+        1
+      ],
+      "needs_knowledge": false,
+      "decided_by": "llm"
+    },
+    "tickets": [
+      {
+        "ticket_id": 1,
+        "outcome": "unavailable",
+        "ticket": null
+      }
+    ],
+    "answer": "No pude confirmar el estado del ticket 1 ahora mismo: el gestor de incidencias no respondió. Vuelve a intentarlo en unos minutos.\nFuente: sin confirmación del gestor de incidencias"
+  },
+  "checkpoints": [
+    {
+      "step": -1,
+      "source": "input",
+      "next": [
+        "__start__"
+      ],
+      "checkpoint_id": "1f1be689-32d3-6b68-bfff-96a868a65b76",
+      "values": {}
+    },
+    {
+      "step": 0,
+      "source": "loop",
+      "next": [
+        "receive_question"
+      ],
+      "checkpoint_id": "1f1be689-32d5-608d-8000-5f094cbaa532",
+      "values": {
+        "question": "¿En qué estado está el ticket 1?"
+      }
+    },
+    {
+      "step": 1,
+      "source": "loop",
+      "next": [
+        "route_question"
+      ],
+      "checkpoint_id": "1f1be689-32d6-680b-8001-b86a0189b11e",
+      "values": {
+        "question": "¿En qué estado está el ticket 1?"
+      }
+    },
+    {
+      "step": 2,
+      "source": "loop",
+      "next": [
+        "lookup_tickets"
+      ],
+      "checkpoint_id": "1f1be689-3e28-6849-8002-97f103da08dd",
+      "values": {
+        "question": "¿En qué estado está el ticket 1?",
+        "route": {
+          "ticket_ids": [
+            1
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        }
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [
+        "ticket_fallback"
+      ],
+      "checkpoint_id": "1f1be689-51cc-6f24-8003-8efe3d889beb",
+      "values": {
+        "question": "¿En qué estado está el ticket 1?",
+        "route": {
+          "ticket_ids": [
+            1
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        },
+        "tickets": [
+          {
+            "ticket_id": 1,
+            "outcome": "unavailable",
+            "ticket": null
+          }
+        ]
+      }
+    },
+    {
+      "step": 4,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be689-51ce-6ee2-8004-f29edcd21738",
+      "values": {
+        "question": "¿En qué estado está el ticket 1?",
+        "route": {
+          "ticket_ids": [
+            1
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        },
+        "tickets": [
+          {
+            "ticket_id": 1,
+            "outcome": "unavailable",
+            "ticket": null
+          }
+        ],
+        "answer": "No pude confirmar el estado del ticket 1 ahora mismo: el gestor de incidencias no respondió. Vuelve a intentarlo en unos minutos.\nFuente: sin confirmación del gestor de incidencias"
+      }
+    }
+  ]
+}
