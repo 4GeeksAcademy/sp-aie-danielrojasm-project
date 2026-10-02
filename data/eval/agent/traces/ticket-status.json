@@ -1,16 +1,16 @@
 {
-  "trace_version": 3,
+  "trace_version": 4,
   "run_id": "ticket-status",
-  "conversation_id": "138164381dd54df1a580a9a678c03d65",
+  "conversation_id": "5c9967de3cee4139afa6249b29377f60",
   "user_id": null,
   "question": "¿En qué estado está el ticket 2?",
-  "started_at": "2026-10-02T15:53:45.130+00:00",
+  "started_at": "2026-10-02T18:40:54.799+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 7.7,
+      "duration_ms": 2.2,
       "output": {
         "question": "¿En qué estado está el ticket 2?",
         "message": "¿En qué estado está el ticket 2?"
@@ -18,24 +18,39 @@
     },
     {
       "order": 2,
+      "node": "input_guard",
+      "duration_ms": 1.0,
+      "output": {
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": []
+      }
+    },
+    {
+      "order": 3,
       "node": "load_pending_proposal",
-      "duration_ms": 1.1,
+      "duration_ms": 0.6,
       "output": {
         "pending_proposal": null
       }
     },
     {
-      "order": 3,
+      "order": 4,
       "node": "recall_memory",
-      "duration_ms": 3.4,
+      "duration_ms": 13.6,
       "output": {
         "memories": []
       }
     },
     {
-      "order": 4,
+      "order": 5,
       "node": "route_question",
-      "duration_ms": 1538.1,
+      "duration_ms": 1962.8,
       "output": {
         "route": {
           "ticket_ids": [
@@ -47,9 +62,9 @@
       }
     },
     {
-      "order": 5,
+      "order": 6,
       "node": "lookup_tickets",
-      "duration_ms": 565.7,
+      "duration_ms": 481.2,
       "output": {
         "tickets": [
           {
@@ -71,25 +86,44 @@
       }
     },
     {
-      "order": 6,
+      "order": 7,
       "node": "generate_answer",
-      "duration_ms": 19466.9,
+      "duration_ms": 3291.9,
       "output": {
-        "answer": "Te confirmo que el ticket 2 figura como resuelto (resolved). Se registró como incidencia de transportista (carrier_issue), originada por el cliente, con sede en Zaragoza, creada el 11/01/2024 y actualizada ese mismo día. La descripción indica que la caja exterior estaba aplastada y el producto interior dañado. ¿Necesitas que revisemos algo más de esta incidencia?\n\nFuente: Gestor de incidencias › Ticket 2",
-        "memory_candidate": null
+        "answer": "El ticket 2 está resuelto. Se trataba de una incidencia con el transportista (caja exterior aplastada y producto interior dañado) reportada desde la oficina de Zaragoza. Ya fue cerrado el 11 de enero de 2024.\n\nFuente: Gestor de incidencias › Ticket 2",
+        "memory_candidate": null,
+        "guardrail_events": []
+      }
+    },
+    {
+      "order": 8,
+      "node": "output_guard",
+      "duration_ms": 1.9,
+      "output": {
+        "answer": "El ticket 2 está resuelto. Se trataba de una incidencia con el transportista (caja exterior aplastada y producto interior dañado) reportada desde la oficina de Zaragoza. Ya fue cerrado el 11 de enero de 2024.\n\nFuente: Gestor de incidencias › Ticket 2",
+        "guardrail_events": []
       }
     }
   ],
-  "duration_ms": 21582.9,
+  "duration_ms": 5755.3,
   "sources_used": [
     "incidents_tool"
   ],
   "final_state": {
     "question": "¿En qué estado está el ticket 2?",
     "message": "¿En qué estado está el ticket 2?",
-    "conversation_id": "138164381dd54df1a580a9a678c03d65",
+    "conversation_id": "5c9967de3cee4139afa6249b29377f60",
     "user_id": null,
     "run_id": "ticket-status",
+    "authorized_orders": [],
+    "guardrail": {
+      "decision": "allow",
+      "category": "in_scope",
+      "failure_type": null,
+      "message": null,
+      "orders": []
+    },
+    "guardrail_events": [],
     "pending_proposal": null,
     "memories": [],
     "memory_candidate": null,
@@ -117,7 +151,7 @@
         }
       }
     ],
-    "answer": "Te confirmo que el ticket 2 figura como resuelto (resolved). Se registró como incidencia de transportista (carrier_issue), originada por el cliente, con sede en Zaragoza, creada el 11/01/2024 y actualizada ese mismo día. La descripción indica que la caja exterior estaba aplastada y el producto interior dañado. ¿Necesitas que revisemos algo más de esta incidencia?\n\nFuente: Gestor de incidencias › Ticket 2"
+    "answer": "El ticket 2 está resuelto. Se trataba de una incidencia con el transportista (caja exterior aplastada y producto interior dañado) reportada desde la oficina de Zaragoza. Ya fue cerrado el 11 de enero de 2024.\n\nFuente: Gestor de incidencias › Ticket 2"
   },
   "checkpoints": [
     {
@@ -126,8 +160,10 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be797-2c95-67f2-bfff-d6b4e3860a3c",
-      "values": {}
+      "checkpoint_id": "1f1be90c-cef5-6553-bfff-f0672826889a",
+      "values": {
+        "guardrail_events": []
+      }
     },
     {
       "step": 0,
@@ -135,75 +171,130 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be797-2c97-6b41-8000-658a4f073ea5",
+      "checkpoint_id": "1f1be90c-cef7-61c3-8000-7a7b0dee90ec",
       "values": {
         "question": "¿En qué estado está el ticket 2?",
-        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "conversation_id": "5c9967de3cee4139afa6249b29377f60",
         "user_id": null,
-        "run_id": "ticket-status"
+        "run_id": "ticket-status",
+        "authorized_orders": [],
+        "guardrail_events": []
       }
     },
     {
       "step": 1,
       "source": "loop",
       "next": [
-        "load_pending_proposal"
+        "input_guard"
       ],
-      "checkpoint_id": "1f1be797-2ca6-6483-8001-6adc955d5cee",
+      "checkpoint_id": "1f1be90c-cef9-61b4-8001-31282e654b54",
       "values": {
         "question": "¿En qué estado está el ticket 2?",
         "message": "¿En qué estado está el ticket 2?",
-        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "conversation_id": "5c9967de3cee4139afa6249b29377f60",
         "user_id": null,
-        "run_id": "ticket-status"
+        "run_id": "ticket-status",
+        "authorized_orders": [],
+        "guardrail_events": []
       }
     },
     {
       "step": 2,
       "source": "loop",
       "next": [
-        "recall_memory"
+        "load_pending_proposal"
       ],
-      "checkpoint_id": "1f1be797-2ca9-626e-8002-18760dec3644",
+      "checkpoint_id": "1f1be90c-cefb-69d4-8002-83a795e6a81b",
       "values": {
         "question": "¿En qué estado está el ticket 2?",
         "message": "¿En qué estado está el ticket 2?",
-        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "conversation_id": "5c9967de3cee4139afa6249b29377f60",
         "user_id": null,
         "run_id": "ticket-status",
-        "pending_proposal": null
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": []
       }
     },
     {
       "step": 3,
       "source": "loop",
       "next": [
-        "route_question"
+        "recall_memory"
       ],
-      "checkpoint_id": "1f1be797-2cb1-65e4-8003-000aeaed3790",
+      "checkpoint_id": "1f1be90c-cefc-6fa9-8003-8ec2820a15e4",
       "values": {
         "question": "¿En qué estado está el ticket 2?",
         "message": "¿En qué estado está el ticket 2?",
-        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "conversation_id": "5c9967de3cee4139afa6249b29377f60",
         "user_id": null,
         "run_id": "ticket-status",
-        "pending_proposal": null,
-        "memories": []
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
+        "pending_proposal": null
       }
     },
     {
       "step": 4,
       "source": "loop",
       "next": [
-        "lookup_tickets"
+        "route_question"
       ],
-      "checkpoint_id": "1f1be797-3b5c-6a62-8004-16502b88c61f",
+      "checkpoint_id": "1f1be90c-cf1e-625b-8004-558bb831ff83",
       "values": {
         "question": "¿En qué estado está el ticket 2?",
         "message": "¿En qué estado está el ticket 2?",
-        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "conversation_id": "5c9967de3cee4139afa6249b29377f60",
         "user_id": null,
         "run_id": "ticket-status",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
+        "pending_proposal": null,
+        "memories": []
+      }
+    },
+    {
+      "step": 5,
+      "source": "loop",
+      "next": [
+        "lookup_tickets"
+      ],
+      "checkpoint_id": "1f1be90c-e1d6-63c6-8005-e56cc98a5a33",
+      "values": {
+        "question": "¿En qué estado está el ticket 2?",
+        "message": "¿En qué estado está el ticket 2?",
+        "conversation_id": "5c9967de3cee4139afa6249b29377f60",
+        "user_id": null,
+        "run_id": "ticket-status",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
         "pending_proposal": null,
         "memories": [],
         "route": {
@@ -216,18 +307,27 @@
       }
     },
     {
-      "step": 5,
+      "step": 6,
       "source": "loop",
       "next": [
         "generate_answer"
       ],
-      "checkpoint_id": "1f1be797-40c1-68f6-8005-86a33afd52b3",
+      "checkpoint_id": "1f1be90c-e66c-6fa9-8006-4f8a04ec23e0",
       "values": {
         "question": "¿En qué estado está el ticket 2?",
         "message": "¿En qué estado está el ticket 2?",
-        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "conversation_id": "5c9967de3cee4139afa6249b29377f60",
         "user_id": null,
         "run_id": "ticket-status",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
         "pending_proposal": null,
         "memories": [],
         "route": {
@@ -257,16 +357,27 @@
       }
     },
     {
-      "step": 6,
+      "step": 7,
       "source": "loop",
-      "next": [],
-      "checkpoint_id": "1f1be797-fa67-625b-8006-7cbb421d6c29",
+      "next": [
+        "output_guard"
+      ],
+      "checkpoint_id": "1f1be90d-05d1-6cfe-8007-f894b6140997",
       "values": {
         "question": "¿En qué estado está el ticket 2?",
         "message": "¿En qué estado está el ticket 2?",
-        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "conversation_id": "5c9967de3cee4139afa6249b29377f60",
         "user_id": null,
         "run_id": "ticket-status",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
         "pending_proposal": null,
         "memories": [],
         "memory_candidate": null,
@@ -294,7 +405,57 @@
             }
           }
         ],
-        "answer": "Te confirmo que el ticket 2 figura como resuelto (resolved). Se registró como incidencia de transportista (carrier_issue), originada por el cliente, con sede en Zaragoza, creada el 11/01/2024 y actualizada ese mismo día. La descripción indica que la caja exterior estaba aplastada y el producto interior dañado. ¿Necesitas que revisemos algo más de esta incidencia?\n\nFuente: Gestor de incidencias › Ticket 2"
+        "answer": "El ticket 2 está resuelto. Se trataba de una incidencia con el transportista (caja exterior aplastada y producto interior dañado) reportada desde la oficina de Zaragoza. Ya fue cerrado el 11 de enero de 2024.\n\nFuente: Gestor de incidencias › Ticket 2"
+      }
+    },
+    {
+      "step": 8,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be90d-05d4-69dc-8008-f2d54f92e982",
+      "values": {
+        "question": "¿En qué estado está el ticket 2?",
+        "message": "¿En qué estado está el ticket 2?",
+        "conversation_id": "5c9967de3cee4139afa6249b29377f60",
+        "user_id": null,
+        "run_id": "ticket-status",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
+        "pending_proposal": null,
+        "memories": [],
+        "memory_candidate": null,
+        "route": {
+          "ticket_ids": [
+            2
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        },
+        "tickets": [
+          {
+            "ticket_id": 2,
+            "outcome": "found",
+            "ticket": {
+              "id": 2,
+              "title": "Outer box crushed, inner product compromised",
+              "description": "Outer box crushed, inner product compromised",
+              "status": "resolved",
+              "category": "carrier_issue",
+              "origin": "customer",
+              "branch": "zaragoza_office",
+              "created_at": "2024-01-11T00:00:00Z",
+              "updated_at": "2024-01-11T00:00:00Z"
+            }
+          }
+        ],
+        "answer": "El ticket 2 está resuelto. Se trataba de una incidencia con el transportista (caja exterior aplastada y producto interior dañado) reportada desde la oficina de Zaragoza. Ya fue cerrado el 11 de enero de 2024.\n\nFuente: Gestor de incidencias › Ticket 2"
       }
     }
   ]

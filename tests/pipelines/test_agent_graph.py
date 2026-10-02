@@ -22,7 +22,7 @@ from services.support_agent.tracing import executed_nodes, load_trace, trace_dir
 
 
 CHUNK = {"source_document": "returns-policy", "section": "Ventana", "chunk_index": 1, "text": "30 días."}
-REPLY = AgentReply(answer="Son 30 días.")
+REPLY = AgentReply(answer="Son 30 días.\nFuente: Ventana")
 KNOWLEDGE_ONLY = RoutePlan(ticket_ids=[], needs_knowledge=True, decided_by="llm")
 TICKET = Ticket(
     id=482,
@@ -81,6 +81,9 @@ def test_module_graph_is_compiled_with_a_checkpointer():
     assert set(graph.get_graph().nodes) >= {
         nodes.RECEIVE_QUESTION,
         nodes.REJECT_QUESTION,
+        nodes.INPUT_GUARD,
+        nodes.GUARDRAIL_REFUSAL,
+        nodes.SMALL_TALK_REPLY,
         nodes.LOAD_PENDING_PROPOSAL,
         nodes.RESOLVE_PROPOSAL,
         nodes.RECALL_MEMORY,
@@ -91,6 +94,7 @@ def test_module_graph_is_compiled_with_a_checkpointer():
         nodes.TICKET_FALLBACK,
         nodes.NO_INFORMATION,
         nodes.PROPOSE_MEMORY,
+        nodes.OUTPUT_GUARD,
     }
 
 
@@ -124,9 +128,13 @@ def test_routes_are_exit_conditions_not_a_fixed_sequence():
 
     for source, target in [
         (nodes.RECEIVE_QUESTION, nodes.REJECT_QUESTION),
-        (nodes.RECEIVE_QUESTION, nodes.LOAD_PENDING_PROPOSAL),
+        (nodes.RECEIVE_QUESTION, nodes.INPUT_GUARD),
+        (nodes.INPUT_GUARD, nodes.GUARDRAIL_REFUSAL),
+        (nodes.INPUT_GUARD, nodes.LOAD_PENDING_PROPOSAL),
         (nodes.LOAD_PENDING_PROPOSAL, nodes.RESOLVE_PROPOSAL),
+        (nodes.LOAD_PENDING_PROPOSAL, nodes.SMALL_TALK_REPLY),
         (nodes.LOAD_PENDING_PROPOSAL, nodes.RECALL_MEMORY),
+        (nodes.RESOLVE_PROPOSAL, nodes.SMALL_TALK_REPLY),
         (nodes.RESOLVE_PROPOSAL, nodes.RECALL_MEMORY),
         (nodes.RESOLVE_PROPOSAL, END),
         (nodes.ROUTE_QUESTION, nodes.LOOKUP_TICKETS),
@@ -137,13 +145,15 @@ def test_routes_are_exit_conditions_not_a_fixed_sequence():
         (nodes.RETRIEVE, nodes.GENERATE_ANSWER),
         (nodes.RETRIEVE, nodes.TICKET_FALLBACK),
         (nodes.RETRIEVE, nodes.NO_INFORMATION),
-        (nodes.GENERATE_ANSWER, nodes.PROPOSE_MEMORY),
-        (nodes.GENERATE_ANSWER, END),
-        (nodes.NO_INFORMATION, nodes.PROPOSE_MEMORY),
-        (nodes.NO_INFORMATION, END),
+        (nodes.OUTPUT_GUARD, nodes.PROPOSE_MEMORY),
+        (nodes.OUTPUT_GUARD, END),
     ]:
         assert edges[(source, target)] is True, (source, target)
+    # Toda respuesta pasa por el guard de salida: es una arista fija, no una condición.
+    for answered in (nodes.GENERATE_ANSWER, nodes.NO_INFORMATION, nodes.TICKET_FALLBACK, nodes.SMALL_TALK_REPLY):
+        assert edges[(answered, nodes.OUTPUT_GUARD)] is False
     assert edges[(nodes.RECALL_MEMORY, nodes.ROUTE_QUESTION)] is False
+    assert edges[(nodes.GUARDRAIL_REFUSAL, END)] is False
     assert edges[(nodes.PROPOSE_MEMORY, END)] is False
 
 
@@ -154,7 +164,7 @@ def test_knowledge_question_is_retrieved_once_and_generated_from_that_context(co
     run = run_agent("  ¿Ventana de devolución?  ", compiled=compiled)
 
     assert calls == [("retrieve", "¿Ventana de devolución?"), ("generate", "¿Ventana de devolución?", [CHUNK])]
-    assert run.state["answer"] == "Son 30 días."
+    assert run.state["answer"] == REPLY.answer
     assert run.state["route"] == KNOWLEDGE_ONLY.model_dump()
 
 
@@ -201,7 +211,7 @@ def test_ticket_question_uses_the_tool_and_not_the_rag(compiled, calls, monkeypa
     (fragment,) = calls[1][2]
     assert fragment["section"] == "Gestor de incidencias › Ticket 482"
     assert "Estado: en curso (in_progress)" in fragment["text"]
-    assert run.state["answer"] == "Son 30 días."
+    assert run.state["answer"] == REPLY.answer
     assert load_trace(run.trace_path)["sources_used"] == ["incidents_tool"]
 
 
@@ -235,7 +245,7 @@ def test_unconfirmed_ticket_falls_back_without_inventing_a_status(compiled, call
     run = run_agent("¿En qué estado está el ticket 482?", compiled=compiled)
 
     assert calls == [("lookup", 482)]  # el modelo no llega a ver la pregunta
-    assert executed_nodes(load_trace(run.trace_path))[-1] == nodes.TICKET_FALLBACK
+    assert executed_nodes(load_trace(run.trace_path))[-2:] == [nodes.TICKET_FALLBACK, nodes.OUTPUT_GUARD]
     assert run.state["answer"].startswith(message)
     assert run.state["answer"].endswith(nodes.TICKET_FALLBACK_SOURCE)
 
@@ -248,7 +258,7 @@ def test_unconfirmed_ticket_keeps_the_knowledge_answer_and_warns_about_the_ticke
 
     assert [call[0] for call in calls] == ["lookup", "retrieve", "generate"]
     assert calls[2][2] == [CHUNK]  # el ticket sin confirmar no llega al modelo
-    assert run.state["answer"] == nodes.TICKET_UNCONFIRMED.format(ticket_id=482) + "\nSon 30 días."
+    assert run.state["answer"] == nodes.TICKET_UNCONFIRMED.format(ticket_id=482) + "\n" + REPLY.answer
 
 
 def test_unconfirmed_ticket_and_no_context_falls_back_for_both_parts(compiled, calls, monkeypatch):
@@ -285,25 +295,31 @@ def test_each_run_writes_a_queryable_trace(compiled, calls):
     assert trace["sources_used"] == ["rag"]
     assert executed_nodes(trace) == [
         nodes.RECEIVE_QUESTION,
+        nodes.INPUT_GUARD,
         nodes.LOAD_PENDING_PROPOSAL,
         nodes.RECALL_MEMORY,
         nodes.ROUTE_QUESTION,
         nodes.RETRIEVE,
         nodes.GENERATE_ANSWER,
+        nodes.OUTPUT_GUARD,
     ]
-    assert [step["order"] for step in trace["steps"]] == [1, 2, 3, 4, 5, 6]
-    assert trace["steps"][2]["output"] == {"memories": []}
-    assert trace["steps"][3]["output"] == {"route": KNOWLEDGE_ONLY.model_dump()}
-    assert trace["steps"][4]["output"] == {"context": [CHUNK]}
+    assert [step["order"] for step in trace["steps"]] == [1, 2, 3, 4, 5, 6, 7, 8]
+    assert trace["steps"][1]["output"]["guardrail"]["category"] == "in_scope"
+    assert trace["steps"][3]["output"] == {"memories": []}
+    assert trace["steps"][4]["output"] == {"route": KNOWLEDGE_ONLY.model_dump()}
+    assert trace["steps"][5]["output"] == {"context": [CHUNK]}
     assert trace["final_state"] == run.state
+    assert trace["final_state"]["guardrail_events"] == []
     assert [checkpoint["next"] for checkpoint in trace["checkpoints"]] == [
         ["__start__"],
         [nodes.RECEIVE_QUESTION],
+        [nodes.INPUT_GUARD],
         [nodes.LOAD_PENDING_PROPOSAL],
         [nodes.RECALL_MEMORY],
         [nodes.ROUTE_QUESTION],
         [nodes.RETRIEVE],
         [nodes.GENERATE_ANSWER],
+        [nodes.OUTPUT_GUARD],
         [],
     ]
 
@@ -334,6 +350,7 @@ def test_failed_node_is_traced_and_the_run_resumes_from_its_last_checkpoint(comp
     }
     assert executed_nodes(failed) == [
         nodes.RECEIVE_QUESTION,
+        nodes.INPUT_GUARD,
         nodes.LOAD_PENDING_PROPOSAL,
         nodes.RECALL_MEMORY,
         nodes.ROUTE_QUESTION,
@@ -345,14 +362,16 @@ def test_failed_node_is_traced_and_the_run_resumes_from_its_last_checkpoint(comp
     run = resume_run("run-1", compiled=compiled)
 
     assert calls == [("retrieve", "¿Ventana de devolución?")]  # retrieve no se repite al retomar
-    assert run.state["answer"] == "Son 30 días."
+    assert run.state["answer"] == REPLY.answer
     resumed = load_trace(run.trace_path)
     assert resumed["status"] == "completed" and resumed["resumed"] == 1 and "error" not in resumed
     assert executed_nodes(resumed) == [
         nodes.RECEIVE_QUESTION,
+        nodes.INPUT_GUARD,
         nodes.LOAD_PENDING_PROPOSAL,
         nodes.RECALL_MEMORY,
         nodes.ROUTE_QUESTION,
         nodes.RETRIEVE,
         nodes.GENERATE_ANSWER,
+        nodes.OUTPUT_GUARD,
     ]

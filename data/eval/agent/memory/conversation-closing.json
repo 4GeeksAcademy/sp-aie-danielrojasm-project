@@ -10,11 +10,13 @@
       "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento",
       "nodes": [
         "receive_question",
+        "input_guard",
         "load_pending_proposal",
         "recall_memory",
         "route_question",
         "retrieve",
-        "no_information"
+        "no_information",
+        "output_guard"
       ],
       "sources_used": [
         "rag"

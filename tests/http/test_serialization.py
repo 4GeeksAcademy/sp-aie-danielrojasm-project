@@ -110,8 +110,9 @@ def test_every_json_route_declares_a_pydantic_response_model():
     # 32 rutas (el health check no se publica), el conteo físico, la ingesta y el
     # reporte de telemetría, las 3 de `/reporting` (pipeline semanal), el estado de
     # tareas de Celery (`/tasks/{task_id}`), la consulta a la base de conocimiento (`/knowledge/query`),
-    # el agente LangGraph (`/agent/query`) y 12 rechazos explícitos de edición directa del stock.
-    assert len(operations) == 52
+    # el agente LangGraph (`/agent/query` y `/agent/guardrails/summary`) y 12 rechazos explícitos de edición directa
+    # del stock.
+    assert len(operations) == 53
     assert missing == []
     # Los rechazos no tienen respuesta 2xx: su contrato es el cuerpo del 405.
     assert len(rejecting) == 12

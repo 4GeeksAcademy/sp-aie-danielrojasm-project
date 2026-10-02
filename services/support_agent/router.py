@@ -1,5 +1,7 @@
 """`POST /agent/query`: invoca el grafo compilado del agente y traduce su resultado a HTTP.
 
+`GET /agent/guardrails/summary` resume cuántas veces se activó cada guardrail desde que arrancó el proceso.
+
 Convive con `POST /knowledge/query`. No hay lógica de negocio aquí: la recuperación, la generación y el enrutado
 viven en el grafo. Si un nodo falla, el cliente recibe un mensaje claro con el `run_id` de la corrida; el tipo de
 error, el nodo y el detalle técnico solo van al trace y al log `trackflow.agent`.
@@ -10,9 +12,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from data.process.rag import RagConfigurationError, RagServiceError
 from services.api.auth_models import User
 from services.api.security import get_current_user
+from services.support_agent.guardrails import events
 from services.support_agent.models import (
     AgentQueryRequest,
     AgentQueryResponse,
+    GuardrailSummary,
     MemoryDecisionRead,
     MemoryProposalRead,
 )
@@ -73,3 +77,9 @@ def agent_query(body: AgentQueryRequest, user: User = Depends(get_current_user))
         if decision
         else None,
     )
+
+
+@router.get("/guardrails/summary", response_model=GuardrailSummary)
+def guardrails_summary() -> GuardrailSummary:
+    """Activaciones de guardrails por capa, tipo de fallo y acción desde que arrancó el proceso de la API."""
+    return GuardrailSummary(**events.summary())

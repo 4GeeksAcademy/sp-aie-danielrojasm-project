@@ -7,14 +7,16 @@
       "conversation": "a",
       "user": "cx-agent-1",
       "message": "El cliente de cosméticos siempre quiere su reporte mensual con el desglose de devoluciones primero, antes que el volumen de envíos.",
-      "answer": "En TrackFlow, entendemos que prefiera ver el desglose de devoluciones primero en su reporte mensual. Vamos a consultar con nuestro equipo de reporting para confirmar que podemos ajustar el orden del informe exactamente como lo solicita y le daremos respuesta a la mayor brevedad.\n\n¿Quieres que recuerde esto para próximas conversaciones? «El cliente de cosméticos prefiere que en su reporte mensual el desglose de devoluciones aparezca primero, antes que el volumen de envíos.» Responde sí, no o corrígelo.",
+      "answer": "Entendido, hemos registrado su preferencia sobre el reporte mensual del cliente de cosméticos: el desglose de devoluciones debe aparecer antes que el volumen de envíos. Lo tendremos en cuenta para próximas entregas.\nFuente: sin información en la base de conocimiento\n\n¿Quieres que recuerde esto para próximas conversaciones? «El cliente de cosméticos (marca B2B) prefiere que su reporte mensual muestre primero el desglose de devoluciones antes que el volumen de envíos.» Responde sí, no o corrígelo.",
       "nodes": [
         "receive_question",
+        "input_guard",
         "load_pending_proposal",
         "recall_memory",
         "route_question",
         "retrieve",
         "generate_answer",
+        "output_guard",
         "propose_memory"
       ],
       "sources_used": [
@@ -22,8 +24,8 @@
       ],
       "memory_candidate": {
         "category": "client_preference",
-        "fact": "El cliente de cosméticos prefiere que en su reporte mensual el desglose de devoluciones aparezca primero, antes que el volumen de envíos.",
-        "reason": "Para recordar la preferencia de formato del reporte de este cliente recurrente y poder aplicarla en próximos informes sin necesidad de consultar de nuevo.",
+        "fact": "El cliente de cosméticos (marca B2B) prefiere que su reporte mensual muestre primero el desglose de devoluciones antes que el volumen de envíos.",
+        "reason": "Para recordar el orden de presentación del reporte mensual de este cliente recurrente.",
         "user_quote": "El cliente de cosméticos siempre quiere su reporte mensual con el desglose de devoluciones primero, antes que el volumen de envíos.",
         "carrier": null,
         "country": null,
@@ -31,7 +33,7 @@
         "client": "cliente de cosméticos"
       },
       "memory_proposal": {
-        "proposal_id": "6a3f54571139419fb7fe8596c3d0b96e",
+        "proposal_id": "758e76d5213d4106aaa3ec3a448dac97",
         "category": "client_preference",
         "subject_key": "client_preference:cliente-de-cosmeticos",
         "subject": "cliente de cosméticos",
@@ -39,14 +41,14 @@
           "cliente",
           "cosmeticos"
         ],
-        "fact": "El cliente de cosméticos prefiere que en su reporte mensual el desglose de devoluciones aparezca primero, antes que el volumen de envíos.",
-        "reason": "Para recordar la preferencia de formato del reporte de este cliente recurrente y poder aplicarla en próximos informes sin necesidad de consultar de nuevo.",
+        "fact": "El cliente de cosméticos (marca B2B) prefiere que su reporte mensual muestre primero el desglose de devoluciones antes que el volumen de envíos.",
+        "reason": "Para recordar el orden de presentación del reporte mensual de este cliente recurrente.",
         "user_id": "cx-agent-1",
-        "conversation_id": "4a41a38eaa884e4881fc96eb99cfbc79",
-        "run_id": "8e2ad694806d4e62899ea948b353e73e",
+        "conversation_id": "0434ce1c21d74612a9bf619d8812325e",
+        "run_id": "e39d684889d342c8931d5a88d5bc0d88",
         "source_message": "el cliente de cosmeticos siempre quiere su reporte mensual con el desglose de devoluciones primero, antes que el volumen de envios.",
-        "proposed_at": "2026-10-02T16:05:45.347142Z",
-        "expires_at": "2026-10-02T16:35:45.347142Z"
+        "proposed_at": "2026-10-02T18:44:32.100229Z",
+        "expires_at": "2026-10-02T19:14:32.100229Z"
       },
       "memory_decision": null,
       "memories_recalled": [],
@@ -55,18 +57,18 @@
   ],
   "audit": [
     {
-      "id": "1790957145362-0",
+      "id": "1790966672114-0",
       "event": "proposed",
-      "at": "2026-10-02T16:05:45.347142+00:00",
-      "proposal_id": "6a3f54571139419fb7fe8596c3d0b96e",
+      "at": "2026-10-02T18:44:32.100229+00:00",
+      "proposal_id": "758e76d5213d4106aaa3ec3a448dac97",
       "user_id": "cx-agent-1",
-      "conversation_id": "4a41a38eaa884e4881fc96eb99cfbc79",
-      "run_id": "8e2ad694806d4e62899ea948b353e73e",
+      "conversation_id": "0434ce1c21d74612a9bf619d8812325e",
+      "run_id": "e39d684889d342c8931d5a88d5bc0d88",
       "category": "client_preference",
       "subject_key": "client_preference:cliente-de-cosmeticos",
-      "proposed_fact": "El cliente de cosméticos prefiere que en su reporte mensual el desglose de devoluciones aparezca primero, antes que el volumen de envíos.",
-      "reason": "Para recordar la preferencia de formato del reporte de este cliente recurrente y poder aplicarla en próximos informes sin necesidad de consultar de nuevo.",
-      "expires_at": "2026-10-02T16:35:45.347142+00:00",
+      "proposed_fact": "El cliente de cosméticos (marca B2B) prefiere que su reporte mensual muestre primero el desglose de devoluciones antes que el volumen de envíos.",
+      "reason": "Para recordar el orden de presentación del reporte mensual de este cliente recurrente.",
+      "expires_at": "2026-10-02T19:14:32.100229+00:00",
       "source_message": "el cliente de cosmeticos siempre quiere su reporte mensual con el desglose de devoluciones primero, antes que el volumen de envios."
     }
   ]

@@ -9,11 +9,13 @@
       "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento",
       "nodes": [
         "receive_question",
+        "input_guard",
         "load_pending_proposal",
         "recall_memory",
         "route_question",
         "retrieve",
-        "no_information"
+        "no_information",
+        "output_guard"
       ],
       "sources_used": [
         "rag"
@@ -28,14 +30,16 @@
       "conversation": "a",
       "user": "cx-agent-1",
       "message": "Esos retrasos reportados en incidencias de Los Ángeles esta semana son por la huelga portuaria, no por un problema nuestro — ya van tres tickets sobre lo mismo.",
-      "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento\n\n¿Quieres que recuerde esto para próximas conversaciones? «Los retrasos en entregas en Los Ángeles (US) durante la semana actual se deben a una huelga portuaria, no a problemas operativos de TrackFlow.» Responde sí, no o corrígelo.",
+      "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento\n\n¿Quieres que recuerde esto para próximas conversaciones? «Los retrasos en entregas en Los Ángeles esta semana se deben a la huelga portuaria, no a problemas internos de TrackFlow. Ya hay tres tickets reportando lo mismo.» Responde sí, no o corrígelo.",
       "nodes": [
         "receive_question",
+        "input_guard",
         "load_pending_proposal",
         "recall_memory",
         "route_question",
         "retrieve",
         "no_information",
+        "output_guard",
         "propose_memory"
       ],
       "sources_used": [
@@ -43,8 +47,8 @@
       ],
       "memory_candidate": {
         "category": "incident_context",
-        "fact": "Los retrasos en entregas en Los Ángeles (US) durante la semana actual se deben a una huelga portuaria, no a problemas operativos de TrackFlow.",
-        "reason": "Para evitar escalar la misma alerta en futuros tickets sobre retrasos en Los Ángeles, ya que la causa es externa y recurrente.",
+        "fact": "Los retrasos en entregas en Los Ángeles esta semana se deben a la huelga portuaria, no a problemas internos de TrackFlow. Ya hay tres tickets reportando lo mismo.",
+        "reason": "Para no escalar la misma alerta y reconocer la causa externa en futuras consultas sobre retrasos en Los Ángeles.",
         "user_quote": "Esos retrasos reportados en incidencias de Los Ángeles esta semana son por la huelga portuaria, no por un problema nuestro — ya van tres tickets sobre lo mismo.",
         "carrier": null,
         "country": "US",
@@ -52,21 +56,21 @@
         "client": null
       },
       "memory_proposal": {
-        "proposal_id": "34faa14896154773920c7fa1af449ab9",
+        "proposal_id": "5c8c89aae9514e8cacb2c19c73ebe919",
         "category": "incident_context",
         "subject_key": "incident_context:US:los-angeles",
         "subject": "Los Ángeles (US)",
         "keywords": [
           "angeles"
         ],
-        "fact": "Los retrasos en entregas en Los Ángeles (US) durante la semana actual se deben a una huelga portuaria, no a problemas operativos de TrackFlow.",
-        "reason": "Para evitar escalar la misma alerta en futuros tickets sobre retrasos en Los Ángeles, ya que la causa es externa y recurrente.",
+        "fact": "Los retrasos en entregas en Los Ángeles esta semana se deben a la huelga portuaria, no a problemas internos de TrackFlow. Ya hay tres tickets reportando lo mismo.",
+        "reason": "Para no escalar la misma alerta y reconocer la causa externa en futuras consultas sobre retrasos en Los Ángeles.",
         "user_id": "cx-agent-1",
-        "conversation_id": "7857ee71b66e44dc9710dafa9c38f96c",
-        "run_id": "6fa2c8fb3e6d4da7a2dc3988ef19e27c",
+        "conversation_id": "62f4b1aa7f954f2c89d321a69d0a657b",
+        "run_id": "6d8deeceff6f400c96ab293a76d9b7f3",
         "source_message": "esos retrasos reportados en incidencias de los angeles esta semana son por la huelga portuaria, no por un problema nuestro — ya van tres tickets sobre lo mismo.",
-        "proposed_at": "2026-10-02T16:10:58.933932Z",
-        "expires_at": "2026-10-02T16:40:58.933932Z"
+        "proposed_at": "2026-10-02T18:50:10.207015Z",
+        "expires_at": "2026-10-02T19:20:10.207015Z"
       },
       "memory_decision": null,
       "memories_recalled": [],
@@ -76,9 +80,10 @@
       "conversation": "a",
       "user": "cx-agent-1",
       "message": "No, no lo guardes: todavía no está confirmado.",
-      "answer": "Entendido: no lo guardo («Los retrasos en entregas en Los Ángeles (US) durante la semana actual se deben a una huelga portuaria, no a problemas operativos de TrackFlow.»).",
+      "answer": "Entendido: no lo guardo («Los retrasos en entregas en Los Ángeles esta semana se deben a la huelga portuaria, no a problemas internos de TrackFlow. Ya hay tres tickets reportando lo mismo.»).",
       "nodes": [
         "receive_question",
+        "input_guard",
         "load_pending_proposal",
         "resolve_proposal"
       ],
@@ -86,7 +91,7 @@
       "memory_candidate": null,
       "memory_proposal": null,
       "memory_decision": {
-        "proposal_id": "34faa14896154773920c7fa1af449ab9",
+        "proposal_id": "5c8c89aae9514e8cacb2c19c73ebe919",
         "outcome": "rejected",
         "reason": "user_rejected",
         "fact": null
@@ -101,11 +106,13 @@
       "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento",
       "nodes": [
         "receive_question",
+        "input_guard",
         "load_pending_proposal",
         "recall_memory",
         "route_question",
         "retrieve",
-        "no_information"
+        "no_information",
+        "output_guard"
       ],
       "sources_used": [
         "rag"
@@ -119,32 +126,32 @@
   ],
   "audit": [
     {
-      "id": "1790957458946-0",
+      "id": "1790967010223-0",
       "event": "proposed",
-      "at": "2026-10-02T16:10:58.933932+00:00",
-      "proposal_id": "34faa14896154773920c7fa1af449ab9",
+      "at": "2026-10-02T18:50:10.207015+00:00",
+      "proposal_id": "5c8c89aae9514e8cacb2c19c73ebe919",
       "user_id": "cx-agent-1",
-      "conversation_id": "7857ee71b66e44dc9710dafa9c38f96c",
-      "run_id": "6fa2c8fb3e6d4da7a2dc3988ef19e27c",
+      "conversation_id": "62f4b1aa7f954f2c89d321a69d0a657b",
+      "run_id": "6d8deeceff6f400c96ab293a76d9b7f3",
       "category": "incident_context",
       "subject_key": "incident_context:US:los-angeles",
-      "proposed_fact": "Los retrasos en entregas en Los Ángeles (US) durante la semana actual se deben a una huelga portuaria, no a problemas operativos de TrackFlow.",
-      "reason": "Para evitar escalar la misma alerta en futuros tickets sobre retrasos en Los Ángeles, ya que la causa es externa y recurrente.",
-      "expires_at": "2026-10-02T16:40:58.933932+00:00",
+      "proposed_fact": "Los retrasos en entregas en Los Ángeles esta semana se deben a la huelga portuaria, no a problemas internos de TrackFlow. Ya hay tres tickets reportando lo mismo.",
+      "reason": "Para no escalar la misma alerta y reconocer la causa externa en futuras consultas sobre retrasos en Los Ángeles.",
+      "expires_at": "2026-10-02T19:20:10.207015+00:00",
       "source_message": "esos retrasos reportados en incidencias de los angeles esta semana son por la huelga portuaria, no por un problema nuestro — ya van tres tickets sobre lo mismo."
     },
     {
-      "id": "1790957460624-0",
+      "id": "1790967018081-0",
       "event": "decision",
-      "at": "2026-10-02T16:10:58.961804+00:00",
-      "proposal_id": "34faa14896154773920c7fa1af449ab9",
+      "at": "2026-10-02T18:50:10.259103+00:00",
+      "proposal_id": "5c8c89aae9514e8cacb2c19c73ebe919",
       "user_id": "cx-agent-1",
-      "conversation_id": "7857ee71b66e44dc9710dafa9c38f96c",
-      "run_id": "6fa2c8fb3e6d4da7a2dc3988ef19e27c",
+      "conversation_id": "62f4b1aa7f954f2c89d321a69d0a657b",
+      "run_id": "6d8deeceff6f400c96ab293a76d9b7f3",
       "category": "incident_context",
       "subject_key": "incident_context:US:los-angeles",
-      "proposed_fact": "Los retrasos en entregas en Los Ángeles (US) durante la semana actual se deben a una huelga portuaria, no a problemas operativos de TrackFlow.",
-      "decision_run_id": "78adf9f2edb249e59c859350d63238ae",
+      "proposed_fact": "Los retrasos en entregas en Los Ángeles esta semana se deben a la huelga portuaria, no a problemas internos de TrackFlow. Ya hay tres tickets reportando lo mismo.",
+      "decision_run_id": "a4df128adc1b49b493a21b11cb34d2b3",
       "outcome": "rejected",
       "reason": "user_rejected",
       "stored_fact": null,
