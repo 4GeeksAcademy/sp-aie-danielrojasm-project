@@ -82,8 +82,8 @@ camino del agente hacia el gestor: la llamada HTTP directa que usaba antes se el
 | --- | --- |
 | Entrada | `TicketQuery(ticket_id: int > 0)` |
 | Salida | `TicketLookup(ticket_id, outcome, ticket)`; `outcome` = `found`, `not_found`, `timeout` o `unavailable`; `ticket` = `id`, `title`, `description`, `status`, `category`, `origin`, `branch`, `created_at`, `updated_at` |
-| Servidor | `MCP_SERVER_URL` (por defecto `http://127.0.0.1:8001/mcp`); el agente solo carga `get_ticket_status` |
-| Auth | Token OAuth `client_credentials` del cliente `support-agent` (`AGENT_OAUTH_CLIENT_ID`, `KEYCLOAK_AGENT_CLIENT_SECRET`), pedido al issuer `MCP_OAUTH_ISSUER`. Solo tiene el scope `incidents:read`: el servidor le rechaza crear tickets, cambiar su estado o leer inventario (`INSUFFICIENT_SCOPE`) |
+| Servidor | `MCP_SERVER_URL` (por defecto `http://127.0.0.1:8001/mcp`; en el contenedor `api`, `DOCKER_MCP_SERVER_URL` = `http://mcp:8001/mcp`); el agente solo carga `get_ticket_status` |
+| Auth | Token OAuth `client_credentials` del cliente `support-agent` (`AGENT_OAUTH_CLIENT_ID`, `KEYCLOAK_AGENT_CLIENT_SECRET`), pedido al issuer `MCP_OAUTH_ISSUER` (en el contenedor `api`, `DOCKER_MCP_OAUTH_ISSUER` = `http://keycloak:8080/realms/trackflow`; el `iss` del token sigue siendo `KEYCLOAK_URL`). Solo tiene el scope `incidents:read`: el servidor le rechaza crear tickets, cambiar su estado o leer inventario (`INSUFFICIENT_SCOPE`) |
 | Timeout | `INCIDENTS_TIMEOUT_SECONDS` = 4 s (token y llamada MCP) |
 | Fallback | `NOT_FOUND` → `not_found`; timeout → `timeout`; servidor MCP o Keycloak caídos, sin credenciales, otro código de error o respuesta inválida → `unavailable`. Nunca lanza excepciones al grafo |
 

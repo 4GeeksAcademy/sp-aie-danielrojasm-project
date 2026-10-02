@@ -1,0 +1,4 @@
+# El contexto de build es la raíz del monorepo: solo entran los dos requirements (ni .env, ni node_modules, ni .venv).
+*
+!services/api/requirements.txt
+!mcps/trackflow_tools/requirements.txt

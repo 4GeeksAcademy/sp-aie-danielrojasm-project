@@ -1,0 +1,4 @@
+# Dependencias propias del servidor MCP en Docker. Las de `services.api` (el servidor importa su firma de tokens y sus
+# esquemas) llegan de services/api/requirements.txt. Mismas versiones que pyproject.toml.
+fastmcp>=3.4,<4
+mcpauth==0.2.0b1
