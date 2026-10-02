@@ -16,6 +16,9 @@ services:
       REDIS_URL: ${DOCKER_REDIS_URL:?Falta DOCKER_REDIS_URL en .env}
       # Base de conocimiento comercial (RAG): Qdrant por nombre de servicio.
       QDRANT_URL: ${DOCKER_QDRANT_URL:?Falta DOCKER_QDRANT_URL en .env}
+      # Agente de soporte: servidor MCP y discovery de Keycloak por nombre de servicio.
+      MCP_SERVER_URL: ${DOCKER_MCP_SERVER_URL:?Falta DOCKER_MCP_SERVER_URL en .env}
+      MCP_OAUTH_ISSUER: ${DOCKER_MCP_OAUTH_ISSUER:?Falta DOCKER_MCP_OAUTH_ISSUER en .env}
     ports:
       - "8000:8000"
     volumes:
@@ -54,7 +57,10 @@ services:
   # Proveedor OAuth 2.1 / OIDC del servidor MCP (`mcps/trackflow_tools`). Importa
   # el realm `trackflow` (scopes y clientes) en cada arranque; sin volumen: el
   # realm del repo es la única fuente de verdad. `KC_HOSTNAME` fija el issuer de
-  # los tokens (`KEYCLOAK_URL`, el mismo que valida el servidor MCP).
+  # los tokens (`KEYCLOAK_URL`, el mismo que valida el servidor MCP). Con el
+  # backchannel dinámico, el token endpoint y el JWKS del discovery usan el host
+  # de la petición: dentro de Compose `keycloak:8080`, desde el host `127.0.0.1`.
+  # Así los tokens tienen el mismo issuer pidan desde donde pidan.
   keycloak:
     image: quay.io/keycloak/keycloak:26.4
     command: ["start-dev", "--import-realm"]
@@ -62,6 +68,8 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:?Falta KEYCLOAK_ADMIN_USER en .env}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Falta KEYCLOAK_ADMIN_PASSWORD en .env}
       KC_HOSTNAME: ${KEYCLOAK_URL:?Falta KEYCLOAK_URL en .env}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
       KC_HTTP_PORT: "8080"
       KEYCLOAK_AGENT_CLIENT_SECRET: ${KEYCLOAK_AGENT_CLIENT_SECRET:?Falta KEYCLOAK_AGENT_CLIENT_SECRET en .env}
       KEYCLOAK_OPERATOR_CLIENT_SECRET: ${KEYCLOAK_OPERATOR_CLIENT_SECRET:?Falta KEYCLOAK_OPERATOR_CLIENT_SECRET en .env}
@@ -71,6 +79,46 @@ services:
       - ./infra/keycloak:/opt/keycloak/data/import:ro
     networks:
       - trackflow
+    # La imagen no trae curl: `/health/ready` del puerto de gestión (9000) con bash.
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  # Servidor MCP de herramientas (`mcps/trackflow_tools`, Streamable HTTP + OAuth).
+  # Descarga el discovery de Keycloak y llama a la API por nombre de servicio. No
+  # convive con el servidor lanzado en el host con `uv run` (los dos usan el 8001).
+  mcp:
+    build:
+      context: .
+      dockerfile: mcps/trackflow_tools/Dockerfile
+    env_file:
+      - .env
+    environment:
+      MCP_OAUTH_ISSUER: ${DOCKER_MCP_OAUTH_ISSUER:?Falta DOCKER_MCP_OAUTH_ISSUER en .env}
+      TRACKFLOW_API_URL: ${TRACKFLOW_API_INTERNAL_URL:?Falta TRACKFLOW_API_INTERNAL_URL en .env}
+    ports:
+      # Protegido con OAuth; en Codespaces se reenvía para MCP Playground.
+      - "8001:8001"
+    volumes:
+      - ./mcps:/app/mcps:ro
+      - ./services:/app/services:ro
+      - ./packages:/app/packages:ro
+    networks:
+      - trackflow
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/.well-known/oauth-protected-resource/mcp')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      api:
+        condition: service_healthy
 
   # Broker y result backend de Celery. `noeviction`: con la memoria llena Redis
   # rechaza escrituras en vez de borrar mensajes de la cola. AOF para que los

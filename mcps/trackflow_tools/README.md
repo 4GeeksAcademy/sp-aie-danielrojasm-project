@@ -18,10 +18,29 @@ token de esa petición.
 
 ## Arranque
 
+Dos formas, que no conviven porque las dos usan el 8001:
+
 ```bash
-docker compose up -d keycloak api           # proveedor OAuth y API de TrackFlow
+# Todo en Docker Compose (servicio `mcp`; el agente del contenedor `api` lo usa por nombre de servicio)
+docker compose up -d keycloak api mcp
+
+# O el servidor en el host, con Keycloak y la API en Compose
+docker compose up -d keycloak api
 uv run --env-file .env python -m mcps.trackflow_tools   # http://0.0.0.0:8001/mcp
 ```
+
+En Compose, el servicio `mcp` (`mcps/trackflow_tools/Dockerfile`, contexto en la raíz porque importa `services.api` y
+`packages.shared`) recibe el `.env` entero y sobrescribe dos variables: `MCP_OAUTH_ISSUER` con
+`DOCKER_MCP_OAUTH_ISSUER` (`http://keycloak:8080/realms/trackflow`) y `TRACKFLOW_API_URL` con
+`TRACKFLOW_API_INTERNAL_URL` (`http://api:8000`). El código llega por bind mount; tras cambiar las dependencias,
+`docker compose build mcp`.
+
+**El issuer es el mismo dentro y fuera de Compose.** Keycloak corre con `KC_HOSTNAME=KEYCLOAK_URL`
+(`http://127.0.0.1:8080`) y `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`: todos los tokens llevan
+`iss=http://127.0.0.1:8080/realms/trackflow`, pero el discovery devuelve el token endpoint y el JWKS con el host de
+la petición. MCP Auth valida contra el `issuer` y el `jwks_uri` del discovery, no contra la URL desde la que lo
+descargó. Por eso el servidor del contenedor acepta los tokens pedidos desde el host (Playground, `curl`) y los del
+agente del contenedor `api`, que los pide a `keycloak:8080`.
 
 | Variable | Uso |
 | --- | --- |
@@ -134,7 +153,7 @@ Codespace y se pega como cabecera.
 
 1. En el `.env` del Codespace, pon en `MCP_RESOURCE_URL` la URL reenviada del puerto 8001 más `/mcp`
    (`https://<codespace>-8001.app.github.dev/mcp`).
-2. Levanta `docker compose up -d keycloak api` y el servidor (`uv run --env-file .env python -m mcps.trackflow_tools`).
+2. Levanta `docker compose up -d keycloak api mcp` (o el servidor en el host, ver "Arranque").
 3. En la pestaña **Ports**, cambia la visibilidad del 8001 a **Public**.
 4. Pide un token del operador (válido 5 minutos):
 

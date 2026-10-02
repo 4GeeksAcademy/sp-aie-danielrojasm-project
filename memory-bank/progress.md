@@ -8,6 +8,24 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Servidor MCP en Docker Compose (2026-10-02)
+
+- Servicio `mcp` en `docker-compose.yml` (`mcps/trackflow_tools/Dockerfile`, contexto en la raíz con
+   `Dockerfile.dockerignore` que solo deja entrar los requirements). Espera a `keycloak` (healthcheck nuevo) y `api`.
+- Keycloak con `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`: el `iss` sigue siendo `KEYCLOAK_URL` y el discovery pedido a
+   `keycloak:8080` devuelve token endpoint y JWKS internos. Variables nuevas `DOCKER_MCP_OAUTH_ISSUER` y
+   `DOCKER_MCP_SERVER_URL` (en `.env.example`), que `mcp` y `api` usan en vez de las de `127.0.0.1`.
+- Resuelve el pendiente del agente en el contenedor `api`: `/agent/query` («¿En qué estado está el ticket 2?») responde
+   200 con el estado real y el log muestra `get_ticket ticket_id=2 status=resolved via=mcp`; un ticket inexistente da
+   `not_found`.
+- Verificado: con tokens pedidos desde el host, el `mcp` del contenedor da 401 sin token, lista las 4 tools, lee
+   tickets e inventario, rechaza `create_inbound_order` (`INVENTORY_READ_ONLY`) y `create_ticket` al agente
+   (`INSUFFICIENT_SCOPE`). `uv run pytest` 689 y `npm run verify` en verde.
+- Codespaces: además de las reglas de salida a internet, hace falta `iptables-legacy -I FORWARD 1 -i <br> -o <br> -j
+   ACCEPT` para que los contenedores de `trackflow-dev` se vean entre sí (detalle en techContext).
+- Siguiente paso: PR con la etiqueta del milestone y revisión del tech lead.
+
+
 ### Milestone 09 — Memoria y auto-mejora del agente de soporte, parte 1 (Ticket #MEM-092)
 
 - `services/support_agent/memory/`: memoria aprobada en Redis (`trackflow:agent_memory:*`), separada de

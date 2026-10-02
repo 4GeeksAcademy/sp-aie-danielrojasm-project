@@ -460,7 +460,7 @@ directo al puerto privado de la API.
 
 ### 🐳 Entorno de desarrollo en Docker Compose — Ticket #infra-40
 
-`docker compose up` desde la raíz levanta seis servicios en la red `trackflow-dev` (`redis`, `worker` y `flower` se
+`docker compose up` desde la raíz levanta nueve servicios en la red `trackflow-dev` (`redis`, `worker` y `flower` se
 describen en "Cola de tareas asíncronas"; `worker` y `flower` usan la imagen de `services/Dockerfile` con otro `command`):
 
 - **`api`** (`services/Dockerfile`, `python:3.12-slim` + `uv pip install --system -r api/requirements.txt`): Uvicorn con
@@ -479,9 +479,18 @@ describen en "Cola de tareas asíncronas"; `worker` y `flower` usan la imagen de
 - Todas las variables salen de `.env` (plantilla en `.env.example`); el YAML falla con mensaje (`${VAR:?}`) si falta alguna.
 - Tras cambiar un `package.json` o `requirements.txt`: `docker compose up --build -V` (renueva los volúmenes anónimos).
 - `talent-pipeline-tracker` no está en el contenedor de interfaces.
+- **`keycloak`** y **`mcp`**: proveedor OAuth y servidor MCP (`mcps/trackflow_tools/Dockerfile`, contexto en la raíz, deps de
+  `services/api/requirements.txt` + `mcps/trackflow_tools/requirements.txt`; código por bind mount de solo lectura). `mcp` espera a
+  `keycloak` y `api` sanos (healthcheck de Keycloak en `/health/ready` del 9000) y no convive con el servidor del host (8001).
+  `KC_HOSTNAME_BACKCHANNEL_DYNAMIC=true`: el issuer de los tokens es siempre `KEYCLOAK_URL`, pero el token endpoint y el JWKS del
+  discovery usan el host de la petición. Así `mcp` y el agente de `api` descargan el discovery de `keycloak:8080`
+  (`DOCKER_MCP_OAUTH_ISSUER`) y aceptan o piden tokens con el mismo `iss` que los del host. `api` recibe además
+  `MCP_SERVER_URL=DOCKER_MCP_SERVER_URL` (`http://mcp:8001/mcp`).
 - **Codespaces:** el Docker-in-Docker del Codespace arrastra una tabla `iptables-legacy` con `FORWARD DROP` que solo acepta
   `docker0`; en una red con nombre (`br-*`) los contenedores no se ven entre sí ni salen a internet (el DNS interno sí resuelve).
   No ocurre en Docker Desktop ni en un Docker Engine estándar.
+  Reglas manuales (no persisten): `-i <br> ! -o <br>` + `RELATED,ESTABLISHED` + `MASQUERADE` para la salida a internet y
+  `-i <br> -o <br>` para el tráfico entre contenedores, en `iptables-legacy` FORWARD/POSTROUTING.
 
 ---
 
@@ -494,7 +503,7 @@ describen en "Cola de tareas asíncronas"; `worker` y `flower` usan la imagen de
 - **Redis** — puerto **6379** (solo `127.0.0.1`), con `docker compose up -d redis`.
 - **Flower** — puerto **5555** (solo `127.0.0.1`), con `docker compose up -d flower`.
 - **Qdrant** — puerto **6333** (solo `127.0.0.1`), con `docker compose up -d qdrant`.
-- **Servidor MCP** — puerto **8001**, con `uv run --env-file .env python -m mcps.trackflow_tools`.
+- **Servidor MCP** — puerto **8001**, con `docker compose up -d mcp` o `uv run --env-file .env python -m mcps.trackflow_tools` (uno u otro).
 - **Keycloak** — puerto **8080** (solo `127.0.0.1`), con `docker compose up -d keycloak`.
 
 El backoffice **no** usa el 3001 porque el tracker del Hito 3 usa `http://localhost:3001` como API por defecto cuando no existe
@@ -525,7 +534,8 @@ Todos se ejecutan desde la raíz del monorepo:
   `uv run pytest tests/pipelines/test_agent_evals.py -v` los evalúa.
 - **Evidencia de la memoria del agente** — `uv run python scripts/record_memory_evidence.py` (gateway, Qdrant y Redis);
   `uv run pytest tests/pipelines/test_agent_memory_evals.py -v` la evalúa.
-- **Servidor MCP** — `docker compose up -d keycloak api` y `uv run --env-file .env python -m mcps.trackflow_tools`;
+- **Servidor MCP** — `docker compose up -d keycloak api mcp`, o `docker compose up -d keycloak api` y
+  `uv run --env-file .env python -m mcps.trackflow_tools`;
   `uv run pytest tests/mcp -v`.
 - **Job nocturno** — `uv run python scripts/nightly_export.py` (`TARGET_DATE=YYYY-MM-DD` para otra fecha cerrada).
 - **Worker de Celery** — `docker compose up -d redis worker flower` / `docker compose stop worker`; sin Docker,
