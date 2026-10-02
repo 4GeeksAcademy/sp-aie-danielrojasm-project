@@ -22,8 +22,10 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    `GET /api/incidents/{id} -> 200`.
 - Datos locales: el gestor se cargó con `scripts/seed_incidents.py` (95 incidencias) y se creó la cuenta de servicio
    `agente-soporte@trackflow.com`; su id va en `AGENT_SERVICE_USER_ID` del `.env` raíz.
-- Riesgo conocido: el contenedor `api` de Docker sigue `unhealthy` y no responde en el 8000, que es el
-   `INCIDENTS_API_URL` por defecto; en local se verificó con la API en el 8010.
+- Contenedor `api` de Docker: estaba `unhealthy` porque su imagen no tenía `openai` (anterior al RAG). Reconstruido con
+   `docker compose up -d --build api`, pasa a `healthy` y `/agent/query` en el 8000 enruta a la tool (ticket 2), al RAG
+   y a ambos (ticket 13), con `GET /api/incidents/{id} -> 200` contra sí mismo. Tras cambiar
+   `services/api/requirements.txt` hay que volver a reconstruirlo.
 - Siguiente paso: PR con la etiqueta `langgraph-external-tools`.
 
 
