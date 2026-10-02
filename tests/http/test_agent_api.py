@@ -13,6 +13,9 @@ from data.pipelines import rag
 from data.process.rag import RagConfigurationError, RagServiceError
 from services.api.main import app
 from services.support_agent import nodes, router
+from services.support_agent.memory.models import DecisionClassification, MemoryDraft
+from services.support_agent.memory.self_evaluation import AgentReply
+from services.support_agent.memory.store import get_memory_store
 from services.support_agent.routing import route_by_rules
 from services.support_agent.tools import incidents
 from services.support_agent.tracing import load_trace, trace_path
@@ -51,7 +54,7 @@ def agent_token(monkeypatch):
 @pytest.fixture
 def fake_rag(monkeypatch):
     monkeypatch.setattr(rag, "retrieve", lambda question: [CHUNK])
-    monkeypatch.setattr(rag, "generate_answer", lambda question, context: "Son 30 días.")
+    monkeypatch.setattr(nodes, "generate_reply", lambda question, context: AgentReply(answer="Son 30 días."))
 
 
 def test_requires_a_session():
@@ -68,6 +71,44 @@ def test_returns_the_graph_answer_and_the_run_reference(auth_client, fake_rag):
     body = response.json()
     assert body["answer"] == "Son 30 días."
     assert trace_path(body["run_id"]).exists()
+    assert body["conversation_id"] and body["memory_proposal"] is None and body["memory_decision"] is None
+
+
+def test_memory_proposal_is_answered_in_the_same_conversation_by_the_authenticated_user(auth_client, monkeypatch):
+    message = "En realidad SEUR ya no cubre esa zona rural de Zaragoza, hay que usar el carrier local."
+    draft = MemoryDraft(
+        categoria="carrier_rule",
+        hecho="SEUR ya no cubre la zona rural de Zaragoza.",
+        cita_usuario="SEUR ya no cubre esa zona rural de Zaragoza",
+        transportista="SEUR",
+        pais="ES",
+    )
+    monkeypatch.setattr(rag, "retrieve", lambda question: [CHUNK])
+    monkeypatch.setattr(nodes, "generate_reply", lambda question, context: AgentReply(answer="Gracias.", proposal=draft))
+    monkeypatch.setattr(
+        nodes, "classify_decision", lambda text, proposal: DecisionClassification(decision="approve", confianza=0.9)
+    )
+
+    first = auth_client.post("/agent/query", json={"question": message}).json()
+    second = auth_client.post(
+        "/agent/query", json={"question": "Sí, guárdalo.", "conversation_id": first["conversation_id"]}
+    ).json()
+
+    assert first["memory_proposal"]["fact"] == draft.fact and first["memory_proposal"]["subject"] == "SEUR (ES)"
+    assert "¿Quieres que recuerde esto" in first["answer"]
+    assert second["memory_decision"] == {
+        "proposal_id": first["memory_proposal"]["proposal_id"],
+        "outcome": "approved",
+        "fact": draft.fact,
+    }
+    (entry,) = get_memory_store().entries()
+    assert entry.facts[0].approved_by == auth_client.user_id
+
+
+def test_rejects_a_malformed_conversation_id(auth_client):
+    response = auth_client.post("/agent/query", json={"question": "Hola", "conversation_id": "../../x"})
+
+    assert response.status_code == 422
 
 
 def test_ticket_question_reads_the_live_incident_manager_through_the_mcp_server(auth_client, agent_token, monkeypatch):
@@ -84,7 +125,9 @@ def test_ticket_question_reads_the_live_incident_manager_through_the_mcp_server(
     auth_client.patch(f"/api/incidents/{incident['id']}/status", json={"status": "in_progress"})
     monkeypatch.setattr(rag, "retrieve", lambda question: pytest.fail("una pregunta de ticket no usa el RAG"))
     contexts: list = []
-    monkeypatch.setattr(rag, "generate_answer", lambda question, context: contexts.append(context) or "En curso.")
+    monkeypatch.setattr(
+        nodes, "generate_reply", lambda question, context: contexts.append(context) or AgentReply(answer="En curso.")
+    )
 
     with running_mcp_server(monkeypatch, httpx.ASGITransport(app=app), auth_client.user_id) as mcp_url:
         monkeypatch.setenv("MCP_SERVER_URL", mcp_url)
@@ -104,7 +147,7 @@ def test_ticket_question_reads_the_live_incident_manager_through_the_mcp_server(
 
 def test_ticket_question_with_the_mcp_server_down_answers_honestly(auth_client, agent_token, monkeypatch):
     monkeypatch.setenv("MCP_SERVER_URL", "http://127.0.0.1:9/mcp")
-    monkeypatch.setattr(rag, "generate_answer", lambda question, context: pytest.fail("no debe generar"))
+    monkeypatch.setattr(nodes, "generate_reply", lambda question, context: pytest.fail("no debe generar"))
 
     response = auth_client.post("/agent/query", json={"question": "¿En qué estado está el ticket 482?"})
 
@@ -140,7 +183,7 @@ def test_unexpected_node_failure_returns_a_clear_500_without_stack_trace(auth_cl
     def broken(question, context):
         raise KeyError("text")
 
-    monkeypatch.setattr(rag, "generate_answer", broken)
+    monkeypatch.setattr(nodes, "generate_reply", broken)
 
     response = auth_client.post("/agent/query", json={"question": "¿Ventana de devolución?"})
 

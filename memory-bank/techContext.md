@@ -399,6 +399,25 @@ Detalle en `services/support_agent/README.md`.
 - **Trace:** JSON por corrida en `AGENT_TRACE_DIR` (por defecto `data/raw/agent_traces/`, ignorado por git; los tests lo
   apuntan a un temporal en `tests/conftest.py`). Sin LangSmith.
 - **Evals:** se ejecutan contra traces grabados (`data/eval/agent/traces/`), no contra Qdrant ni el gateway.
+- **Memoria:** ver "Memoria del agente de soporte". El estado añade `message`, `conversation_id`, `user_id`, `run_id`
+  y los campos de memoria; el trace pasa a `trace_version` 3 (`agent_memory` en `sources_used` solo si recordó algo).
+
+### Memoria del agente de soporte — Milestone 09 (Ticket #MEM-092)
+
+Diseño, prohibiciones y evidencias en `docs/agent-memory/memory-design.md`.
+
+- **Almacén:** Redis (`REDIS_URL`, el mismo de Celery, con AOF y `noeviction`) con prefijo `trackflow:agent_memory`:
+  hash `:entries` (una entrada por sujeto), hash `:pending` (una propuesta por usuario) y stream `:audit` (solo se
+  añade, sin recortar). Nunca se escribe en Qdrant ni en `trackflow_knowledge`. Cliente `redis` (`pyproject.toml` y
+  `services/api/requirements.txt`) con timeouts de 1–2 s; cualquier fallo es `MemoryUnavailableError` y el agente
+  responde avisando de que no puede recordar.
+- **Flujo:** propuesta → decisión explícita del usuario en el turno siguiente de la misma conversación → consolidación.
+  Sin `user_id` no se propone nada (scripts). El clasificador y la generación usan el modelo de generación en modo JSON.
+- **Política en código (`memory/policy.py`):** categorías `carrier_rule`, `incident_context`, `client_preference`;
+  transportistas y países de la base de conocimiento; patrones prohibidos; cita del usuario (≥ 80 % de sus palabras en
+  el mensaje). Lo bloqueado y los mensajes del registro se guardan redactados (`redact`).
+- **Tests:** `tests/conftest.py` da a cada test un `fakeredis` (dependencia de desarrollo); nunca toca `REDIS_URL`.
+  Los scripts de grabación usan sus propios espacios de nombres (`:eval`, `:evidence`) y los vacían.
 
 ### Servidor MCP de herramientas — Milestone 09
 
@@ -504,6 +523,8 @@ Todos se ejecutan desde la raíz del monorepo:
 - **Evals del agente LangGraph** — `uv run python scripts/record_agent_traces.py` graba los traces (Qdrant, `.env`,
   Keycloak, la API y el servidor MCP en `MCP_SERVER_URL`);
   `uv run pytest tests/pipelines/test_agent_evals.py -v` los evalúa.
+- **Evidencia de la memoria del agente** — `uv run python scripts/record_memory_evidence.py` (gateway, Qdrant y Redis);
+  `uv run pytest tests/pipelines/test_agent_memory_evals.py -v` la evalúa.
 - **Servidor MCP** — `docker compose up -d keycloak api` y `uv run --env-file .env python -m mcps.trackflow_tools`;
   `uv run pytest tests/mcp -v`.
 - **Job nocturno** — `uv run python scripts/nightly_export.py` (`TARGET_DATE=YYYY-MM-DD` para otra fecha cerrada).

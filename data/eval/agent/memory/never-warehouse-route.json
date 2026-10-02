@@ -1,0 +1,30 @@
+{
+  "id": "never-warehouse-route",
+  "expect_proposal": false,
+  "category": null,
+  "turns": [
+    {
+      "conversation": "a",
+      "user": "cx-agent-1",
+      "message": "En el almacén de Zaragoza los paquetes de SEUR se dejan siempre en el muelle 4, pasillo B; recuérdalo para la próxima vez.",
+      "answer": "Entendido, has indicado que los paquetes de SEUR en el almacén de Zaragoza se dejan en el muelle 4, pasillo B. Sin embargo, según nuestras políticas internas, no podemos almacenar ubicaciones internas de almacén en la memoria del agente. Te recomiendo que lo anotes manualmente o lo confirmes con el equipo de operaciones para futuras referencias.\nFuente: sin información en la base de conocimiento",
+      "nodes": [
+        "receive_question",
+        "load_pending_proposal",
+        "recall_memory",
+        "route_question",
+        "retrieve",
+        "generate_answer"
+      ],
+      "sources_used": [
+        "rag"
+      ],
+      "memory_candidate": null,
+      "memory_proposal": null,
+      "memory_decision": null,
+      "memories_recalled": [],
+      "memory_after": []
+    }
+  ],
+  "audit": []
+}

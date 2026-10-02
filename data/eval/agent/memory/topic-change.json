@@ -1,0 +1,119 @@
+{
+  "id": "topic-change",
+  "description": "El usuario cambia de tema sin responder: la propuesta se descarta y se responde la nueva pregunta.",
+  "turns": [
+    {
+      "conversation": "a",
+      "user": "cx-agent-1",
+      "message": "En realidad SEUR ya no cubre esa zona rural de Zaragoza, hay que usar el carrier local desde el mes pasado.",
+      "answer": "En TrackFlow, según nuestra información actual, SEUR tiene la mejor cobertura en zonas rurales de Aragón, y los transportistas locales solo están disponibles dentro del área metropolitana de Zaragoza. Si nos indican que SEUR ya no cubre su zona rural, necesitamos confirmarlo con nuestro equipo de transportistas antes de dar una respuesta definitiva, ya que podría ser necesario ajustar la ruta. Le agradecemos la información y lo gestionaremos internamente.\nFuente: Cobertura de Transportistas › España (Zaragoza)\n\n¿Quieres que recuerde esto para próximas conversaciones? «SEUR ya no cubre la zona rural de Zaragoza mencionada; desde el mes pasado se debe usar el carrier local.» Responde sí, no o corrígelo.",
+      "nodes": [
+        "receive_question",
+        "load_pending_proposal",
+        "recall_memory",
+        "route_question",
+        "retrieve",
+        "generate_answer",
+        "propose_memory"
+      ],
+      "sources_used": [
+        "rag"
+      ],
+      "memory_candidate": {
+        "category": "carrier_rule",
+        "fact": "SEUR ya no cubre la zona rural de Zaragoza mencionada; desde el mes pasado se debe usar el carrier local.",
+        "reason": "Para actualizar la cobertura de SEUR en esa zona y evitar ofrecer un transportista que ya no opera allí, usando en su lugar el carrier local.",
+        "user_quote": "En realidad SEUR ya no cubre esa zona rural de Zaragoza, hay que usar el carrier local desde el mes pasado.",
+        "carrier": "SEUR",
+        "country": "ES",
+        "zone": null,
+        "client": null
+      },
+      "memory_proposal": {
+        "proposal_id": "ba08165e4a654982b05d552a73a97709",
+        "category": "carrier_rule",
+        "subject_key": "carrier_rule:seur:ES",
+        "subject": "SEUR (ES)",
+        "keywords": [
+          "seur"
+        ],
+        "fact": "SEUR ya no cubre la zona rural de Zaragoza mencionada; desde el mes pasado se debe usar el carrier local.",
+        "reason": "Para actualizar la cobertura de SEUR en esa zona y evitar ofrecer un transportista que ya no opera allí, usando en su lugar el carrier local.",
+        "user_id": "cx-agent-1",
+        "conversation_id": "3a1804955d59475da915459ead03e29d",
+        "run_id": "551aa5f63e0a44b19f015ae1562a423b",
+        "source_message": "en realidad seur ya no cubre esa zona rural de zaragoza, hay que usar el carrier local desde el mes pasado.",
+        "proposed_at": "2026-10-02T16:12:28.421500Z",
+        "expires_at": "2026-10-02T16:42:28.421500Z"
+      },
+      "memory_decision": null,
+      "memories_recalled": [],
+      "memory_after": []
+    },
+    {
+      "conversation": "a",
+      "user": "cx-agent-1",
+      "message": "¿Cuánto cuesta almacenar un palé al mes en Zaragoza?",
+      "answer": "No he guardado la propuesta anterior («SEUR ya no cubre la zona rural de Zaragoza mencionada; desde el mes pasado se debe usar el carrier local.») porque no quedó clara tu decisión. Si quieres que lo recuerde, vuelve a decírmelo.\n\nEn TrackFlow cobramos el almacenamiento según el volumen ocupado, no por número de palés. La tarifa estándar en Zaragoza es de 16 EUR por metro cúbico al mes, pero no tenemos registrado el volumen exacto de un palé estándar en nuestra base de conocimiento. Para darte un costo concreto, necesito confirmarlo con el equipo de operaciones antes de responderte. Fuente: Tarifas de Almacenamiento",
+      "nodes": [
+        "receive_question",
+        "load_pending_proposal",
+        "resolve_proposal",
+        "recall_memory",
+        "route_question",
+        "retrieve",
+        "generate_answer"
+      ],
+      "sources_used": [
+        "rag"
+      ],
+      "memory_candidate": null,
+      "memory_proposal": null,
+      "memory_decision": {
+        "proposal_id": "ba08165e4a654982b05d552a73a97709",
+        "outcome": "discarded",
+        "reason": "unrelated",
+        "fact": null
+      },
+      "memories_recalled": [],
+      "memory_after": []
+    }
+  ],
+  "audit": [
+    {
+      "id": "1790957548433-0",
+      "event": "proposed",
+      "at": "2026-10-02T16:12:28.421500+00:00",
+      "proposal_id": "ba08165e4a654982b05d552a73a97709",
+      "user_id": "cx-agent-1",
+      "conversation_id": "3a1804955d59475da915459ead03e29d",
+      "run_id": "551aa5f63e0a44b19f015ae1562a423b",
+      "category": "carrier_rule",
+      "subject_key": "carrier_rule:seur:ES",
+      "proposed_fact": "SEUR ya no cubre la zona rural de Zaragoza mencionada; desde el mes pasado se debe usar el carrier local.",
+      "reason": "Para actualizar la cobertura de SEUR en esa zona y evitar ofrecer un transportista que ya no opera allí, usando en su lugar el carrier local.",
+      "expires_at": "2026-10-02T16:42:28.421500+00:00",
+      "source_message": "en realidad seur ya no cubre esa zona rural de zaragoza, hay que usar el carrier local desde el mes pasado."
+    },
+    {
+      "id": "1790957551316-0",
+      "event": "decision",
+      "at": "2026-10-02T16:12:28.451828+00:00",
+      "proposal_id": "ba08165e4a654982b05d552a73a97709",
+      "user_id": "cx-agent-1",
+      "conversation_id": "3a1804955d59475da915459ead03e29d",
+      "run_id": "551aa5f63e0a44b19f015ae1562a423b",
+      "category": "carrier_rule",
+      "subject_key": "carrier_rule:seur:ES",
+      "proposed_fact": "SEUR ya no cubre la zona rural de Zaragoza mencionada; desde el mes pasado se debe usar el carrier local.",
+      "decision_run_id": "2ee1d8df14c8469ab5ccdccc0b16df24",
+      "outcome": "discarded",
+      "reason": "unrelated",
+      "stored_fact": null,
+      "label": "unrelated",
+      "confidence": 0.95,
+      "decided_by": "llm",
+      "message": "¿cuanto cuesta almacenar un pale al mes en zaragoza?"
+    }
+  ]
+}

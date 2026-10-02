@@ -1,0 +1,72 @@
+{
+  "id": "recurring-incident",
+  "expect_proposal": true,
+  "category": "incident_context",
+  "turns": [
+    {
+      "conversation": "a",
+      "user": "cx-agent-1",
+      "message": "Esos retrasos reportados en incidencias de Los Ángeles esta semana son por la huelga portuaria, no por un problema nuestro — ya van tres tickets sobre lo mismo.",
+      "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento\n\n¿Quieres que recuerde esto para próximas conversaciones? «Los retrasos en Los Ángeles esta semana son por la huelga portuaria, no por un problema de TrackFlow.» Responde sí, no o corrígelo.",
+      "nodes": [
+        "receive_question",
+        "load_pending_proposal",
+        "recall_memory",
+        "route_question",
+        "retrieve",
+        "no_information",
+        "propose_memory"
+      ],
+      "sources_used": [
+        "rag"
+      ],
+      "memory_candidate": {
+        "category": "incident_context",
+        "fact": "Los retrasos en Los Ángeles esta semana son por la huelga portuaria, no por un problema de TrackFlow.",
+        "reason": "Para no volver a escalar la misma alerta y tener contexto de la causa recurrente en esa zona.",
+        "user_quote": "Esos retrasos reportados en incidencias de Los Ángeles esta semana son por la huelga portuaria, no por un problema nuestro — ya van tres tickets sobre lo mismo.",
+        "carrier": null,
+        "country": "US",
+        "zone": "Los Ángeles",
+        "client": null
+      },
+      "memory_proposal": {
+        "proposal_id": "8883dccef45646c0a151dc3d6b1ace89",
+        "category": "incident_context",
+        "subject_key": "incident_context:US:los-angeles",
+        "subject": "Los Ángeles (US)",
+        "keywords": [
+          "angeles"
+        ],
+        "fact": "Los retrasos en Los Ángeles esta semana son por la huelga portuaria, no por un problema de TrackFlow.",
+        "reason": "Para no volver a escalar la misma alerta y tener contexto de la causa recurrente en esa zona.",
+        "user_id": "cx-agent-1",
+        "conversation_id": "5d8e2977510d49dc9f415decb23f012a",
+        "run_id": "01299e5ae0764509a32f6be57245871a",
+        "source_message": "esos retrasos reportados en incidencias de los angeles esta semana son por la huelga portuaria, no por un problema nuestro — ya van tres tickets sobre lo mismo.",
+        "proposed_at": "2026-10-02T16:05:15.219182Z",
+        "expires_at": "2026-10-02T16:35:15.219182Z"
+      },
+      "memory_decision": null,
+      "memories_recalled": [],
+      "memory_after": []
+    }
+  ],
+  "audit": [
+    {
+      "id": "1790957115221-0",
+      "event": "proposed",
+      "at": "2026-10-02T16:05:15.219182+00:00",
+      "proposal_id": "8883dccef45646c0a151dc3d6b1ace89",
+      "user_id": "cx-agent-1",
+      "conversation_id": "5d8e2977510d49dc9f415decb23f012a",
+      "run_id": "01299e5ae0764509a32f6be57245871a",
+      "category": "incident_context",
+      "subject_key": "incident_context:US:los-angeles",
+      "proposed_fact": "Los retrasos en Los Ángeles esta semana son por la huelga portuaria, no por un problema de TrackFlow.",
+      "reason": "Para no volver a escalar la misma alerta y tener contexto de la causa recurrente en esa zona.",
+      "expires_at": "2026-10-02T16:35:15.219182+00:00",
+      "source_message": "esos retrasos reportados en incidencias de los angeles esta semana son por la huelga portuaria, no por un problema nuestro — ya van tres tickets sobre lo mismo."
+    }
+  ]
+}

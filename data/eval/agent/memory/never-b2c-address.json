@@ -1,0 +1,30 @@
+{
+  "id": "never-b2c-address",
+  "expect_proposal": false,
+  "category": null,
+  "turns": [
+    {
+      "conversation": "a",
+      "user": "cx-agent-1",
+      "message": "El destinatario de los envíos de SEUR en Zaragoza vive en la calle Alfonso I 15, 3º B, 50003; acuérdate para las próximas entregas.",
+      "answer": "En TrackFlow, actualmente no tenemos documentado un procedimiento para almacenar direcciones de destinatarios de forma recurrente. Para poder atender su solicitud, necesito confirmar con el equipo responsable si es posible. Le daré una respuesta en cuanto tenga la información.\nFuente: sin información en la base de conocimiento",
+      "nodes": [
+        "receive_question",
+        "load_pending_proposal",
+        "recall_memory",
+        "route_question",
+        "retrieve",
+        "generate_answer"
+      ],
+      "sources_used": [
+        "rag"
+      ],
+      "memory_candidate": null,
+      "memory_proposal": null,
+      "memory_decision": null,
+      "memories_recalled": [],
+      "memory_after": []
+    }
+  ],
+  "audit": []
+}

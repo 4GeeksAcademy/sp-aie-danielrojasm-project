@@ -1,22 +1,41 @@
 {
-  "trace_version": 2,
+  "trace_version": 3,
   "run_id": "black-friday-sla",
+  "conversation_id": "e7065e29da234e438159ee113d2fd8e2",
+  "user_id": null,
   "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
-  "started_at": "2026-10-02T14:43:34.363+00:00",
+  "started_at": "2026-10-02T15:53:22.031+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 1.9,
+      "duration_ms": 2.3,
       "output": {
-        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?"
+        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "message": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?"
       }
     },
     {
       "order": 2,
+      "node": "load_pending_proposal",
+      "duration_ms": 0.9,
+      "output": {
+        "pending_proposal": null
+      }
+    },
+    {
+      "order": 3,
+      "node": "recall_memory",
+      "duration_ms": 3.0,
+      "output": {
+        "memories": []
+      }
+    },
+    {
+      "order": 4,
       "node": "route_question",
-      "duration_ms": 2121.4,
+      "duration_ms": 7209.4,
       "output": {
         "route": {
           "ticket_ids": [],
@@ -26,9 +45,9 @@
       }
     },
     {
-      "order": 3,
+      "order": 5,
       "node": "retrieve",
-      "duration_ms": 229.7,
+      "duration_ms": 226.9,
       "output": {
         "context": [
           {
@@ -75,20 +94,28 @@
       }
     },
     {
-      "order": 4,
+      "order": 6,
       "node": "generate_answer",
-      "duration_ms": 12019.7,
+      "duration_ms": 4637.1,
       "output": {
-        "answer": "En TrackFlow no podemos garantizar el SLA de entrega durante el Black Friday, porque es una fecha de alta demanda declarada. Durante esos días los tiempos pueden extenderse hasta un 40% adicional, así que te recomendamos comunicarlo con anticipación a tus clientes para que estén preparados.\n\nFuente: SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados"
+        "answer": "En TrackFlow no garantizamos el SLA de entrega durante el Black Friday. Es una fecha de alta demanda declarada, por lo que los tiempos pueden extenderse hasta un 40% adicional. Te lo comunicamos proactivamente con anticipación para que lo tengas en cuenta.\nFuente: SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados",
+        "memory_candidate": null
       }
     }
   ],
-  "duration_ms": 14372.9,
+  "duration_ms": 12079.5,
   "sources_used": [
     "rag"
   ],
   "final_state": {
     "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+    "message": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+    "conversation_id": "e7065e29da234e438159ee113d2fd8e2",
+    "user_id": null,
+    "run_id": "black-friday-sla",
+    "pending_proposal": null,
+    "memories": [],
+    "memory_candidate": null,
     "route": {
       "ticket_ids": [],
       "needs_knowledge": true,
@@ -136,7 +163,7 @@
         "text": "TrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado, no según número de unidades:\n- Tarifa estándar: 18 USD por metro cúbico al mes (Los Ángeles) o 16 EUR por metro cúbico al mes (Zaragoza).\n- Los primeros 30 días de cualquier producto nuevo en inventario no generan cargo de almacenamiento (periodo de gracia).\n- Inventario con más de 180 días sin movimiento (sin ventas ni salidas) paga una tarifa de \"inventario de larga duración\" del 150% sobre la tarifa estándar, a partir del día 181."
       }
     ],
-    "answer": "En TrackFlow no podemos garantizar el SLA de entrega durante el Black Friday, porque es una fecha de alta demanda declarada. Durante esos días los tiempos pueden extenderse hasta un 40% adicional, así que te recomendamos comunicarlo con anticipación a tus clientes para que estén preparados.\n\nFuente: SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados"
+    "answer": "En TrackFlow no garantizamos el SLA de entrega durante el Black Friday. Es una fecha de alta demanda declarada, por lo que los tiempos pueden extenderse hasta un 40% adicional. Te lo comunicamos proactivamente con anticipación para que lo tengas en cuenta.\nFuente: SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados"
   },
   "checkpoints": [
     {
@@ -145,7 +172,7 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be6fa-4f94-663e-bfff-aa5c0caeb48a",
+      "checkpoint_id": "1f1be796-504b-6216-bfff-90a4deb2538b",
       "values": {}
     },
     {
@@ -154,31 +181,77 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be6fa-4f95-6fee-8000-e2196bd7ffde",
+      "checkpoint_id": "1f1be796-504d-613d-8000-a3fd7caa2a20",
       "values": {
-        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?"
+        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "conversation_id": "e7065e29da234e438159ee113d2fd8e2",
+        "user_id": null,
+        "run_id": "black-friday-sla"
       }
     },
     {
       "step": 1,
       "source": "loop",
       "next": [
-        "route_question"
+        "load_pending_proposal"
       ],
-      "checkpoint_id": "1f1be6fa-4f97-689c-8001-4cebbe4b7bc6",
+      "checkpoint_id": "1f1be796-504f-6024-8001-c5aec403a282",
       "values": {
-        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?"
+        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "message": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "conversation_id": "e7065e29da234e438159ee113d2fd8e2",
+        "user_id": null,
+        "run_id": "black-friday-sla"
       }
     },
     {
       "step": 2,
       "source": "loop",
       "next": [
-        "retrieve"
+        "recall_memory"
       ],
-      "checkpoint_id": "1f1be6fa-63d2-6a00-8002-b9a086964b4b",
+      "checkpoint_id": "1f1be796-5051-6200-8002-bb93e0929411",
       "values": {
         "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "message": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "conversation_id": "e7065e29da234e438159ee113d2fd8e2",
+        "user_id": null,
+        "run_id": "black-friday-sla",
+        "pending_proposal": null
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [
+        "route_question"
+      ],
+      "checkpoint_id": "1f1be796-5058-653d-8003-b423b2caf972",
+      "values": {
+        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "message": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "conversation_id": "e7065e29da234e438159ee113d2fd8e2",
+        "user_id": null,
+        "run_id": "black-friday-sla",
+        "pending_proposal": null,
+        "memories": []
+      }
+    },
+    {
+      "step": 4,
+      "source": "loop",
+      "next": [
+        "retrieve"
+      ],
+      "checkpoint_id": "1f1be796-9519-641a-8004-9d21288a1ba0",
+      "values": {
+        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "message": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "conversation_id": "e7065e29da234e438159ee113d2fd8e2",
+        "user_id": null,
+        "run_id": "black-friday-sla",
+        "pending_proposal": null,
+        "memories": [],
         "route": {
           "ticket_ids": [],
           "needs_knowledge": true,
@@ -187,14 +260,20 @@
       }
     },
     {
-      "step": 3,
+      "step": 5,
       "source": "loop",
       "next": [
         "generate_answer"
       ],
-      "checkpoint_id": "1f1be6fa-6603-6445-8003-25f38d264650",
+      "checkpoint_id": "1f1be796-9743-6142-8005-0c6115d881bf",
       "values": {
         "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "message": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "conversation_id": "e7065e29da234e438159ee113d2fd8e2",
+        "user_id": null,
+        "run_id": "black-friday-sla",
+        "pending_proposal": null,
+        "memories": [],
         "route": {
           "ticket_ids": [],
           "needs_knowledge": true,
@@ -245,12 +324,19 @@
       }
     },
     {
-      "step": 4,
+      "step": 6,
       "source": "loop",
       "next": [],
-      "checkpoint_id": "1f1be6fa-d89f-6e32-8004-ae5740dc8599",
+      "checkpoint_id": "1f1be796-c37b-60aa-8006-524a1c59f662",
       "values": {
         "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "message": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "conversation_id": "e7065e29da234e438159ee113d2fd8e2",
+        "user_id": null,
+        "run_id": "black-friday-sla",
+        "pending_proposal": null,
+        "memories": [],
+        "memory_candidate": null,
         "route": {
           "ticket_ids": [],
           "needs_knowledge": true,
@@ -298,7 +384,7 @@
             "text": "TrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado, no según número de unidades:\n- Tarifa estándar: 18 USD por metro cúbico al mes (Los Ángeles) o 16 EUR por metro cúbico al mes (Zaragoza).\n- Los primeros 30 días de cualquier producto nuevo en inventario no generan cargo de almacenamiento (periodo de gracia).\n- Inventario con más de 180 días sin movimiento (sin ventas ni salidas) paga una tarifa de \"inventario de larga duración\" del 150% sobre la tarifa estándar, a partir del día 181."
           }
         ],
-        "answer": "En TrackFlow no podemos garantizar el SLA de entrega durante el Black Friday, porque es una fecha de alta demanda declarada. Durante esos días los tiempos pueden extenderse hasta un 40% adicional, así que te recomendamos comunicarlo con anticipación a tus clientes para que estén preparados.\n\nFuente: SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados"
+        "answer": "En TrackFlow no garantizamos el SLA de entrega durante el Black Friday. Es una fecha de alta demanda declarada, por lo que los tiempos pueden extenderse hasta un 40% adicional. Te lo comunicamos proactivamente con anticipación para que lo tengas en cuenta.\nFuente: SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados"
       }
     }
   ]

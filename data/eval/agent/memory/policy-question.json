@@ -1,0 +1,30 @@
+{
+  "id": "policy-question",
+  "expect_proposal": false,
+  "category": null,
+  "turns": [
+    {
+      "conversation": "a",
+      "user": "cx-agent-1",
+      "message": "¿Cuál es la ventana de devolución estándar?",
+      "answer": "En TrackFlow, la ventana de devolución estándar es de 30 días desde la entrega del pedido. Si su marca tiene configurada una ventana distinta en el contrato, se aplica esa. Cuéntenme cómo lo tienen contratado y lo confirmamos sin problema.\nFuente: Política de Devoluciones › Ventana de devolución estándar",
+      "nodes": [
+        "receive_question",
+        "load_pending_proposal",
+        "recall_memory",
+        "route_question",
+        "retrieve",
+        "generate_answer"
+      ],
+      "sources_used": [
+        "rag"
+      ],
+      "memory_candidate": null,
+      "memory_proposal": null,
+      "memory_decision": null,
+      "memories_recalled": [],
+      "memory_after": []
+    }
+  ],
+  "audit": []
+}

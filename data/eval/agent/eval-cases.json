@@ -4,7 +4,7 @@
     {
       "id": "returns-window",
       "question": "¿Cuál es la ventana de devolución estándar?",
-      "expected_nodes": ["receive_question", "route_question", "retrieve", "generate_answer"],
+      "expected_nodes": ["receive_question", "load_pending_proposal", "recall_memory", "route_question", "retrieve", "generate_answer"],
       "expected_sources": ["rag"],
       "retrieved_sources_include": ["returns-policy"],
       "answer_contains": ["30 días", "Fuente: Política de Devoluciones"]
@@ -12,7 +12,7 @@
     {
       "id": "black-friday-sla",
       "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
-      "expected_nodes": ["receive_question", "route_question", "retrieve", "generate_answer"],
+      "expected_nodes": ["receive_question", "load_pending_proposal", "recall_memory", "route_question", "retrieve", "generate_answer"],
       "expected_sources": ["rag"],
       "retrieved_sources_include": ["sla-delivery"],
       "answer_contains": ["40%", "Fuente: SLA de Entrega"]
@@ -20,7 +20,7 @@
     {
       "id": "out-of-scope",
       "question": "¿Tenéis almacén propio en Ciudad de México?",
-      "expected_nodes": ["receive_question", "route_question", "retrieve", "no_information"],
+      "expected_nodes": ["receive_question", "load_pending_proposal", "recall_memory", "route_question", "retrieve", "no_information"],
       "expected_sources": ["rag"],
       "answer_contains": ["No tengo información", "Fuente: sin información en la base de conocimiento"]
     },
@@ -34,14 +34,14 @@
     {
       "id": "ticket-status",
       "question": "¿En qué estado está el ticket 2?",
-      "expected_nodes": ["receive_question", "route_question", "lookup_tickets", "generate_answer"],
+      "expected_nodes": ["receive_question", "load_pending_proposal", "recall_memory", "route_question", "lookup_tickets", "generate_answer"],
       "expected_sources": ["incidents_tool"],
       "answer_contains": ["Fuente: Gestor de incidencias › Ticket 2"]
     },
     {
       "id": "ticket-and-policy",
       "question": "El cliente del ticket 1 quiere saber cuántos días tiene para devolver un producto: ¿en qué estado está su ticket y cuál es la ventana de devolución estándar?",
-      "expected_nodes": ["receive_question", "route_question", "lookup_tickets", "retrieve", "generate_answer"],
+      "expected_nodes": ["receive_question", "load_pending_proposal", "recall_memory", "route_question", "lookup_tickets", "retrieve", "generate_answer"],
       "expected_sources": ["incidents_tool", "rag"],
       "retrieved_sources_include": ["returns-policy"],
       "answer_contains": ["30 días", "Gestor de incidencias › Ticket 1"]
@@ -49,7 +49,7 @@
     {
       "id": "ticket-not-found",
       "question": "¿Cómo va la incidencia 9999?",
-      "expected_nodes": ["receive_question", "route_question", "lookup_tickets", "ticket_fallback"],
+      "expected_nodes": ["receive_question", "load_pending_proposal", "recall_memory", "route_question", "lookup_tickets", "ticket_fallback"],
       "expected_sources": ["incidents_tool"],
       "answer_contains": ["No encuentro el ticket 9999 en el gestor de incidencias"]
     },
@@ -57,7 +57,7 @@
       "id": "ticket-service-down",
       "question": "¿En qué estado está el ticket 1?",
       "env": { "MCP_SERVER_URL": "http://127.0.0.1:9/mcp" },
-      "expected_nodes": ["receive_question", "route_question", "lookup_tickets", "ticket_fallback"],
+      "expected_nodes": ["receive_question", "load_pending_proposal", "recall_memory", "route_question", "lookup_tickets", "ticket_fallback"],
       "expected_sources": ["incidents_tool"],
       "answer_contains": ["No pude confirmar el estado del ticket 1 ahora mismo"]
     }

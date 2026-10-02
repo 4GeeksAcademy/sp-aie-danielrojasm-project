@@ -1,0 +1,132 @@
+{
+  "id": "edited-cycle",
+  "description": "El usuario aprueba con una corrección: se guarda su versión, no la del agente.",
+  "turns": [
+    {
+      "conversation": "a",
+      "user": "cx-agent-1",
+      "message": "En realidad SEUR ya no cubre esa zona rural de Zaragoza, hay que usar el carrier local desde el mes pasado.",
+      "answer": "En TrackFlow, según nuestra información actual, SEUR tiene la mejor cobertura en zonas rurales de Aragón. No obstante, hemos recibido una actualización interna que indica un cambio reciente en esa zona. Estamos confirmando con nuestro equipo de operaciones para darle la información correcta y le responderemos lo antes posible.\n\n¿Quieres que recuerde esto para próximas conversaciones? «SEUR ya no cubre la zona rural de Zaragoza; desde el mes pasado se debe usar el carrier local.» Responde sí, no o corrígelo.",
+      "nodes": [
+        "receive_question",
+        "load_pending_proposal",
+        "recall_memory",
+        "route_question",
+        "retrieve",
+        "generate_answer",
+        "propose_memory"
+      ],
+      "sources_used": [
+        "rag"
+      ],
+      "memory_candidate": {
+        "category": "carrier_rule",
+        "fact": "SEUR ya no cubre la zona rural de Zaragoza; desde el mes pasado se debe usar el carrier local.",
+        "reason": "Actualización de cobertura de SEUR en Zaragoza para evitar usar un transportista que ya no opera allí.",
+        "user_quote": "En realidad SEUR ya no cubre esa zona rural de Zaragoza, hay que usar el carrier local desde el mes pasado.",
+        "carrier": "SEUR",
+        "country": "ES",
+        "zone": null,
+        "client": null
+      },
+      "memory_proposal": {
+        "proposal_id": "a77c5acf24944eb884633bb0f21e5f6d",
+        "category": "carrier_rule",
+        "subject_key": "carrier_rule:seur:ES",
+        "subject": "SEUR (ES)",
+        "keywords": [
+          "seur"
+        ],
+        "fact": "SEUR ya no cubre la zona rural de Zaragoza; desde el mes pasado se debe usar el carrier local.",
+        "reason": "Actualización de cobertura de SEUR en Zaragoza para evitar usar un transportista que ya no opera allí.",
+        "user_id": "cx-agent-1",
+        "conversation_id": "b17809620b314b8eba9bcd8ce42aacc1",
+        "run_id": "b77e53657dc1428a8cc35b241f72a430",
+        "source_message": "en realidad seur ya no cubre esa zona rural de zaragoza, hay que usar el carrier local desde el mes pasado.",
+        "proposed_at": "2026-10-02T16:13:15.215517Z",
+        "expires_at": "2026-10-02T16:43:15.215517Z"
+      },
+      "memory_decision": null,
+      "memories_recalled": [],
+      "memory_after": []
+    },
+    {
+      "conversation": "a",
+      "user": "cx-agent-1",
+      "message": "Sí, pero pon que es desde septiembre y que el carrier local solo llega hasta 40 km de Zaragoza.",
+      "answer": "Hecho: lo recordaré con tu corrección («SEUR ya no cubre la zona rural de Zaragoza; desde septiembre se debe usar el carrier local, que solo llega hasta 40 km de Zaragoza.»).",
+      "nodes": [
+        "receive_question",
+        "load_pending_proposal",
+        "resolve_proposal"
+      ],
+      "sources_used": [],
+      "memory_candidate": null,
+      "memory_proposal": null,
+      "memory_decision": {
+        "proposal_id": "a77c5acf24944eb884633bb0f21e5f6d",
+        "outcome": "edited",
+        "reason": "user_edited",
+        "fact": "SEUR ya no cubre la zona rural de Zaragoza; desde septiembre se debe usar el carrier local, que solo llega hasta 40 km de Zaragoza."
+      },
+      "memories_recalled": [],
+      "memory_after": [
+        {
+          "subject_key": "carrier_rule:seur:ES",
+          "category": "carrier_rule",
+          "subject": "SEUR (ES)",
+          "keywords": [
+            "seur"
+          ],
+          "facts": [
+            {
+              "fact": "SEUR ya no cubre la zona rural de Zaragoza; desde septiembre se debe usar el carrier local, que solo llega hasta 40 km de Zaragoza.",
+              "proposal_id": "a77c5acf24944eb884633bb0f21e5f6d",
+              "approved_by": "cx-agent-1",
+              "approved_at": "2026-10-02T16:13:15.242932Z",
+              "expires_at": "2027-03-31T16:13:15.242932Z"
+            }
+          ],
+          "updated_at": "2026-10-02T16:13:15.242932Z"
+        }
+      ]
+    }
+  ],
+  "audit": [
+    {
+      "id": "1790957595228-0",
+      "event": "proposed",
+      "at": "2026-10-02T16:13:15.215517+00:00",
+      "proposal_id": "a77c5acf24944eb884633bb0f21e5f6d",
+      "user_id": "cx-agent-1",
+      "conversation_id": "b17809620b314b8eba9bcd8ce42aacc1",
+      "run_id": "b77e53657dc1428a8cc35b241f72a430",
+      "category": "carrier_rule",
+      "subject_key": "carrier_rule:seur:ES",
+      "proposed_fact": "SEUR ya no cubre la zona rural de Zaragoza; desde el mes pasado se debe usar el carrier local.",
+      "reason": "Actualización de cobertura de SEUR en Zaragoza para evitar usar un transportista que ya no opera allí.",
+      "expires_at": "2026-10-02T16:43:15.215517+00:00",
+      "source_message": "en realidad seur ya no cubre esa zona rural de zaragoza, hay que usar el carrier local desde el mes pasado."
+    },
+    {
+      "id": "1790957600950-0",
+      "event": "decision",
+      "at": "2026-10-02T16:13:15.242932+00:00",
+      "proposal_id": "a77c5acf24944eb884633bb0f21e5f6d",
+      "user_id": "cx-agent-1",
+      "conversation_id": "b17809620b314b8eba9bcd8ce42aacc1",
+      "run_id": "b77e53657dc1428a8cc35b241f72a430",
+      "category": "carrier_rule",
+      "subject_key": "carrier_rule:seur:ES",
+      "proposed_fact": "SEUR ya no cubre la zona rural de Zaragoza; desde el mes pasado se debe usar el carrier local.",
+      "decision_run_id": "e0af0f232a8947908af0e41fd2460051",
+      "outcome": "edited",
+      "reason": "user_edited",
+      "stored_fact": "SEUR ya no cubre la zona rural de Zaragoza; desde septiembre se debe usar el carrier local, que solo llega hasta 40 km de Zaragoza.",
+      "label": "edit",
+      "confidence": 0.95,
+      "decided_by": "llm",
+      "message": "si, pero pon que es desde septiembre y que el carrier local solo llega hasta 40 km de zaragoza."
+    }
+  ]
+}

@@ -1,31 +1,38 @@
 {
-  "trace_version": 2,
+  "trace_version": 3,
   "run_id": "empty-question",
+  "conversation_id": "1f1348899e544bb4b9d2cf89a996bb6a",
+  "user_id": null,
   "question": "   ",
-  "started_at": "2026-10-02T14:43:50.711+00:00",
+  "started_at": "2026-10-02T15:53:45.125+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 1.8,
+      "duration_ms": 2.5,
       "output": {
-        "question": ""
+        "question": "",
+        "message": ""
       }
     },
     {
       "order": 2,
       "node": "reject_question",
-      "duration_ms": 0.7,
+      "duration_ms": 1.0,
       "output": {
         "error": "La pregunta está vacía: escribe qué quiere saber el cliente."
       }
     }
   ],
-  "duration_ms": 2.6,
+  "duration_ms": 3.6,
   "sources_used": [],
   "final_state": {
     "question": "",
+    "message": "",
+    "conversation_id": "1f1348899e544bb4b9d2cf89a996bb6a",
+    "user_id": null,
+    "run_id": "empty-question",
     "error": "La pregunta está vacía: escribe qué quiere saber el cliente."
   },
   "checkpoints": [
@@ -35,7 +42,7 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be6fa-eb7a-6f27-bfff-b8ed5d10b9dd",
+      "checkpoint_id": "1f1be797-2c88-6642-bfff-7b5ca49d2145",
       "values": {}
     },
     {
@@ -44,9 +51,12 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be6fa-eb7c-647c-8000-280dda62dc03",
+      "checkpoint_id": "1f1be797-2c8a-6770-8000-dd73d2929367",
       "values": {
-        "question": "   "
+        "question": "   ",
+        "conversation_id": "1f1348899e544bb4b9d2cf89a996bb6a",
+        "user_id": null,
+        "run_id": "empty-question"
       }
     },
     {
@@ -55,18 +65,26 @@
       "next": [
         "reject_question"
       ],
-      "checkpoint_id": "1f1be6fa-eb7d-6e36-8001-af0152b5f05c",
+      "checkpoint_id": "1f1be797-2c8c-6c1c-8001-a6ba055045eb",
       "values": {
-        "question": ""
+        "question": "",
+        "message": "",
+        "conversation_id": "1f1348899e544bb4b9d2cf89a996bb6a",
+        "user_id": null,
+        "run_id": "empty-question"
       }
     },
     {
       "step": 2,
       "source": "loop",
       "next": [],
-      "checkpoint_id": "1f1be6fa-eb7f-64b3-8002-91913e052135",
+      "checkpoint_id": "1f1be797-2c8e-6976-8002-4309646e3a20",
       "values": {
         "question": "",
+        "message": "",
+        "conversation_id": "1f1348899e544bb4b9d2cf89a996bb6a",
+        "user_id": null,
+        "run_id": "empty-question",
         "error": "La pregunta está vacía: escribe qué quiere saber el cliente."
       }
     }

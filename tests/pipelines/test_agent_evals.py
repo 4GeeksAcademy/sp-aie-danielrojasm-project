@@ -79,9 +79,11 @@ def test_generation_only_runs_after_its_sources_found_context(case):
         for source in ("retrieve", "lookup_tickets"):
             if source in nodes:
                 assert nodes.index(source) < nodes.index("generate_answer")
-        has_context = trace["final_state"].get("context") or confirmed
-        assert has_context, "generate_answer no debe ejecutarse sin contexto ni tickets confirmados"
-    if "retrieve" in nodes and not trace["final_state"]["context"] and not confirmed:
+        has_context = trace["final_state"].get("context") or confirmed or trace["final_state"].get("memories")
+        assert has_context, "generate_answer no debe ejecutarse sin contexto, tickets confirmados ni memoria"
+    if "retrieve" in nodes and not trace["final_state"]["context"] and not confirmed and not trace["final_state"].get(
+        "memories"
+    ):
         assert "generate_answer" not in nodes
 
 

@@ -1,22 +1,41 @@
 {
-  "trace_version": 2,
+  "trace_version": 3,
   "run_id": "ticket-status",
+  "conversation_id": "138164381dd54df1a580a9a678c03d65",
+  "user_id": null,
   "question": "¿En qué estado está el ticket 2?",
-  "started_at": "2026-10-02T14:43:50.715+00:00",
+  "started_at": "2026-10-02T15:53:45.130+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 1.8,
+      "duration_ms": 7.7,
       "output": {
-        "question": "¿En qué estado está el ticket 2?"
+        "question": "¿En qué estado está el ticket 2?",
+        "message": "¿En qué estado está el ticket 2?"
       }
     },
     {
       "order": 2,
+      "node": "load_pending_proposal",
+      "duration_ms": 1.1,
+      "output": {
+        "pending_proposal": null
+      }
+    },
+    {
+      "order": 3,
+      "node": "recall_memory",
+      "duration_ms": 3.4,
+      "output": {
+        "memories": []
+      }
+    },
+    {
+      "order": 4,
       "node": "route_question",
-      "duration_ms": 1846.2,
+      "duration_ms": 1538.1,
       "output": {
         "route": {
           "ticket_ids": [
@@ -28,9 +47,9 @@
       }
     },
     {
-      "order": 3,
+      "order": 5,
       "node": "lookup_tickets",
-      "duration_ms": 405.4,
+      "duration_ms": 565.7,
       "output": {
         "tickets": [
           {
@@ -52,20 +71,28 @@
       }
     },
     {
-      "order": 4,
+      "order": 6,
       "node": "generate_answer",
-      "duration_ms": 6249.6,
+      "duration_ms": 19466.9,
       "output": {
-        "answer": "El ticket 2 está resuelto. La incidencia de la caja exterior aplastada con producto interior dañado ya ha sido gestionada y cerrada.\n\nFuente: Gestor de incidencias › Ticket 2"
+        "answer": "Te confirmo que el ticket 2 figura como resuelto (resolved). Se registró como incidencia de transportista (carrier_issue), originada por el cliente, con sede en Zaragoza, creada el 11/01/2024 y actualizada ese mismo día. La descripción indica que la caja exterior estaba aplastada y el producto interior dañado. ¿Necesitas que revisemos algo más de esta incidencia?\n\nFuente: Gestor de incidencias › Ticket 2",
+        "memory_candidate": null
       }
     }
   ],
-  "duration_ms": 8503.0,
+  "duration_ms": 21582.9,
   "sources_used": [
     "incidents_tool"
   ],
   "final_state": {
     "question": "¿En qué estado está el ticket 2?",
+    "message": "¿En qué estado está el ticket 2?",
+    "conversation_id": "138164381dd54df1a580a9a678c03d65",
+    "user_id": null,
+    "run_id": "ticket-status",
+    "pending_proposal": null,
+    "memories": [],
+    "memory_candidate": null,
     "route": {
       "ticket_ids": [
         2
@@ -90,7 +117,7 @@
         }
       }
     ],
-    "answer": "El ticket 2 está resuelto. La incidencia de la caja exterior aplastada con producto interior dañado ya ha sido gestionada y cerrada.\n\nFuente: Gestor de incidencias › Ticket 2"
+    "answer": "Te confirmo que el ticket 2 figura como resuelto (resolved). Se registró como incidencia de transportista (carrier_issue), originada por el cliente, con sede en Zaragoza, creada el 11/01/2024 y actualizada ese mismo día. La descripción indica que la caja exterior estaba aplastada y el producto interior dañado. ¿Necesitas que revisemos algo más de esta incidencia?\n\nFuente: Gestor de incidencias › Ticket 2"
   },
   "checkpoints": [
     {
@@ -99,7 +126,7 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be6fa-eb84-6d2c-bfff-ea449ae09abd",
+      "checkpoint_id": "1f1be797-2c95-67f2-bfff-d6b4e3860a3c",
       "values": {}
     },
     {
@@ -108,31 +135,77 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be6fa-eb86-6419-8000-2dbd6a0a9067",
+      "checkpoint_id": "1f1be797-2c97-6b41-8000-658a4f073ea5",
       "values": {
-        "question": "¿En qué estado está el ticket 2?"
+        "question": "¿En qué estado está el ticket 2?",
+        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "user_id": null,
+        "run_id": "ticket-status"
       }
     },
     {
       "step": 1,
       "source": "loop",
       "next": [
-        "route_question"
+        "load_pending_proposal"
       ],
-      "checkpoint_id": "1f1be6fa-eb87-6d43-8001-cd9116b2565b",
+      "checkpoint_id": "1f1be797-2ca6-6483-8001-6adc955d5cee",
       "values": {
-        "question": "¿En qué estado está el ticket 2?"
+        "question": "¿En qué estado está el ticket 2?",
+        "message": "¿En qué estado está el ticket 2?",
+        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "user_id": null,
+        "run_id": "ticket-status"
       }
     },
     {
       "step": 2,
       "source": "loop",
       "next": [
-        "lookup_tickets"
+        "recall_memory"
       ],
-      "checkpoint_id": "1f1be6fa-fd23-6090-8002-6589332adc41",
+      "checkpoint_id": "1f1be797-2ca9-626e-8002-18760dec3644",
       "values": {
         "question": "¿En qué estado está el ticket 2?",
+        "message": "¿En qué estado está el ticket 2?",
+        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "user_id": null,
+        "run_id": "ticket-status",
+        "pending_proposal": null
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [
+        "route_question"
+      ],
+      "checkpoint_id": "1f1be797-2cb1-65e4-8003-000aeaed3790",
+      "values": {
+        "question": "¿En qué estado está el ticket 2?",
+        "message": "¿En qué estado está el ticket 2?",
+        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "user_id": null,
+        "run_id": "ticket-status",
+        "pending_proposal": null,
+        "memories": []
+      }
+    },
+    {
+      "step": 4,
+      "source": "loop",
+      "next": [
+        "lookup_tickets"
+      ],
+      "checkpoint_id": "1f1be797-3b5c-6a62-8004-16502b88c61f",
+      "values": {
+        "question": "¿En qué estado está el ticket 2?",
+        "message": "¿En qué estado está el ticket 2?",
+        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "user_id": null,
+        "run_id": "ticket-status",
+        "pending_proposal": null,
+        "memories": [],
         "route": {
           "ticket_ids": [
             2
@@ -143,14 +216,20 @@
       }
     },
     {
-      "step": 3,
+      "step": 5,
       "source": "loop",
       "next": [
         "generate_answer"
       ],
-      "checkpoint_id": "1f1be6fb-0100-6c63-8003-2026e25bbf61",
+      "checkpoint_id": "1f1be797-40c1-68f6-8005-86a33afd52b3",
       "values": {
         "question": "¿En qué estado está el ticket 2?",
+        "message": "¿En qué estado está el ticket 2?",
+        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "user_id": null,
+        "run_id": "ticket-status",
+        "pending_proposal": null,
+        "memories": [],
         "route": {
           "ticket_ids": [
             2
@@ -178,12 +257,19 @@
       }
     },
     {
-      "step": 4,
+      "step": 6,
       "source": "loop",
       "next": [],
-      "checkpoint_id": "1f1be6fb-3c99-60e5-8004-68b76a3ae6eb",
+      "checkpoint_id": "1f1be797-fa67-625b-8006-7cbb421d6c29",
       "values": {
         "question": "¿En qué estado está el ticket 2?",
+        "message": "¿En qué estado está el ticket 2?",
+        "conversation_id": "138164381dd54df1a580a9a678c03d65",
+        "user_id": null,
+        "run_id": "ticket-status",
+        "pending_proposal": null,
+        "memories": [],
+        "memory_candidate": null,
         "route": {
           "ticket_ids": [
             2
@@ -208,7 +294,7 @@
             }
           }
         ],
-        "answer": "El ticket 2 está resuelto. La incidencia de la caja exterior aplastada con producto interior dañado ya ha sido gestionada y cerrada.\n\nFuente: Gestor de incidencias › Ticket 2"
+        "answer": "Te confirmo que el ticket 2 figura como resuelto (resolved). Se registró como incidencia de transportista (carrier_issue), originada por el cliente, con sede en Zaragoza, creada el 11/01/2024 y actualizada ese mismo día. La descripción indica que la caja exterior estaba aplastada y el producto interior dañado. ¿Necesitas que revisemos algo más de esta incidencia?\n\nFuente: Gestor de incidencias › Ticket 2"
       }
     }
   ]

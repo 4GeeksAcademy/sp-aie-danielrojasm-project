@@ -8,6 +8,31 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Memoria y auto-mejora del agente de soporte, parte 1 (Ticket #MEM-092)
+
+- `services/support_agent/memory/`: memoria aprobada en Redis (`trackflow:agent_memory:*`), separada de
+   `trackflow_knowledge`. Interfaz explícita `MemoryStore` (`recall`, `pending_for`, `open_pending`, `take_pending`,
+   `consolidate`, `record_*`, `audit_log`).
+- Mismo grafo con cuatro nodos más: `load_pending_proposal`, `resolve_proposal`, `recall_memory` y
+   `propose_memory`. La generación devuelve en una sola llamada `{respuesta, propuesta_memoria}`; `no_information`
+   mantiene su texto fijo y solo usa la auto-evaluación.
+- Decisión clasificada por el modelo (`approve`, `reject`, `edit`, `unrelated` + confianza ≥ 0,75); el silencio, el
+   cambio de tema, la ambigüedad o un fallo del clasificador descartan la propuesta. Una pendiente por usuario,
+   caduca a los 30 min. Stream de auditoría sin recortar (`proposed`, `decision`, `blocked`, `skipped`, `superseded`,
+   `evicted`, `expired_memory`).
+- Lo prohibido por el CONTEXT se bloquea en código (`memory/policy.py`): ubicaciones de clientes B2C y B2B, rutas
+   internas de almacén, un solo paquete o ticket, contratos en negociación; además, cita literal del usuario
+   obligatoria. Consolidación por transportista + país, zona + país o cliente; 3 hechos por sujeto, topes por
+   categoría y caducidad de 14/180/365 días.
+- `POST /agent/query` acepta `conversation_id` y devuelve `conversation_id`, `memory_proposal` y `memory_decision`.
+- Evidencia real (gateway, Qdrant, Redis) en `data/eval/agent/memory/` con `scripts/record_memory_evidence.py`:
+   12 casos de auto-evaluación (3 memorables, 9 no) y 5 ciclos (aprobado, rechazado, aprobar + preguntar, cambio de
+   tema, edición). Traces de los evals del agente regrabados con los nodos nuevos.
+- Verificado: `uv run pytest` en verde (memoria: `test_agent_memory.py` con fakeredis y
+   `test_agent_memory_evals.py` sobre la evidencia).
+- Siguiente paso: PR desde `feature/agent-memory` con la justificación y las evidencias; la parte 2 (harness)
+   parte de aquí.
+
 ### Milestone 09 — Servidor MCP con OAuth para las herramientas de la compañía (RFP del tech lead)
 
 - `mcps/trackflow_tools/`: FastMCP 3.4 sobre Streamable HTTP stateless (puerto 8001) con cuatro tools.
