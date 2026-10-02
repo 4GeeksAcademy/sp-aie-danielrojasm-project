@@ -372,7 +372,23 @@ Diseño completo en `docs/rag/rag-design.md`.
   Qdrant, la colección o el gateway fallan.
 - **Umbral:** `min_score = 0,40`, afinado con `scripts/evaluate_rag_retrieval.py`. No separa preguntas cercanas al corpus sin
   respuesta: eso queda en manos del prompt.
-- **Reutilización prevista:** el agente LangGraph llamará a `retrieve()` y `generate_answer()` como nodos separados.
+- **Reutilización:** el agente LangGraph llama a `retrieve()` y `generate_answer()` como nodos separados.
+
+### Agente de soporte con LangGraph — Milestone 09
+
+Detalle en `services/support_agent/README.md`.
+
+- **Stack:** `langgraph` 1.2 (en `pyproject.toml` y `services/api/requirements.txt`). El router se monta en la API
+  principal; `/knowledge/query` sigue igual.
+- **Estado mínimo:** `question`, `context`, `answer`, `error`. Sin historial de conversación.
+- **Compilación:** al importar `services/support_agent/graph.py`. LangGraph no detecta nodos huérfanos ni sin salida
+  (su grafo dibujable une a END cualquier nodo sin aristas), así que `compile_graph()` lo valida sobre las aristas
+  declaradas; las aristas condicionales necesitan su `path_map` explícito.
+- **Checkpointing:** `InMemorySaver`, `thread_id` = `run_id`. Las corridas completadas liberan el hilo; las fallidas lo
+  conservan para `resume_run()`. No sobrevive a un reinicio del proceso.
+- **Trace:** JSON por corrida en `AGENT_TRACE_DIR` (por defecto `data/raw/agent_traces/`, ignorado por git; los tests lo
+  apuntan a un temporal en `tests/conftest.py`). Sin LangSmith.
+- **Evals:** se ejecutan contra traces grabados (`data/eval/agent/traces/`), no contra Qdrant ni el gateway.
 
 ### 🚫 Sin APIs dentro de `uis/`
 
@@ -450,6 +466,8 @@ Todos se ejecutan desde la raíz del monorepo:
 - **Evaluación del pronóstico** — `uv run python scripts/evaluate_sales_forecast.py` (CV temporal y curva de aprendizaje en `data/eval/`).
 - **Base de conocimiento (RAG)** — `uv run python -m data.process.rag` indexa `docs/company-knowledge-base/` en Qdrant;
   `uv run python scripts/evaluate_rag_retrieval.py` mide Recall@3 (`data/eval/rag/retrieval_report.json`).
+- **Evals del agente LangGraph** — `uv run python scripts/record_agent_traces.py` graba los traces (Qdrant y `.env`);
+  `uv run pytest tests/pipelines/test_agent_evals.py -v` los evalúa.
 - **Job nocturno** — `uv run python scripts/nightly_export.py` (`TARGET_DATE=YYYY-MM-DD` para otra fecha cerrada).
 - **Worker de Celery** — `docker compose up -d redis worker flower` / `docker compose stop worker`; sin Docker,
   `uv run --env-file .env celery -A services.tasks.celery_app worker --loglevel=INFO --queues=default,dead_letter`

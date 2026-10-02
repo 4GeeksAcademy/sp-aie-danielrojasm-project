@@ -1,0 +1,95 @@
+{
+  "trace_version": 1,
+  "run_id": "out-of-scope",
+  "question": "¿Tenéis almacén propio en Ciudad de México?",
+  "started_at": "2026-10-02T13:17:29.169+00:00",
+  "status": "completed",
+  "steps": [
+    {
+      "order": 1,
+      "node": "receive_question",
+      "duration_ms": 1.7,
+      "output": {
+        "question": "¿Tenéis almacén propio en Ciudad de México?"
+      }
+    },
+    {
+      "order": 2,
+      "node": "retrieve",
+      "duration_ms": 254.1,
+      "output": {
+        "context": []
+      }
+    },
+    {
+      "order": 3,
+      "node": "no_information",
+      "duration_ms": 1.1,
+      "output": {
+        "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento"
+      }
+    }
+  ],
+  "duration_ms": 257.0,
+  "final_state": {
+    "question": "¿Tenéis almacén propio en Ciudad de México?",
+    "context": [],
+    "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento"
+  },
+  "checkpoints": [
+    {
+      "step": -1,
+      "source": "input",
+      "next": [
+        "__start__"
+      ],
+      "checkpoint_id": "1f1be639-e471-699f-bfff-0186eaf090f3",
+      "values": {}
+    },
+    {
+      "step": 0,
+      "source": "loop",
+      "next": [
+        "receive_question"
+      ],
+      "checkpoint_id": "1f1be639-e473-62dc-8000-420ef6645a17",
+      "values": {
+        "question": "¿Tenéis almacén propio en Ciudad de México?"
+      }
+    },
+    {
+      "step": 1,
+      "source": "loop",
+      "next": [
+        "retrieve"
+      ],
+      "checkpoint_id": "1f1be639-e474-6b19-8001-446d39f954ed",
+      "values": {
+        "question": "¿Tenéis almacén propio en Ciudad de México?"
+      }
+    },
+    {
+      "step": 2,
+      "source": "loop",
+      "next": [
+        "no_information"
+      ],
+      "checkpoint_id": "1f1be639-e6e0-6dac-8002-c15785cafa20",
+      "values": {
+        "question": "¿Tenéis almacén propio en Ciudad de México?",
+        "context": []
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be639-e6e2-6f08-8003-78982a1b2bcc",
+      "values": {
+        "question": "¿Tenéis almacén propio en Ciudad de México?",
+        "context": [],
+        "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento"
+      }
+    }
+  ]
+}

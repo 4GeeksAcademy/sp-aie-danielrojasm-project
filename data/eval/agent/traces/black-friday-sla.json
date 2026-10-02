@@ -1,0 +1,259 @@
+{
+  "trace_version": 1,
+  "run_id": "black-friday-sla",
+  "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+  "started_at": "2026-10-02T13:17:25.450+00:00",
+  "status": "completed",
+  "steps": [
+    {
+      "order": 1,
+      "node": "receive_question",
+      "duration_ms": 2.4,
+      "output": {
+        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?"
+      }
+    },
+    {
+      "order": 2,
+      "node": "retrieve",
+      "duration_ms": 270.3,
+      "output": {
+        "context": [
+          {
+            "company": "trackflow",
+            "source_document": "sla-delivery",
+            "section": "SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados",
+            "language": "es",
+            "chunk_index": 2,
+            "text": "TrackFlow no garantiza SLA de entrega los días de alta demanda declarados (Black Friday, Navidad, Rebajas de enero en España) — durante esas fechas los tiempos pueden extenderse hasta un 40% adicional, y esto debe comunicarse proactivamente a los clientes con anticipación."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "sla-delivery",
+            "section": "SLA de Entrega › TrackFlow gestiona la última milla en Estados Unidos",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "TrackFlow gestiona la última milla en Estados Unidos (Los Ángeles) y España (Zaragoza). Los compromisos de entrega varían según el tipo de servicio contratado por la marca cliente:\n- Envío estándar: 3 a 5 días hábiles dentro del mismo país.\n- Envío express: 24 a 48 horas dentro del mismo país (disponible solo en zonas metropolitanas de Los Ángeles y área de Zaragoza-Madrid).\n- Envío internacional (entre Estados Unidos y España): 7 a 12 días hábiles, sujeto a aduana; TrackFlow no controla los tiempos de retención aduanera."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › TrackFlow no reacondiciona ni revende producto por cuenta propia",
+            "language": "es",
+            "chunk_index": 4,
+            "text": "TrackFlow no reacondiciona ni revende producto por cuenta propia; solo ejecuta la logística según las reglas que cada marca cliente define."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "carrier-coverage",
+            "section": "Cobertura de Transportistas › Estados Unidos (Los Ángeles)",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "TrackFlow trabaja con transportistas distintos según el país:\nEstados Unidos (Los Ángeles): UPS, FedEx y DHL.\n- UPS: cobertura nacional completa, mejor tarifa para paquetes pesados (mayores a 5 kg).\n- FedEx: mejor tiempo de entrega en envíos express dentro de California.\n- DHL: única opción con cobertura confiable para envíos internacionales desde Los Ángeles."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "storage-pricing",
+            "section": "Tarifas de Almacenamiento › TrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "TrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado, no según número de unidades:\n- Tarifa estándar: 18 USD por metro cúbico al mes (Los Ángeles) o 16 EUR por metro cúbico al mes (Zaragoza).\n- Los primeros 30 días de cualquier producto nuevo en inventario no generan cargo de almacenamiento (periodo de gracia).\n- Inventario con más de 180 días sin movimiento (sin ventas ni salidas) paga una tarifa de \"inventario de larga duración\" del 150% sobre la tarifa estándar, a partir del día 181."
+          }
+        ]
+      }
+    },
+    {
+      "order": 3,
+      "node": "generate_answer",
+      "duration_ms": 3443.8,
+      "output": {
+        "answer": "En TrackFlow, durante el Black Friday no podemos garantizar el SLA de entrega, ya que es un día de alta demanda declarado. Los tiempos pueden extenderse hasta un 40% adicional, y queremos comunicártelo con anticipación para que lo tengas en cuenta.\n\nFuente: SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados"
+      }
+    }
+  ],
+  "duration_ms": 3716.5,
+  "final_state": {
+    "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+    "context": [
+      {
+        "company": "trackflow",
+        "source_document": "sla-delivery",
+        "section": "SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados",
+        "language": "es",
+        "chunk_index": 2,
+        "text": "TrackFlow no garantiza SLA de entrega los días de alta demanda declarados (Black Friday, Navidad, Rebajas de enero en España) — durante esas fechas los tiempos pueden extenderse hasta un 40% adicional, y esto debe comunicarse proactivamente a los clientes con anticipación."
+      },
+      {
+        "company": "trackflow",
+        "source_document": "sla-delivery",
+        "section": "SLA de Entrega › TrackFlow gestiona la última milla en Estados Unidos",
+        "language": "es",
+        "chunk_index": 0,
+        "text": "TrackFlow gestiona la última milla en Estados Unidos (Los Ángeles) y España (Zaragoza). Los compromisos de entrega varían según el tipo de servicio contratado por la marca cliente:\n- Envío estándar: 3 a 5 días hábiles dentro del mismo país.\n- Envío express: 24 a 48 horas dentro del mismo país (disponible solo en zonas metropolitanas de Los Ángeles y área de Zaragoza-Madrid).\n- Envío internacional (entre Estados Unidos y España): 7 a 12 días hábiles, sujeto a aduana; TrackFlow no controla los tiempos de retención aduanera."
+      },
+      {
+        "company": "trackflow",
+        "source_document": "returns-policy",
+        "section": "Política de Devoluciones › TrackFlow no reacondiciona ni revende producto por cuenta propia",
+        "language": "es",
+        "chunk_index": 4,
+        "text": "TrackFlow no reacondiciona ni revende producto por cuenta propia; solo ejecuta la logística según las reglas que cada marca cliente define."
+      },
+      {
+        "company": "trackflow",
+        "source_document": "carrier-coverage",
+        "section": "Cobertura de Transportistas › Estados Unidos (Los Ángeles)",
+        "language": "es",
+        "chunk_index": 0,
+        "text": "TrackFlow trabaja con transportistas distintos según el país:\nEstados Unidos (Los Ángeles): UPS, FedEx y DHL.\n- UPS: cobertura nacional completa, mejor tarifa para paquetes pesados (mayores a 5 kg).\n- FedEx: mejor tiempo de entrega en envíos express dentro de California.\n- DHL: única opción con cobertura confiable para envíos internacionales desde Los Ángeles."
+      },
+      {
+        "company": "trackflow",
+        "source_document": "storage-pricing",
+        "section": "Tarifas de Almacenamiento › TrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado",
+        "language": "es",
+        "chunk_index": 0,
+        "text": "TrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado, no según número de unidades:\n- Tarifa estándar: 18 USD por metro cúbico al mes (Los Ángeles) o 16 EUR por metro cúbico al mes (Zaragoza).\n- Los primeros 30 días de cualquier producto nuevo en inventario no generan cargo de almacenamiento (periodo de gracia).\n- Inventario con más de 180 días sin movimiento (sin ventas ni salidas) paga una tarifa de \"inventario de larga duración\" del 150% sobre la tarifa estándar, a partir del día 181."
+      }
+    ],
+    "answer": "En TrackFlow, durante el Black Friday no podemos garantizar el SLA de entrega, ya que es un día de alta demanda declarado. Los tiempos pueden extenderse hasta un 40% adicional, y queremos comunicártelo con anticipación para que lo tengas en cuenta.\n\nFuente: SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados"
+  },
+  "checkpoints": [
+    {
+      "step": -1,
+      "source": "input",
+      "next": [
+        "__start__"
+      ],
+      "checkpoint_id": "1f1be639-c0fb-6fae-bfff-e4eec5b20f84",
+      "values": {}
+    },
+    {
+      "step": 0,
+      "source": "loop",
+      "next": [
+        "receive_question"
+      ],
+      "checkpoint_id": "1f1be639-c0fd-6d22-8000-0f67858a26a1",
+      "values": {
+        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?"
+      }
+    },
+    {
+      "step": 1,
+      "source": "loop",
+      "next": [
+        "retrieve"
+      ],
+      "checkpoint_id": "1f1be639-c100-6386-8001-5c53c5392636",
+      "values": {
+        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?"
+      }
+    },
+    {
+      "step": 2,
+      "source": "loop",
+      "next": [
+        "generate_answer"
+      ],
+      "checkpoint_id": "1f1be639-c393-6fe2-8002-d21d2b19c493",
+      "values": {
+        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "context": [
+          {
+            "company": "trackflow",
+            "source_document": "sla-delivery",
+            "section": "SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados",
+            "language": "es",
+            "chunk_index": 2,
+            "text": "TrackFlow no garantiza SLA de entrega los días de alta demanda declarados (Black Friday, Navidad, Rebajas de enero en España) — durante esas fechas los tiempos pueden extenderse hasta un 40% adicional, y esto debe comunicarse proactivamente a los clientes con anticipación."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "sla-delivery",
+            "section": "SLA de Entrega › TrackFlow gestiona la última milla en Estados Unidos",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "TrackFlow gestiona la última milla en Estados Unidos (Los Ángeles) y España (Zaragoza). Los compromisos de entrega varían según el tipo de servicio contratado por la marca cliente:\n- Envío estándar: 3 a 5 días hábiles dentro del mismo país.\n- Envío express: 24 a 48 horas dentro del mismo país (disponible solo en zonas metropolitanas de Los Ángeles y área de Zaragoza-Madrid).\n- Envío internacional (entre Estados Unidos y España): 7 a 12 días hábiles, sujeto a aduana; TrackFlow no controla los tiempos de retención aduanera."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › TrackFlow no reacondiciona ni revende producto por cuenta propia",
+            "language": "es",
+            "chunk_index": 4,
+            "text": "TrackFlow no reacondiciona ni revende producto por cuenta propia; solo ejecuta la logística según las reglas que cada marca cliente define."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "carrier-coverage",
+            "section": "Cobertura de Transportistas › Estados Unidos (Los Ángeles)",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "TrackFlow trabaja con transportistas distintos según el país:\nEstados Unidos (Los Ángeles): UPS, FedEx y DHL.\n- UPS: cobertura nacional completa, mejor tarifa para paquetes pesados (mayores a 5 kg).\n- FedEx: mejor tiempo de entrega en envíos express dentro de California.\n- DHL: única opción con cobertura confiable para envíos internacionales desde Los Ángeles."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "storage-pricing",
+            "section": "Tarifas de Almacenamiento › TrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "TrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado, no según número de unidades:\n- Tarifa estándar: 18 USD por metro cúbico al mes (Los Ángeles) o 16 EUR por metro cúbico al mes (Zaragoza).\n- Los primeros 30 días de cualquier producto nuevo en inventario no generan cargo de almacenamiento (periodo de gracia).\n- Inventario con más de 180 días sin movimiento (sin ventas ni salidas) paga una tarifa de \"inventario de larga duración\" del 150% sobre la tarifa estándar, a partir del día 181."
+          }
+        ]
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be639-e46a-6e91-8003-eb76a66fc7c6",
+      "values": {
+        "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+        "context": [
+          {
+            "company": "trackflow",
+            "source_document": "sla-delivery",
+            "section": "SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados",
+            "language": "es",
+            "chunk_index": 2,
+            "text": "TrackFlow no garantiza SLA de entrega los días de alta demanda declarados (Black Friday, Navidad, Rebajas de enero en España) — durante esas fechas los tiempos pueden extenderse hasta un 40% adicional, y esto debe comunicarse proactivamente a los clientes con anticipación."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "sla-delivery",
+            "section": "SLA de Entrega › TrackFlow gestiona la última milla en Estados Unidos",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "TrackFlow gestiona la última milla en Estados Unidos (Los Ángeles) y España (Zaragoza). Los compromisos de entrega varían según el tipo de servicio contratado por la marca cliente:\n- Envío estándar: 3 a 5 días hábiles dentro del mismo país.\n- Envío express: 24 a 48 horas dentro del mismo país (disponible solo en zonas metropolitanas de Los Ángeles y área de Zaragoza-Madrid).\n- Envío internacional (entre Estados Unidos y España): 7 a 12 días hábiles, sujeto a aduana; TrackFlow no controla los tiempos de retención aduanera."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › TrackFlow no reacondiciona ni revende producto por cuenta propia",
+            "language": "es",
+            "chunk_index": 4,
+            "text": "TrackFlow no reacondiciona ni revende producto por cuenta propia; solo ejecuta la logística según las reglas que cada marca cliente define."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "carrier-coverage",
+            "section": "Cobertura de Transportistas › Estados Unidos (Los Ángeles)",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "TrackFlow trabaja con transportistas distintos según el país:\nEstados Unidos (Los Ángeles): UPS, FedEx y DHL.\n- UPS: cobertura nacional completa, mejor tarifa para paquetes pesados (mayores a 5 kg).\n- FedEx: mejor tiempo de entrega en envíos express dentro de California.\n- DHL: única opción con cobertura confiable para envíos internacionales desde Los Ángeles."
+          },
+          {
+            "company": "trackflow",
+            "source_document": "storage-pricing",
+            "section": "Tarifas de Almacenamiento › TrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado",
+            "language": "es",
+            "chunk_index": 0,
+            "text": "TrackFlow cobra almacenamiento a las marcas cliente según volumen ocupado, no según número de unidades:\n- Tarifa estándar: 18 USD por metro cúbico al mes (Los Ángeles) o 16 EUR por metro cúbico al mes (Zaragoza).\n- Los primeros 30 días de cualquier producto nuevo en inventario no generan cargo de almacenamiento (periodo de gracia).\n- Inventario con más de 180 días sin movimiento (sin ventas ni salidas) paga una tarifa de \"inventario de larga duración\" del 150% sobre la tarifa estándar, a partir del día 181."
+          }
+        ],
+        "answer": "En TrackFlow, durante el Black Friday no podemos garantizar el SLA de entrega, ya que es un día de alta demanda declarado. Los tiempos pueden extenderse hasta un 40% adicional, y queremos comunicártelo con anticipación para que lo tengas en cuenta.\n\nFuente: SLA de Entrega › TrackFlow no garantiza SLA de entrega los días de alta demanda declarados"
+      }
+    }
+  ]
+}

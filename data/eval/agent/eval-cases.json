@@ -1,0 +1,31 @@
+{
+  "description": "Evals del agente LangGraph. Cada caso es una pregunta y criterios verificables sobre su trace grabado en data/eval/agent/traces/<id>.json (lo graba scripts/record_agent_traces.py contra Qdrant y el gateway reales). Los evaluan tests/pipelines/test_agent_evals.py sin volver a ejecutar el agente.",
+  "cases": [
+    {
+      "id": "returns-window",
+      "question": "¿Cuál es la ventana de devolución estándar?",
+      "expected_nodes": ["receive_question", "retrieve", "generate_answer"],
+      "retrieved_sources_include": ["returns-policy"],
+      "answer_contains": ["30 días", "Fuente: Política de Devoluciones"]
+    },
+    {
+      "id": "black-friday-sla",
+      "question": "¿TrackFlow garantiza el SLA de entrega durante el Black Friday?",
+      "expected_nodes": ["receive_question", "retrieve", "generate_answer"],
+      "retrieved_sources_include": ["sla-delivery"],
+      "answer_contains": ["40%", "Fuente: SLA de Entrega"]
+    },
+    {
+      "id": "out-of-scope",
+      "question": "¿Tenéis almacén propio en Ciudad de México?",
+      "expected_nodes": ["receive_question", "retrieve", "no_information"],
+      "answer_contains": ["No tengo información", "Fuente: sin información en la base de conocimiento"]
+    },
+    {
+      "id": "empty-question",
+      "question": "   ",
+      "expected_nodes": ["receive_question", "reject_question"],
+      "error_contains": "La pregunta está vacía"
+    }
+  ]
+}

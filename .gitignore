@@ -38,3 +38,6 @@ data/eval/weekly_warehouse_client_performance/
 # Backups CSV del job nocturno (telemetría con user_id y session_id: no se versionan)
 data/raw/telemetry_*.csv
 data/raw/.telemetry_*.csv.partial
+
+# Traces de cada corrida del agente LangGraph (los de los evals viven en data/eval/agent/traces/)
+data/raw/agent_traces/

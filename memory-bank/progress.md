@@ -8,6 +8,26 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Agente de soporte con LangGraph, parte 1 (ticket del tech lead)
+
+- `services/support_agent/`: el RAG comercial como grafo de LangGraph 1.2. Nodos `receive_question`, `retrieve`,
+   `generate_answer`, `no_information` y `reject_question`; aristas condicionales (pregunta vacía → `reject_question`,
+   sin contexto por encima de `min_score` → `no_information`). Reutiliza `retrieve()` y `generate_answer()` de
+   `data/pipelines/rag.py`; ningún nodo llama a `query()`.
+- Compilación al importar con validación propia (nodos sin conexión o sin camino a END → `AgentGraphError`),
+   `InMemorySaver` por transición y `resume_run()` para retomar una corrida fallida.
+- Trace JSON por corrida en `AGENT_TRACE_DIR` (nodos, salidas, checkpoints, error). `POST /agent/query` devuelve
+   `{ answer, run_id }`; 422 pregunta vacía, 503 dependencias caídas, 500 genérico, siempre con la referencia.
+- Evals: 4 casos en `data/eval/agent/eval-cases.json`, traces reales en `data/eval/agent/traces/`
+   (`scripts/record_agent_traces.py`), `uv run pytest tests/pipelines/test_agent_evals.py` (16 comprobaciones).
+- Verificado: `uv run pytest` 509 (36 nuevos, incluidos los evals; `test_rag.py` sin cambios y en verde). En uvicorn,
+   `/agent/query` responde 200 anclado (costes de devolución), 200 sin información (almacén en Ciudad de México) y
+   422 con pregunta vacía; `/knowledge/query` sigue en 200.
+- Riesgo conocido: los checkpoints viven en memoria del proceso; tras reiniciar la API solo queda el trace, no se
+   puede retomar. Los traces de `data/raw/agent_traces/` no rotan.
+- Siguiente paso: PR con la etiqueta `langgraph-agent-base`; después, parte 2 (tools nuevas como nodos y aristas).
+
+
 ### Milestone 09 — RAG y base de conocimiento comercial (ticket de Miguel Torres)
 
 - Asistente para account managers: responde con la voz de un vendedor de TrackFlow sobre SLA de entrega, devoluciones,

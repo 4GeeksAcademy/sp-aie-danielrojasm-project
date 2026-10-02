@@ -1,0 +1,73 @@
+{
+  "trace_version": 1,
+  "run_id": "empty-question",
+  "question": "   ",
+  "started_at": "2026-10-02T13:17:29.427+00:00",
+  "status": "completed",
+  "steps": [
+    {
+      "order": 1,
+      "node": "receive_question",
+      "duration_ms": 1.6,
+      "output": {
+        "question": ""
+      }
+    },
+    {
+      "order": 2,
+      "node": "reject_question",
+      "duration_ms": 0.8,
+      "output": {
+        "error": "La pregunta está vacía: escribe qué quiere saber el cliente."
+      }
+    }
+  ],
+  "duration_ms": 2.4,
+  "final_state": {
+    "question": "",
+    "error": "La pregunta está vacía: escribe qué quiere saber el cliente."
+  },
+  "checkpoints": [
+    {
+      "step": -1,
+      "source": "input",
+      "next": [
+        "__start__"
+      ],
+      "checkpoint_id": "1f1be639-e6e9-626f-bfff-aa3d2b506d86",
+      "values": {}
+    },
+    {
+      "step": 0,
+      "source": "loop",
+      "next": [
+        "receive_question"
+      ],
+      "checkpoint_id": "1f1be639-e6ea-664b-8000-54e4cd8ee504",
+      "values": {
+        "question": "   "
+      }
+    },
+    {
+      "step": 1,
+      "source": "loop",
+      "next": [
+        "reject_question"
+      ],
+      "checkpoint_id": "1f1be639-e6eb-6de3-8001-85babdd78a7c",
+      "values": {
+        "question": ""
+      }
+    },
+    {
+      "step": 2,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be639-e6ed-6318-8002-861183cb5acb",
+      "values": {
+        "question": "",
+        "error": "La pregunta está vacía: escribe qué quiere saber el cliente."
+      }
+    }
+  ]
+}

@@ -19,6 +19,7 @@ def isolated_environment(tmp_path, monkeypatch):
     monkeypatch.setenv("AUTH_DB_PATH", str(tmp_path / "auth.json"))
     monkeypatch.setenv("SUPPLIERS_DB_PATH", str(tmp_path / "suppliers.json"))
     monkeypatch.setenv("INCIDENTS_DB_PATH", str(tmp_path / "incidents.json"))
+    monkeypatch.setenv("AGENT_TRACE_DIR", str(tmp_path / "agent_traces"))
     monkeypatch.setenv("JWT_SECRET_KEY", TEST_SECRET)
     monkeypatch.setenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30")
     # Variables del Codespace o del .env que cambiarían el comportamiento.
