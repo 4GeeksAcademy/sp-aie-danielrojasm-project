@@ -55,8 +55,15 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    por git).
 - Contenedor `api`: reconstruido con `langchain-mcp-adapters`. Dentro del contenedor el agente no alcanza el servidor
    MCP ni Keycloak en `127.0.0.1`, así que ahí sus consultas de ticket terminan en `unavailable`. En local funciona.
-- Pendiente: probar en MCP Playground desde Codespaces con la URL pública reenviada del 8001 (pasos en el README del
-   servidor). Después, PR con el transporte elegido y su motivo.
+- Verificado en MCP Playground (2026-10-02, Codespaces, 8001 público, token de `trackflow-operator`): crear →
+   `in_progress` → consultar, `query_inventory` con datos reales de Supabase y el intento `create_inbound_order`
+   rechazado con `INVENTORY_READ_ONLY`. El log `trackflow.mcp` registra cada llamada con `result=ok` o el código.
+- Entorno de Codespaces (no es código): tras reconstruir el Codespace hubo que reinstalar `uv` (`pipx install uv`) y
+   poner en `MCP_SERVICE_USER_ID` una cuenta activa del `auth.json` actual (con un id antiguo la API responde 401 y
+   el MCP devuelve `UPSTREAM_UNAVAILABLE`). La red `trackflow-dev` de Compose no tenía salida a internet porque
+   `iptables-legacy` deja FORWARD en DROP y solo acepta `docker0`; se añadieron a mano reglas FORWARD/MASQUERADE
+   para su bridge. No persisten: tras reiniciar el Codespace el inventario vuelve a fallar hasta reponerlas.
+- PR #34 mergeado. Siguiente paso: dar al agente del contenedor `api` acceso al servidor MCP y a Keycloak.
 
 
 ### Milestone 09 — Agente de soporte con LangGraph, parte 2: tools fuera del RAG (brief del tech lead)
