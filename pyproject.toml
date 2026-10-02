@@ -28,6 +28,7 @@ dependencies = [
     "fastmcp>=3.4,<4",
     "mcpauth==0.2.0b1",
     "langchain-mcp-adapters>=0.3.2",
+    "redis>=6.4.0",
 ]
 
 [project.scripts]
@@ -42,6 +43,7 @@ include = ["services*"]
 
 [dependency-groups]
 dev = [
+    "fakeredis>=2.39.0",
     "httpx2>=2.13.1",
     "jsonschema>=4.23",
     "pytest>=9.1.1",

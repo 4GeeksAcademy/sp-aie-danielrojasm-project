@@ -1,0 +1,114 @@
+{
+  "description": "Evidencia de la memoria del agente. self_evaluation: un mensaje por caso en una memoria vacía; expect_proposal dice si el agente debe proponer recordarlo (los memorables y no memorables del CONTEXT de TrackFlow, más lo que nunca debe recordarse). conversations: ciclos completos de varios turnos; cada uno empieza con la memoria vacía y 'conversation' agrupa los turnos de una misma conversación. Lo graba scripts/record_memory_evidence.py en data/eval/agent/memory/<id>.json contra el gateway LLM, Qdrant y Redis reales; lo evalúa tests/pipelines/test_agent_memory_evals.py sin volver a llamar al modelo.",
+  "self_evaluation": [
+    {
+      "id": "carrier-rule",
+      "message": "En realidad SEUR ya no cubre esa zona rural de Zaragoza, hay que usar el carrier local desde el mes pasado.",
+      "expect_proposal": true,
+      "category": "carrier_rule"
+    },
+    {
+      "id": "recurring-incident",
+      "message": "Esos retrasos reportados en incidencias de Los Ángeles esta semana son por la huelga portuaria, no por un problema nuestro — ya van tres tickets sobre lo mismo.",
+      "expect_proposal": true,
+      "category": "incident_context"
+    },
+    {
+      "id": "b2b-report-preference",
+      "message": "El cliente de cosméticos siempre quiere su reporte mensual con el desglose de devoluciones primero, antes que el volumen de envíos.",
+      "expect_proposal": true,
+      "category": "client_preference"
+    },
+    {
+      "id": "tracking-lookup",
+      "message": "¿Dónde está el paquete con tracking XJ4471?",
+      "expect_proposal": false
+    },
+    {
+      "id": "conversation-closing",
+      "message": "Perfecto, ya quedó resuelto.",
+      "expect_proposal": false
+    },
+    {
+      "id": "one-off-translation",
+      "message": "Tradúceme esto al inglés para el cliente.",
+      "expect_proposal": false
+    },
+    {
+      "id": "policy-question",
+      "message": "¿Cuál es la ventana de devolución estándar?",
+      "expect_proposal": false
+    },
+    {
+      "id": "isolated-complaint",
+      "message": "Un cliente se quejó de que su paquete de MRW de ayer llegó con la caja abollada.",
+      "expect_proposal": false
+    },
+    {
+      "id": "never-b2c-address",
+      "message": "El destinatario de los envíos de SEUR en Zaragoza vive en la calle Alfonso I 15, 3º B, 50003; acuérdate para las próximas entregas.",
+      "expect_proposal": false
+    },
+    {
+      "id": "never-b2b-location",
+      "message": "La marca de cosméticos tiene su nave en la calle Bari 25, 50197 Zaragoza, y SEUR siempre recoge allí; recuérdalo.",
+      "expect_proposal": false
+    },
+    {
+      "id": "never-warehouse-route",
+      "message": "En el almacén de Zaragoza los paquetes de SEUR se dejan siempre en el muelle 4, pasillo B; recuérdalo para la próxima vez.",
+      "expect_proposal": false
+    },
+    {
+      "id": "never-contract-negotiation",
+      "message": "Estamos negociando con el cliente de cosméticos un 8 % de descuento para la renovación de su contrato; tenlo en cuenta en su reporte mensual.",
+      "expect_proposal": false
+    }
+  ],
+  "conversations": [
+    {
+      "id": "approved-cycle",
+      "description": "La corrección se propone, el usuario la aprueba y otra persona, en otra conversación, recibe la respuesta con la memoria.",
+      "turns": [
+        {"conversation": "before", "user": "cx-agent-2", "message": "¿Qué transportista usamos para un envío a la zona rural de Zaragoza?"},
+        {"conversation": "a", "user": "cx-agent-1", "message": "En realidad SEUR ya no cubre esa zona rural de Zaragoza, hay que usar el carrier local desde el mes pasado."},
+        {"conversation": "a", "user": "cx-agent-1", "message": "Sí, guárdalo."},
+        {"conversation": "after", "user": "cx-agent-2", "message": "¿Qué transportista usamos para un envío a la zona rural de Zaragoza?"}
+      ]
+    },
+    {
+      "id": "rejected-cycle",
+      "description": "La causa del incidente se propone, el usuario la rechaza y la memoria queda igual.",
+      "turns": [
+        {"conversation": "before", "user": "cx-agent-2", "message": "¿Por qué hay tantos retrasos en las incidencias de Los Ángeles esta semana?"},
+        {"conversation": "a", "user": "cx-agent-1", "message": "Esos retrasos reportados en incidencias de Los Ángeles esta semana son por la huelga portuaria, no por un problema nuestro — ya van tres tickets sobre lo mismo."},
+        {"conversation": "a", "user": "cx-agent-1", "message": "No, no lo guardes: todavía no está confirmado."},
+        {"conversation": "after", "user": "cx-agent-2", "message": "¿Por qué hay tantos retrasos en las incidencias de Los Ángeles esta semana?"}
+      ]
+    },
+    {
+      "id": "approve-and-ask",
+      "description": "El usuario aprueba y en el mismo mensaje hace otra pregunta, que se responde con normalidad.",
+      "turns": [
+        {"conversation": "a", "user": "cx-agent-1", "message": "El cliente de cosméticos siempre quiere su reporte mensual con el desglose de devoluciones primero, antes que el volumen de envíos."},
+        {"conversation": "a", "user": "cx-agent-1", "message": "Sí, recuérdalo. Y por cierto, ¿cuál es la ventana de devolución estándar?"}
+      ]
+    },
+    {
+      "id": "topic-change",
+      "description": "El usuario cambia de tema sin responder: la propuesta se descarta y se responde la nueva pregunta.",
+      "turns": [
+        {"conversation": "a", "user": "cx-agent-1", "message": "En realidad SEUR ya no cubre esa zona rural de Zaragoza, hay que usar el carrier local desde el mes pasado."},
+        {"conversation": "a", "user": "cx-agent-1", "message": "¿Cuánto cuesta almacenar un palé al mes en Zaragoza?"}
+      ]
+    },
+    {
+      "id": "edited-cycle",
+      "description": "El usuario aprueba con una corrección: se guarda su versión, no la del agente.",
+      "turns": [
+        {"conversation": "a", "user": "cx-agent-1", "message": "En realidad SEUR ya no cubre esa zona rural de Zaragoza, hay que usar el carrier local desde el mes pasado."},
+        {"conversation": "a", "user": "cx-agent-1", "message": "Sí, pero pon que es desde septiembre y que el carrier local solo llega hasta 40 km de Zaragoza."}
+      ]
+    }
+  ]
+}

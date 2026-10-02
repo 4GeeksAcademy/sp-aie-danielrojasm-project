@@ -28,6 +28,9 @@ from dotenv import load_dotenv  # noqa: E402
 
 load_dotenv(ROOT / ".env", override=False)
 
+import redis  # noqa: E402
+
+from services.support_agent.memory.store import DEFAULT_REDIS_URL, NAMESPACE, MemoryStore, use_memory_store  # noqa: E402
 from services.support_agent.runner import AgentRunError, run_agent  # noqa: E402
 
 
@@ -38,6 +41,11 @@ TRACES_DIR = ROOT / "data" / "eval" / "agent" / "traces"
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
     cases = json.loads(CASES_PATH.read_text(encoding="utf-8"))["cases"]
+    # Memoria vacía y propia: los traces no dependen de lo que el agente haya aprendido en este entorno.
+    client = redis.Redis.from_url(os.getenv("REDIS_URL") or DEFAULT_REDIS_URL, decode_responses=True)
+    store = MemoryStore(client, namespace=f"{NAMESPACE}:eval")
+    store.clear()
+    use_memory_store(store)
     failed = 0
     for case in cases:
         previous = {name: os.environ.get(name) for name in case.get("env", {})}

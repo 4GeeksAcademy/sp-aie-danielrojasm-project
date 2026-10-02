@@ -8,8 +8,14 @@ error, el nodo y el detalle técnico solo van al trace y al log `trackflow.agent
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from data.process.rag import RagConfigurationError, RagServiceError
+from services.api.auth_models import User
 from services.api.security import get_current_user
-from services.support_agent.models import AgentQueryRequest, AgentQueryResponse
+from services.support_agent.models import (
+    AgentQueryRequest,
+    AgentQueryResponse,
+    MemoryDecisionRead,
+    MemoryProposalRead,
+)
 from services.support_agent.runner import AgentRunError, run_agent
 
 
@@ -33,9 +39,9 @@ AGENT_FAILED_DETAIL = (
         503: {"description": "Qdrant, la colección o el gateway LLM no están disponibles."},
     },
 )
-def agent_query(body: AgentQueryRequest) -> AgentQueryResponse:
+def agent_query(body: AgentQueryRequest, user: User = Depends(get_current_user)) -> AgentQueryResponse:
     try:
-        run = run_agent(body.question)
+        run = run_agent(body.question, conversation_id=body.conversation_id, user_id=user.id)
     except AgentRunError as error:
         if isinstance(error.__cause__, (RagServiceError, RagConfigurationError)):
             raise HTTPException(
@@ -46,4 +52,24 @@ def agent_query(body: AgentQueryRequest) -> AgentQueryResponse:
         ) from error
     if "error" in run.state:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, run.state["error"])
-    return AgentQueryResponse(answer=run.state["answer"], run_id=run.run_id)
+    proposal = run.state.get("memory_proposal")
+    decision = run.state.get("memory_decision")
+    return AgentQueryResponse(
+        answer=run.state["answer"],
+        run_id=run.run_id,
+        conversation_id=run.state["conversation_id"],
+        memory_proposal=MemoryProposalRead(
+            proposal_id=proposal["proposal_id"],
+            category=proposal["category"],
+            subject=proposal["subject"],
+            fact=proposal["fact"],
+            expires_at=proposal["expires_at"],
+        )
+        if proposal
+        else None,
+        memory_decision=MemoryDecisionRead(
+            proposal_id=decision["proposal_id"], outcome=decision["outcome"], fact=decision["fact"]
+        )
+        if decision
+        else None,
+    )

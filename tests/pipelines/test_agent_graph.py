@@ -1,7 +1,8 @@
 """Grafo del agente: compilación, enrutado entre RAG y tool, contrato de nodos, fallback, checkpoints y trace.
 
-Sin servicios reales: `retrieve()`/`generate_answer()` de `data/pipelines/rag.py`, el enrutador (`plan_route`) y la
-tool de tickets (`get_ticket`) se sustituyen por dobles que registran sus llamadas. Cada test compila su propio
+Sin servicios reales: `retrieve()` de `data/pipelines/rag.py`, la generación con auto-evaluación (`generate_reply`),
+el enrutador (`plan_route`) y la tool de tickets (`get_ticket`) se sustituyen por dobles que registran sus llamadas.
+La memoria es el Redis en memoria de `tests/conftest.py` (vacía: ningún test de este módulo la usa). Cada test compila su propio
 grafo con un `InMemorySaver` nuevo.
 """
 
@@ -13,6 +14,7 @@ from data.pipelines import rag
 from data.process.rag import RagServiceError
 from services.support_agent import nodes
 from services.support_agent.graph import AgentGraphError, compile_graph, define_graph, graph
+from services.support_agent.memory.self_evaluation import AgentReply
 from services.support_agent.routing import RoutePlan
 from services.support_agent.runner import AgentRunError, resume_run, run_agent
 from services.support_agent.tools.incidents import Ticket, TicketLookup
@@ -20,6 +22,7 @@ from services.support_agent.tracing import executed_nodes, load_trace, trace_dir
 
 
 CHUNK = {"source_document": "returns-policy", "section": "Ventana", "chunk_index": 1, "text": "30 días."}
+REPLY = AgentReply(answer="Son 30 días.")
 KNOWLEDGE_ONLY = RoutePlan(ticket_ids=[], needs_knowledge=True, decided_by="llm")
 TICKET = Ticket(
     id=482,
@@ -40,7 +43,7 @@ def calls(monkeypatch):
     log: list[tuple] = []
     monkeypatch.setattr(rag, "retrieve", lambda question: log.append(("retrieve", question)) or [CHUNK])
     monkeypatch.setattr(
-        rag, "generate_answer", lambda question, context: log.append(("generate", question, context)) or "Son 30 días."
+        nodes, "generate_reply", lambda question, context: log.append(("generate", question, context)) or REPLY
     )
     monkeypatch.setattr(rag, "query", lambda question: pytest.fail("ningún nodo debe llamar a query()"))
     monkeypatch.setattr(nodes, "plan_route", lambda question: KNOWLEDGE_ONLY)
@@ -78,12 +81,16 @@ def test_module_graph_is_compiled_with_a_checkpointer():
     assert set(graph.get_graph().nodes) >= {
         nodes.RECEIVE_QUESTION,
         nodes.REJECT_QUESTION,
+        nodes.LOAD_PENDING_PROPOSAL,
+        nodes.RESOLVE_PROPOSAL,
+        nodes.RECALL_MEMORY,
         nodes.ROUTE_QUESTION,
         nodes.LOOKUP_TICKETS,
         nodes.RETRIEVE,
         nodes.GENERATE_ANSWER,
         nodes.TICKET_FALLBACK,
         nodes.NO_INFORMATION,
+        nodes.PROPOSE_MEMORY,
     }
 
 
@@ -117,7 +124,11 @@ def test_routes_are_exit_conditions_not_a_fixed_sequence():
 
     for source, target in [
         (nodes.RECEIVE_QUESTION, nodes.REJECT_QUESTION),
-        (nodes.RECEIVE_QUESTION, nodes.ROUTE_QUESTION),
+        (nodes.RECEIVE_QUESTION, nodes.LOAD_PENDING_PROPOSAL),
+        (nodes.LOAD_PENDING_PROPOSAL, nodes.RESOLVE_PROPOSAL),
+        (nodes.LOAD_PENDING_PROPOSAL, nodes.RECALL_MEMORY),
+        (nodes.RESOLVE_PROPOSAL, nodes.RECALL_MEMORY),
+        (nodes.RESOLVE_PROPOSAL, END),
         (nodes.ROUTE_QUESTION, nodes.LOOKUP_TICKETS),
         (nodes.ROUTE_QUESTION, nodes.RETRIEVE),
         (nodes.LOOKUP_TICKETS, nodes.RETRIEVE),
@@ -126,9 +137,14 @@ def test_routes_are_exit_conditions_not_a_fixed_sequence():
         (nodes.RETRIEVE, nodes.GENERATE_ANSWER),
         (nodes.RETRIEVE, nodes.TICKET_FALLBACK),
         (nodes.RETRIEVE, nodes.NO_INFORMATION),
+        (nodes.GENERATE_ANSWER, nodes.PROPOSE_MEMORY),
+        (nodes.GENERATE_ANSWER, END),
+        (nodes.NO_INFORMATION, nodes.PROPOSE_MEMORY),
+        (nodes.NO_INFORMATION, END),
     ]:
         assert edges[(source, target)] is True, (source, target)
-    assert edges[(nodes.GENERATE_ANSWER, END)] is False
+    assert edges[(nodes.RECALL_MEMORY, nodes.ROUTE_QUESTION)] is False
+    assert edges[(nodes.PROPOSE_MEMORY, END)] is False
 
 
 # --- Enrutado y contrato de nodos -----------------------------------------------------------------
@@ -148,16 +164,31 @@ def test_empty_question_ends_with_an_error_without_consulting_any_source(compile
     run = run_agent("   ", compiled=compiled)
 
     assert calls == []
-    assert run.state == {"question": "", "error": nodes.EMPTY_QUESTION_ERROR}
+    assert run.state["error"] == nodes.EMPTY_QUESTION_ERROR
+    assert "answer" not in run.state and "memories" not in run.state
 
 
-def test_no_context_answers_honestly_without_calling_the_model(compiled, calls, monkeypatch):
+def test_no_context_answers_with_the_fixed_text_and_only_self_evaluates_memory(compiled, calls, monkeypatch):
     monkeypatch.setattr(rag, "retrieve", lambda question: calls.append(("retrieve", question)) or [])
 
     run = run_agent("¿Almacén en Ciudad de México?", compiled=compiled)
 
-    assert calls == [("retrieve", "¿Almacén en Ciudad de México?")]
+    # El modelo solo ve el mensaje sin contexto (auto-evaluación); su texto no sustituye la respuesta fija.
+    assert calls == [("retrieve", "¿Almacén en Ciudad de México?"), ("generate", "¿Almacén en Ciudad de México?", [])]
     assert run.state["answer"] == nodes.NO_INFORMATION_ANSWER
+
+
+def test_no_context_keeps_the_fixed_answer_when_the_model_is_down(compiled, calls, monkeypatch):
+    def unavailable(question, context):
+        raise RagServiceError("El modelo de generación no respondió.")
+
+    monkeypatch.setattr(rag, "retrieve", lambda question: [])
+    monkeypatch.setattr(nodes, "generate_reply", unavailable)
+
+    run = run_agent("¿Almacén en Ciudad de México?", compiled=compiled)
+
+    assert run.state["answer"] == nodes.NO_INFORMATION_ANSWER
+    assert run.state["memory_candidate"] is None
 
 
 def test_ticket_question_uses_the_tool_and_not_the_rag(compiled, calls, monkeypatch):
@@ -254,17 +285,22 @@ def test_each_run_writes_a_queryable_trace(compiled, calls):
     assert trace["sources_used"] == ["rag"]
     assert executed_nodes(trace) == [
         nodes.RECEIVE_QUESTION,
+        nodes.LOAD_PENDING_PROPOSAL,
+        nodes.RECALL_MEMORY,
         nodes.ROUTE_QUESTION,
         nodes.RETRIEVE,
         nodes.GENERATE_ANSWER,
     ]
-    assert [step["order"] for step in trace["steps"]] == [1, 2, 3, 4]
-    assert trace["steps"][1]["output"] == {"route": KNOWLEDGE_ONLY.model_dump()}
-    assert trace["steps"][2]["output"] == {"context": [CHUNK]}
+    assert [step["order"] for step in trace["steps"]] == [1, 2, 3, 4, 5, 6]
+    assert trace["steps"][2]["output"] == {"memories": []}
+    assert trace["steps"][3]["output"] == {"route": KNOWLEDGE_ONLY.model_dump()}
+    assert trace["steps"][4]["output"] == {"context": [CHUNK]}
     assert trace["final_state"] == run.state
     assert [checkpoint["next"] for checkpoint in trace["checkpoints"]] == [
         ["__start__"],
         [nodes.RECEIVE_QUESTION],
+        [nodes.LOAD_PENDING_PROPOSAL],
+        [nodes.RECALL_MEMORY],
         [nodes.ROUTE_QUESTION],
         [nodes.RETRIEVE],
         [nodes.GENERATE_ANSWER],
@@ -282,7 +318,7 @@ def test_failed_node_is_traced_and_the_run_resumes_from_its_last_checkpoint(comp
     def unavailable(question, context):
         raise RagServiceError("El modelo de generación no respondió.")
 
-    monkeypatch.setattr(rag, "generate_answer", unavailable)
+    monkeypatch.setattr(nodes, "generate_reply", unavailable)
 
     with pytest.raises(AgentRunError) as failure:
         run_agent("¿Ventana de devolución?", compiled=compiled, run_id="run-1")
@@ -296,10 +332,16 @@ def test_failed_node_is_traced_and_the_run_resumes_from_its_last_checkpoint(comp
         "type": "RagServiceError",
         "message": "El modelo de generación no respondió.",
     }
-    assert executed_nodes(failed) == [nodes.RECEIVE_QUESTION, nodes.ROUTE_QUESTION, nodes.RETRIEVE]
+    assert executed_nodes(failed) == [
+        nodes.RECEIVE_QUESTION,
+        nodes.LOAD_PENDING_PROPOSAL,
+        nodes.RECALL_MEMORY,
+        nodes.ROUTE_QUESTION,
+        nodes.RETRIEVE,
+    ]
     assert failed["checkpoints"][-1]["next"] == [nodes.GENERATE_ANSWER]
 
-    monkeypatch.setattr(rag, "generate_answer", lambda question, context: "Son 30 días.")
+    monkeypatch.setattr(nodes, "generate_reply", lambda question, context: REPLY)
     run = resume_run("run-1", compiled=compiled)
 
     assert calls == [("retrieve", "¿Ventana de devolución?")]  # retrieve no se repite al retomar
@@ -308,6 +350,8 @@ def test_failed_node_is_traced_and_the_run_resumes_from_its_last_checkpoint(comp
     assert resumed["status"] == "completed" and resumed["resumed"] == 1 and "error" not in resumed
     assert executed_nodes(resumed) == [
         nodes.RECEIVE_QUESTION,
+        nodes.LOAD_PENDING_PROPOSAL,
+        nodes.RECALL_MEMORY,
         nodes.ROUTE_QUESTION,
         nodes.RETRIEVE,
         nodes.GENERATE_ANSWER,

@@ -45,13 +45,23 @@ class AgentRunError(RuntimeError):
 def run_agent(
     question: str,
     *,
+    conversation_id: str | None = None,
+    user_id: str | None = None,
     compiled: CompiledStateGraph | None = None,
     directory: Path | None = None,
     run_id: str | None = None,
 ) -> AgentRun:
+    """Un turno de conversación. Sin `user_id` el agente recuerda, pero no propone ni resuelve escrituras de memoria."""
     run_id = run_id or uuid.uuid4().hex
-    trace = _new_trace(run_id, question)
-    return _execute(compiled or default_graph, {"question": question}, trace, directory)
+    conversation_id = conversation_id or uuid.uuid4().hex
+    trace = _new_trace(run_id, question, conversation_id, user_id)
+    graph_input: AgentState = {
+        "question": question,
+        "conversation_id": conversation_id,
+        "user_id": user_id,
+        "run_id": run_id,
+    }
+    return _execute(compiled or default_graph, graph_input, trace, directory)
 
 
 def resume_run(
@@ -64,10 +74,12 @@ def resume_run(
     return _execute(compiled or default_graph, None, trace, directory)
 
 
-def _new_trace(run_id: str, question: str) -> dict[str, Any]:
+def _new_trace(run_id: str, question: str, conversation_id: str, user_id: str | None) -> dict[str, Any]:
     return {
         "trace_version": TRACE_VERSION,
         "run_id": run_id,
+        "conversation_id": conversation_id,
+        "user_id": user_id,
         "question": question,
         "started_at": datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
         "status": "running",

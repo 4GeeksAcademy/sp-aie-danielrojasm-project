@@ -18,3 +18,4 @@ openai>=1.100
 langgraph>=1.2.12
 httpx>=0.28
 langchain-mcp-adapters>=0.3.2
+redis>=6.4.0

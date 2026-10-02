@@ -1,22 +1,41 @@
 {
-  "trace_version": 2,
+  "trace_version": 3,
   "run_id": "returns-window",
+  "conversation_id": "8a875a3d52f049cf9158a77b968541d3",
+  "user_id": null,
   "question": "¿Cuál es la ventana de devolución estándar?",
-  "started_at": "2026-10-02T14:43:26.485+00:00",
+  "started_at": "2026-10-02T15:53:12.472+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 9.2,
+      "duration_ms": 6.2,
       "output": {
-        "question": "¿Cuál es la ventana de devolución estándar?"
+        "question": "¿Cuál es la ventana de devolución estándar?",
+        "message": "¿Cuál es la ventana de devolución estándar?"
       }
     },
     {
       "order": 2,
+      "node": "load_pending_proposal",
+      "duration_ms": 1.2,
+      "output": {
+        "pending_proposal": null
+      }
+    },
+    {
+      "order": 3,
+      "node": "recall_memory",
+      "duration_ms": 7.6,
+      "output": {
+        "memories": []
+      }
+    },
+    {
+      "order": 4,
       "node": "route_question",
-      "duration_ms": 3560.6,
+      "duration_ms": 2837.7,
       "output": {
         "route": {
           "ticket_ids": [],
@@ -26,9 +45,9 @@
       }
     },
     {
-      "order": 3,
+      "order": 5,
       "node": "retrieve",
-      "duration_ms": 450.2,
+      "duration_ms": 288.0,
       "output": {
         "context": [
           {
@@ -51,20 +70,28 @@
       }
     },
     {
-      "order": 4,
+      "order": 6,
       "node": "generate_answer",
-      "duration_ms": 3855.8,
+      "duration_ms": 6416.1,
       "output": {
-        "answer": "La ventana de devolución estándar en TrackFlow es de 30 días desde la entrega, salvo que hayas configurado una ventana distinta en tu contrato. Si tienes dudas sobre los plazos específicos de tu acuerdo, podemos revisarlo juntos.\n\nFuente: Política de Devoluciones › Ventana de devolución estándar"
+        "answer": "En TrackFlow, la ventana de devolución estándar es de 30 días desde la entrega. Esto aplica salvo que la marca haya configurado una ventana distinta en su contrato.\nFuente: Política de Devoluciones › Ventana de devolución estándar",
+        "memory_candidate": null
       }
     }
   ],
-  "duration_ms": 7875.8,
+  "duration_ms": 9556.9,
   "sources_used": [
     "rag"
   ],
   "final_state": {
     "question": "¿Cuál es la ventana de devolución estándar?",
+    "message": "¿Cuál es la ventana de devolución estándar?",
+    "conversation_id": "8a875a3d52f049cf9158a77b968541d3",
+    "user_id": null,
+    "run_id": "returns-window",
+    "pending_proposal": null,
+    "memories": [],
+    "memory_candidate": null,
     "route": {
       "ticket_ids": [],
       "needs_knowledge": true,
@@ -88,7 +115,7 @@
         "text": "El proceso estándar de devoluciones (reverse logistics) de TrackFlow funciona así:\n1. El cliente final solicita la devolución a través del portal de la marca.\n2. TrackFlow genera automáticamente la etiqueta de devolución si el motivo está dentro de las reglas configuradas por el cliente (ej. talla incorrecta, producto defectuoso).\n3. El producto llega al almacén y un operativo lo inspecta y clasifica en: apto para reventa, apto para reacondicionar, o no apto (descarte)."
       }
     ],
-    "answer": "La ventana de devolución estándar en TrackFlow es de 30 días desde la entrega, salvo que hayas configurado una ventana distinta en tu contrato. Si tienes dudas sobre los plazos específicos de tu acuerdo, podemos revisarlo juntos.\n\nFuente: Política de Devoluciones › Ventana de devolución estándar"
+    "answer": "En TrackFlow, la ventana de devolución estándar es de 30 días desde la entrega. Esto aplica salvo que la marca haya configurado una ventana distinta en su contrato.\nFuente: Política de Devoluciones › Ventana de devolución estándar"
   },
   "checkpoints": [
     {
@@ -97,7 +124,7 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be6fa-047a-62c2-bfff-7ffe4bd9a9a3",
+      "checkpoint_id": "1f1be795-f526-6bde-bfff-ddb1580f210d",
       "values": {}
     },
     {
@@ -106,31 +133,77 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be6fa-047f-611f-8000-476f98cc36b1",
+      "checkpoint_id": "1f1be795-f52a-6aa3-8000-7c39378d83ef",
       "values": {
-        "question": "¿Cuál es la ventana de devolución estándar?"
+        "question": "¿Cuál es la ventana de devolución estándar?",
+        "conversation_id": "8a875a3d52f049cf9158a77b968541d3",
+        "user_id": null,
+        "run_id": "returns-window"
       }
     },
     {
       "step": 1,
       "source": "loop",
       "next": [
-        "route_question"
+        "load_pending_proposal"
       ],
-      "checkpoint_id": "1f1be6fa-0487-649b-8001-035599ae0412",
+      "checkpoint_id": "1f1be795-f52d-64e3-8001-84f8010f51e7",
       "values": {
-        "question": "¿Cuál es la ventana de devolución estándar?"
+        "question": "¿Cuál es la ventana de devolución estándar?",
+        "message": "¿Cuál es la ventana de devolución estándar?",
+        "conversation_id": "8a875a3d52f049cf9158a77b968541d3",
+        "user_id": null,
+        "run_id": "returns-window"
       }
     },
     {
       "step": 2,
       "source": "loop",
       "next": [
-        "retrieve"
+        "recall_memory"
       ],
-      "checkpoint_id": "1f1be6fa-267c-6868-8002-1148399dbb9e",
+      "checkpoint_id": "1f1be795-f530-6252-8002-2b2e2f032f5c",
       "values": {
         "question": "¿Cuál es la ventana de devolución estándar?",
+        "message": "¿Cuál es la ventana de devolución estándar?",
+        "conversation_id": "8a875a3d52f049cf9158a77b968541d3",
+        "user_id": null,
+        "run_id": "returns-window",
+        "pending_proposal": null
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [
+        "route_question"
+      ],
+      "checkpoint_id": "1f1be795-f542-6d12-8003-2571117d7c9d",
+      "values": {
+        "question": "¿Cuál es la ventana de devolución estándar?",
+        "message": "¿Cuál es la ventana de devolución estándar?",
+        "conversation_id": "8a875a3d52f049cf9158a77b968541d3",
+        "user_id": null,
+        "run_id": "returns-window",
+        "pending_proposal": null,
+        "memories": []
+      }
+    },
+    {
+      "step": 4,
+      "source": "loop",
+      "next": [
+        "retrieve"
+      ],
+      "checkpoint_id": "1f1be796-1052-6520-8004-13655dba5557",
+      "values": {
+        "question": "¿Cuál es la ventana de devolución estándar?",
+        "message": "¿Cuál es la ventana de devolución estándar?",
+        "conversation_id": "8a875a3d52f049cf9158a77b968541d3",
+        "user_id": null,
+        "run_id": "returns-window",
+        "pending_proposal": null,
+        "memories": [],
         "route": {
           "ticket_ids": [],
           "needs_knowledge": true,
@@ -139,14 +212,20 @@
       }
     },
     {
-      "step": 3,
+      "step": 5,
       "source": "loop",
       "next": [
         "generate_answer"
       ],
-      "checkpoint_id": "1f1be6fa-2ac7-6ef0-8003-5bc20e7daa45",
+      "checkpoint_id": "1f1be796-1311-6d5e-8005-de5cc54ec116",
       "values": {
         "question": "¿Cuál es la ventana de devolución estándar?",
+        "message": "¿Cuál es la ventana de devolución estándar?",
+        "conversation_id": "8a875a3d52f049cf9158a77b968541d3",
+        "user_id": null,
+        "run_id": "returns-window",
+        "pending_proposal": null,
+        "memories": [],
         "route": {
           "ticket_ids": [],
           "needs_knowledge": true,
@@ -173,12 +252,19 @@
       }
     },
     {
-      "step": 4,
+      "step": 6,
       "source": "loop",
       "next": [],
-      "checkpoint_id": "1f1be6fa-4f8c-6720-8004-57bc2e3a4774",
+      "checkpoint_id": "1f1be796-5041-6217-8006-cd5cd6bba9bd",
       "values": {
         "question": "¿Cuál es la ventana de devolución estándar?",
+        "message": "¿Cuál es la ventana de devolución estándar?",
+        "conversation_id": "8a875a3d52f049cf9158a77b968541d3",
+        "user_id": null,
+        "run_id": "returns-window",
+        "pending_proposal": null,
+        "memories": [],
+        "memory_candidate": null,
         "route": {
           "ticket_ids": [],
           "needs_knowledge": true,
@@ -202,7 +288,7 @@
             "text": "El proceso estándar de devoluciones (reverse logistics) de TrackFlow funciona así:\n1. El cliente final solicita la devolución a través del portal de la marca.\n2. TrackFlow genera automáticamente la etiqueta de devolución si el motivo está dentro de las reglas configuradas por el cliente (ej. talla incorrecta, producto defectuoso).\n3. El producto llega al almacén y un operativo lo inspecta y clasifica en: apto para reventa, apto para reacondicionar, o no apto (descarte)."
           }
         ],
-        "answer": "La ventana de devolución estándar en TrackFlow es de 30 días desde la entrega, salvo que hayas configurado una ventana distinta en tu contrato. Si tienes dudas sobre los plazos específicos de tu acuerdo, podemos revisarlo juntos.\n\nFuente: Política de Devoluciones › Ventana de devolución estándar"
+        "answer": "En TrackFlow, la ventana de devolución estándar es de 30 días desde la entrega. Esto aplica salvo que la marca haya configurado una ventana distinta en su contrato.\nFuente: Política de Devoluciones › Ventana de devolución estándar"
       }
     }
   ]

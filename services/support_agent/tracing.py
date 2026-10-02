@@ -1,10 +1,10 @@
 """Traces de las corridas del agente: un JSON por corrida en `AGENT_TRACE_DIR` (por defecto `data/raw/agent_traces/`).
 
-Formato (`trace_version` 2):
+Formato (`trace_version` 3):
 
-- `run_id`, `question`, `started_at`, `duration_ms`, `status` (`completed` | `failed`).
-- `sources_used`: fuentes consultadas en orden (`incidents_tool` = gestor de incidencias, `rag` = base de
-  conocimiento); vacío si la corrida no consultó ninguna.
+- `run_id`, `conversation_id`, `user_id`, `question`, `started_at`, `duration_ms`, `status` (`completed` | `failed`).
+- `sources_used`: fuentes consultadas en orden (`agent_memory` = memoria aprobada, solo si recuperó alguna entrada;
+  `incidents_tool` = gestor de incidencias; `rag` = base de conocimiento); vacío si no consultó ninguna.
 - `steps`: nodos en el orden en que se ejecutaron, con `order`, `node`, `duration_ms` y `output` (lo que el nodo
   escribió en el estado; el de `route_question` es la decisión de fuentes y quién la tomó).
 - `final_state`: estado al terminar (`question`, `context`, `answer` o `error`).
@@ -22,10 +22,10 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TRACE_VERSION = 2
+TRACE_VERSION = 3
 
 # Nodos que consultan una fuente de datos externa al grafo.
-SOURCE_BY_NODE = {"lookup_tickets": "incidents_tool", "retrieve": "rag"}
+SOURCE_BY_NODE = {"recall_memory": "agent_memory", "lookup_tickets": "incidents_tool", "retrieve": "rag"}
 
 
 def trace_dir() -> Path:
@@ -53,5 +53,12 @@ def executed_nodes(trace: dict[str, Any]) -> list[str]:
 
 
 def sources_used(steps: list[dict[str, Any]]) -> list[str]:
-    """Fuentes de datos consultadas, en el orden en que se consultaron (`incidents_tool`, `rag`)."""
-    return [SOURCE_BY_NODE[step["node"]] for step in steps if step["node"] in SOURCE_BY_NODE]
+    """Fuentes de datos consultadas, en el orden en que se consultaron (`agent_memory`, `incidents_tool`, `rag`).
+
+    La memoria solo cuenta si devolvió alguna entrada: se consulta en cada pregunta y casi siempre está vacía.
+    """
+    return [
+        SOURCE_BY_NODE[step["node"]]
+        for step in steps
+        if step["node"] in SOURCE_BY_NODE and (step["node"] != "recall_memory" or step["output"].get("memories"))
+    ]

@@ -1,22 +1,41 @@
 {
-  "trace_version": 2,
+  "trace_version": 3,
   "run_id": "ticket-service-down",
+  "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+  "user_id": null,
   "question": "¿En qué estado está el ticket 1?",
-  "started_at": "2026-10-02T14:44:20.563+00:00",
+  "started_at": "2026-10-02T15:54:24.402+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 1.8,
+      "duration_ms": 6.4,
       "output": {
-        "question": "¿En qué estado está el ticket 1?"
+        "question": "¿En qué estado está el ticket 1?",
+        "message": "¿En qué estado está el ticket 1?"
       }
     },
     {
       "order": 2,
+      "node": "load_pending_proposal",
+      "duration_ms": 0.7,
+      "output": {
+        "pending_proposal": null
+      }
+    },
+    {
+      "order": 3,
+      "node": "recall_memory",
+      "duration_ms": 3.2,
+      "output": {
+        "memories": []
+      }
+    },
+    {
+      "order": 4,
       "node": "route_question",
-      "duration_ms": 1160.1,
+      "duration_ms": 1678.5,
       "output": {
         "route": {
           "ticket_ids": [
@@ -28,9 +47,9 @@
       }
     },
     {
-      "order": 3,
+      "order": 5,
       "node": "lookup_tickets",
-      "duration_ms": 2098.7,
+      "duration_ms": 2126.2,
       "output": {
         "tickets": [
           {
@@ -42,20 +61,26 @@
       }
     },
     {
-      "order": 4,
+      "order": 6,
       "node": "ticket_fallback",
-      "duration_ms": 1.7,
+      "duration_ms": 1.4,
       "output": {
         "answer": "No pude confirmar el estado del ticket 1 ahora mismo: el gestor de incidencias no respondió. Vuelve a intentarlo en unos minutos.\nFuente: sin confirmación del gestor de incidencias"
       }
     }
   ],
-  "duration_ms": 3262.3,
+  "duration_ms": 3816.5,
   "sources_used": [
     "incidents_tool"
   ],
   "final_state": {
     "question": "¿En qué estado está el ticket 1?",
+    "message": "¿En qué estado está el ticket 1?",
+    "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+    "user_id": null,
+    "run_id": "ticket-service-down",
+    "pending_proposal": null,
+    "memories": [],
     "route": {
       "ticket_ids": [
         1
@@ -79,7 +104,7 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be6fc-082b-6f21-bfff-dbaf766c3c02",
+      "checkpoint_id": "1f1be798-a31a-6874-bfff-b637ba996906",
       "values": {}
     },
     {
@@ -88,31 +113,77 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be6fc-082d-669a-8000-e6cb65ecd971",
+      "checkpoint_id": "1f1be798-a31c-64eb-8000-6b72d11b7f64",
       "values": {
-        "question": "¿En qué estado está el ticket 1?"
+        "question": "¿En qué estado está el ticket 1?",
+        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "user_id": null,
+        "run_id": "ticket-service-down"
       }
     },
     {
       "step": 1,
       "source": "loop",
       "next": [
-        "route_question"
+        "load_pending_proposal"
       ],
-      "checkpoint_id": "1f1be6fc-082f-6232-8001-14f87d1f158d",
+      "checkpoint_id": "1f1be798-a328-6e90-8001-abd6958150cf",
       "values": {
-        "question": "¿En qué estado está el ticket 1?"
+        "question": "¿En qué estado está el ticket 1?",
+        "message": "¿En qué estado está el ticket 1?",
+        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "user_id": null,
+        "run_id": "ticket-service-down"
       }
     },
     {
       "step": 2,
       "source": "loop",
       "next": [
-        "lookup_tickets"
+        "recall_memory"
       ],
-      "checkpoint_id": "1f1be6fc-133f-63b8-8002-6283eb839abc",
+      "checkpoint_id": "1f1be798-a32a-6be9-8002-8a45847987c7",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
+        "message": "¿En qué estado está el ticket 1?",
+        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "user_id": null,
+        "run_id": "ticket-service-down",
+        "pending_proposal": null
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [
+        "route_question"
+      ],
+      "checkpoint_id": "1f1be798-a332-68de-8003-388d28aa338a",
+      "values": {
+        "question": "¿En qué estado está el ticket 1?",
+        "message": "¿En qué estado está el ticket 1?",
+        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "user_id": null,
+        "run_id": "ticket-service-down",
+        "pending_proposal": null,
+        "memories": []
+      }
+    },
+    {
+      "step": 4,
+      "source": "loop",
+      "next": [
+        "lookup_tickets"
+      ],
+      "checkpoint_id": "1f1be798-b332-6cbf-8004-f076fdde12b9",
+      "values": {
+        "question": "¿En qué estado está el ticket 1?",
+        "message": "¿En qué estado está el ticket 1?",
+        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "user_id": null,
+        "run_id": "ticket-service-down",
+        "pending_proposal": null,
+        "memories": [],
         "route": {
           "ticket_ids": [
             1
@@ -123,14 +194,20 @@
       }
     },
     {
-      "step": 3,
+      "step": 5,
       "source": "loop",
       "next": [
         "ticket_fallback"
       ],
-      "checkpoint_id": "1f1be6fc-2741-694a-8003-a12d19a91310",
+      "checkpoint_id": "1f1be798-c77b-63d6-8005-ff85ca77225d",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
+        "message": "¿En qué estado está el ticket 1?",
+        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "user_id": null,
+        "run_id": "ticket-service-down",
+        "pending_proposal": null,
+        "memories": [],
         "route": {
           "ticket_ids": [
             1
@@ -148,12 +225,18 @@
       }
     },
     {
-      "step": 4,
+      "step": 6,
       "source": "loop",
       "next": [],
-      "checkpoint_id": "1f1be6fc-2746-66f5-8004-849721fc9fdc",
+      "checkpoint_id": "1f1be798-c77c-66ba-8006-5676780d0a8c",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
+        "message": "¿En qué estado está el ticket 1?",
+        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "user_id": null,
+        "run_id": "ticket-service-down",
+        "pending_proposal": null,
+        "memories": [],
         "route": {
           "ticket_ids": [
             1

@@ -1,29 +1,49 @@
 """Nodos del agente (una responsabilidad cada uno) y las condiciones de salida que deciden el siguiente.
 
-Fuentes: `lookup_tickets` consulta el gestor de incidencias (tool, datos en vivo) y `retrieve` la base de
-conocimiento (RAG). `generate_answer` llama a `generate_answer()` de `data/pipelines/rag.py` con lo que ya trajeron
-esas fuentes; ningún nodo usa `query()`. Un ticket que no se pudo confirmar nunca llega al modelo: se avisa con un
-texto fijo, para que el agente no invente su estado.
+Fuentes: `lookup_tickets` consulta el gestor de incidencias (tool, datos en vivo), `retrieve` la base de
+conocimiento (RAG) y `recall_memory` la memoria aprobada del agente. `generate_answer` llama una sola vez al modelo
+con lo que ya trajeron esas fuentes y recibe la respuesta y, si aplica, una propuesta de memoria; ningún nodo usa
+`query()`. Un ticket que no se pudo confirmar nunca llega al modelo: se avisa con un texto fijo, para que el agente
+no invente su estado.
+
+Memoria: `load_pending_proposal` y `resolve_proposal` cierran la propuesta del turno anterior con una decisión
+explícita del usuario antes de responder; `propose_memory` valida la propuesta del modelo y se la pregunta al
+usuario dentro de la misma respuesta. Nada se escribe en la memoria sin esa decisión.
 """
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Literal
 
+from langgraph.graph import END
+
 from data.pipelines import rag
+from data.process.rag import RagServiceError
+from services.support_agent.memory import policy
+from services.support_agent.memory.decision import classify_decision, resolve
+from services.support_agent.memory.models import MemoryDraft, MemoryProposal
+from services.support_agent.memory.self_evaluation import AgentReply, generate_reply, memory_fragment
+from services.support_agent.memory.store import MemoryUnavailableError, get_memory_store
 from services.support_agent.routing import plan_route
 from services.support_agent.state import AgentState
 from services.support_agent.tools.incidents import Ticket, TicketQuery, get_ticket, ticket_fragment
 
 
+logger = logging.getLogger("trackflow.agent")
+
 RECEIVE_QUESTION = "receive_question"
 REJECT_QUESTION = "reject_question"
+LOAD_PENDING_PROPOSAL = "load_pending_proposal"
+RESOLVE_PROPOSAL = "resolve_proposal"
+RECALL_MEMORY = "recall_memory"
 ROUTE_QUESTION = "route_question"
 LOOKUP_TICKETS = "lookup_tickets"
 RETRIEVE = "retrieve"
 GENERATE_ANSWER = "generate_answer"
 TICKET_FALLBACK = "ticket_fallback"
 NO_INFORMATION = "no_information"
+PROPOSE_MEMORY = "propose_memory"
 
 EMPTY_QUESTION_ERROR = "La pregunta está vacía: escribe qué quiere saber el cliente."
 
@@ -39,15 +59,83 @@ TICKET_UNCONFIRMED = (
 KNOWLEDGE_ALSO_MISSING = "Sobre el resto de la pregunta, no tengo información en la base de conocimiento de TrackFlow."
 TICKET_FALLBACK_SOURCE = "Fuente: sin confirmación del gestor de incidencias"
 
+PROPOSAL_QUESTION = "¿Quieres que recuerde esto para próximas conversaciones? «{fact}» Responde sí, no o corrígelo."
+DECISION_NOTICES = {
+    "approved": "Hecho: lo recordaré en próximas conversaciones («{fact}»).",
+    "edited": "Hecho: lo recordaré con tu corrección («{fact}»).",
+    "rejected": "Entendido: no lo guardo («{fact}»).",
+    "discarded": "No he guardado la propuesta anterior («{fact}») porque no quedó clara tu decisión. Si quieres que "
+    "lo recuerde, vuelve a decírmelo.",
+}
+MEMORY_UNAVAILABLE = (
+    "La memoria del agente no está disponible ahora mismo: en esta respuesta no puedo recordar ni guardar nada."
+)
+
 
 def receive_question(state: AgentState) -> AgentState:
-    """Normaliza la pregunta de entrada (sin espacios sobrantes)."""
-    return {"question": (state.get("question") or "").strip()}
+    """Normaliza el mensaje de entrada (sin espacios sobrantes)."""
+    question = (state.get("question") or "").strip()
+    return {"question": question, "message": question}
 
 
 def reject_question(state: AgentState) -> AgentState:
     """Termina la corrida sin consultar ninguna fuente: no hay pregunta que responder."""
     return {"error": EMPTY_QUESTION_ERROR}
+
+
+def load_pending_proposal(state: AgentState) -> AgentState:
+    """Propuesta de memoria del usuario que espera respuesta en esta conversación (antes descarta las caducadas)."""
+    if not state.get("user_id"):
+        return {"pending_proposal": None}
+    try:
+        pending = get_memory_store().pending_for(state["user_id"], state["conversation_id"], policy.utc_now())
+    except MemoryUnavailableError:
+        return {"pending_proposal": None, "memory_notices": _notices(state, MEMORY_UNAVAILABLE)}
+    return {"pending_proposal": pending.model_dump(mode="json") if pending else None}
+
+
+def resolve_proposal(state: AgentState) -> AgentState:
+    """Clasifica el mensaje frente a la propuesta pendiente, aplica la decisión y la deja registrada."""
+    pending = MemoryProposal.model_validate(state["pending_proposal"])
+    message = state["message"]
+    store = get_memory_store()
+    now = policy.utc_now()
+    try:
+        if not store.take_pending(pending.user_id, pending.proposal_id):
+            # Otra petición ya la resolvió: este mensaje se responde como una pregunta normal.
+            return {"pending_proposal": None}
+        classification = classify_decision(message, pending)
+        resolution = resolve(classification, pending, message)
+        if resolution.outcome in ("approved", "edited"):
+            store.consolidate(pending, resolution.fact or pending.fact, now)
+        store.record_decision(
+            pending, resolution, classification=classification, message=message, run_id=state["run_id"], at=now
+        )
+    except MemoryUnavailableError:
+        return {"pending_proposal": None, "memory_notices": _notices(state, MEMORY_UNAVAILABLE)}
+
+    update: AgentState = {
+        "pending_proposal": None,
+        "memory_decision": {
+            "proposal_id": pending.proposal_id,
+            "outcome": resolution.outcome,
+            "reason": resolution.reason,
+            "fact": resolution.fact,
+        },
+    }
+    notice = DECISION_NOTICES[resolution.outcome].format(fact=resolution.fact or pending.fact)
+    if resolution.follow_up:
+        return {**update, "question": resolution.follow_up, "memory_notices": _notices(state, notice)}
+    return {**update, "answer": notice}
+
+
+def recall_memory(state: AgentState) -> AgentState:
+    """Entradas de la memoria aprobada relevantes para la pregunta (lectura explícita, como mucho `MAX_RECALLED`)."""
+    try:
+        entries = get_memory_store().recall(state["question"], policy.utc_now())
+    except MemoryUnavailableError:
+        return {"memories": [], "memory_notices": _notices(state, MEMORY_UNAVAILABLE)}
+    return {"memories": [memory_fragment(entry) for entry in entries]}
 
 
 def route_question(state: AgentState) -> AgentState:
@@ -71,13 +159,16 @@ def retrieve(state: AgentState) -> AgentState:
 
 
 def generate_answer(state: AgentState) -> AgentState:
-    """Respuesta del modelo a partir del contexto recuperado y de los tickets confirmados."""
-    context = list(state.get("context", [])) + [
-        ticket_fragment(Ticket.model_validate(lookup["ticket"])) for lookup in _found(state)
+    """Respuesta y auto-evaluación de memoria, a partir del contexto, los tickets confirmados y la memoria recordada."""
+    context = [
+        *state.get("context", []),
+        *(ticket_fragment(Ticket.model_validate(lookup["ticket"])) for lookup in _found(state)),
+        *state.get("memories", []),
     ]
-    answer = rag.generate_answer(state["question"], context)
+    reply = generate_reply(state["question"], context)
     notices = _unconfirmed_notices(state)
-    return {"answer": "\n".join([*notices, answer]) if notices else answer}
+    answer = "\n".join([*notices, reply.answer]) if notices else reply.answer
+    return {"answer": _with_memory_notices(state, answer), "memory_candidate": _candidate(reply)}
 
 
 def ticket_fallback(state: AgentState) -> AgentState:
@@ -85,16 +176,77 @@ def ticket_fallback(state: AgentState) -> AgentState:
     lines = _unconfirmed_notices(state)
     if state["route"]["needs_knowledge"]:
         lines.append(KNOWLEDGE_ALSO_MISSING)
-    return {"answer": "\n".join([*lines, TICKET_FALLBACK_SOURCE])}
+    return {"answer": _with_memory_notices(state, "\n".join([*lines, TICKET_FALLBACK_SOURCE]))}
 
 
 def no_information(state: AgentState) -> AgentState:
-    """Respuesta honesta sin llamar al modelo: ningún fragmento superó el umbral."""
-    return {"answer": NO_INFORMATION_ANSWER}
+    """Respuesta fija y honesta (nada superó el umbral), más la auto-evaluación de memoria del mensaje.
+
+    Las correcciones que vale la pena recordar no suelen estar en la base de conocimiento, así que el modelo evalúa
+    el mensaje igualmente; su texto no se usa, para no responder sin contexto.
+    """
+    try:
+        reply = generate_reply(state["question"], [])
+    except RagServiceError:
+        logger.warning("no_information sin auto-evaluación de memoria: el modelo no respondió.")
+        reply = None
+    return {"answer": _with_memory_notices(state, NO_INFORMATION_ANSWER), "memory_candidate": _candidate(reply)}
 
 
-def route_after_question(state: AgentState) -> Literal["reject_question", "route_question"]:
-    return REJECT_QUESTION if not state["question"] else ROUTE_QUESTION
+def propose_memory(state: AgentState) -> AgentState:
+    """Valida la propuesta del modelo y, si pasa, la deja pendiente y la pregunta al final de la respuesta."""
+    if not state.get("user_id"):
+        logger.info("propose_memory sin usuario autenticado: no se propone nada.")
+        return {"memory_proposal": None}
+    draft = MemoryDraft.model_validate(state["memory_candidate"])
+    now = policy.utc_now()
+    proposal = policy.build_proposal(
+        draft,
+        message=state["question"],
+        user_id=state["user_id"],
+        conversation_id=state["conversation_id"],
+        run_id=state["run_id"],
+        now=now,
+    )
+    store = get_memory_store()
+    try:
+        if isinstance(proposal, list):
+            store.record_blocked(
+                draft,
+                proposal,
+                message=state["question"],
+                user_id=state["user_id"],
+                conversation_id=state["conversation_id"],
+                run_id=state["run_id"],
+                at=now,
+            )
+            return {"memory_proposal": None}
+        if store.already_remembered(proposal):
+            store.record_skipped(proposal, "already_remembered")
+            return {"memory_proposal": None}
+        # Una sola propuesta pendiente por usuario: si ya tiene otra sin resolver, esta no se lanza.
+        if not store.open_pending(proposal):
+            store.record_skipped(proposal, "pending_exists")
+            return {"memory_proposal": None}
+    except MemoryUnavailableError:
+        return {"memory_proposal": None, "answer": f"{state['answer']}\n\n{MEMORY_UNAVAILABLE}"}
+    return {
+        "memory_proposal": proposal.model_dump(mode="json"),
+        "answer": f"{state['answer']}\n\n{PROPOSAL_QUESTION.format(fact=proposal.fact)}",
+    }
+
+
+def route_after_question(state: AgentState) -> Literal["reject_question", "load_pending_proposal"]:
+    return REJECT_QUESTION if not state["question"] else LOAD_PENDING_PROPOSAL
+
+
+def route_after_pending(state: AgentState) -> Literal["resolve_proposal", "recall_memory"]:
+    return RESOLVE_PROPOSAL if state.get("pending_proposal") else RECALL_MEMORY
+
+
+def route_after_resolution(state: AgentState) -> Literal["recall_memory", "__end__"]:
+    # Si el mensaje solo respondía a la propuesta, la confirmación de la decisión es la respuesta.
+    return END if state.get("answer") else RECALL_MEMORY
 
 
 def route_after_plan(state: AgentState) -> Literal["lookup_tickets", "retrieve"]:
@@ -110,7 +262,13 @@ def route_after_lookup(state: AgentState) -> Literal["retrieve", "generate_answe
 def route_after_retrieve(state: AgentState) -> Literal["generate_answer", "ticket_fallback", "no_information"]:
     if state["context"] or _found(state):
         return GENERATE_ANSWER
-    return TICKET_FALLBACK if state.get("tickets") else NO_INFORMATION
+    if state.get("tickets"):
+        return TICKET_FALLBACK
+    return GENERATE_ANSWER if state.get("memories") else NO_INFORMATION
+
+
+def route_after_answer(state: AgentState) -> Literal["propose_memory", "__end__"]:
+    return PROPOSE_MEMORY if state.get("memory_candidate") else END
 
 
 def _found(state: AgentState) -> list[dict[str, Any]]:
@@ -125,3 +283,16 @@ def _unconfirmed_notices(state: AgentState) -> list[str]:
         for lookup in state.get("tickets", [])
         if lookup["outcome"] != "found"
     ]
+
+
+def _notices(state: AgentState, notice: str) -> list[str]:
+    notices = list(state.get("memory_notices", []))
+    return notices if notice in notices else [*notices, notice]
+
+
+def _with_memory_notices(state: AgentState, answer: str) -> str:
+    return "\n\n".join([*state.get("memory_notices", []), answer])
+
+
+def _candidate(reply: AgentReply | None) -> dict[str, Any] | None:
+    return reply.proposal.model_dump() if reply and reply.proposal else None

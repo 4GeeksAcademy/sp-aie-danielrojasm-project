@@ -1,22 +1,41 @@
 {
-  "trace_version": 2,
+  "trace_version": 3,
   "run_id": "ticket-not-found",
+  "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+  "user_id": null,
   "question": "¿Cómo va la incidencia 9999?",
-  "started_at": "2026-10-02T14:44:17.146+00:00",
+  "started_at": "2026-10-02T15:54:21.846+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 6.6,
+      "duration_ms": 6.7,
       "output": {
-        "question": "¿Cómo va la incidencia 9999?"
+        "question": "¿Cómo va la incidencia 9999?",
+        "message": "¿Cómo va la incidencia 9999?"
       }
     },
     {
       "order": 2,
+      "node": "load_pending_proposal",
+      "duration_ms": 2.5,
+      "output": {
+        "pending_proposal": null
+      }
+    },
+    {
+      "order": 3,
+      "node": "recall_memory",
+      "duration_ms": 7.3,
+      "output": {
+        "memories": []
+      }
+    },
+    {
+      "order": 4,
       "node": "route_question",
-      "duration_ms": 3097.0,
+      "duration_ms": 2180.5,
       "output": {
         "route": {
           "ticket_ids": [
@@ -28,9 +47,9 @@
       }
     },
     {
-      "order": 3,
+      "order": 5,
       "node": "lookup_tickets",
-      "duration_ms": 310.2,
+      "duration_ms": 355.0,
       "output": {
         "tickets": [
           {
@@ -42,20 +61,26 @@
       }
     },
     {
-      "order": 4,
+      "order": 6,
       "node": "ticket_fallback",
-      "duration_ms": 1.0,
+      "duration_ms": 1.1,
       "output": {
         "answer": "No encuentro el ticket 9999 en el gestor de incidencias; revisa el número antes de responder al cliente.\nFuente: sin confirmación del gestor de incidencias"
       }
     }
   ],
-  "duration_ms": 3414.8,
+  "duration_ms": 2553.1,
   "sources_used": [
     "incidents_tool"
   ],
   "final_state": {
     "question": "¿Cómo va la incidencia 9999?",
+    "message": "¿Cómo va la incidencia 9999?",
+    "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+    "user_id": null,
+    "run_id": "ticket-not-found",
+    "pending_proposal": null,
+    "memories": [],
     "route": {
       "ticket_ids": [
         9999
@@ -79,7 +104,7 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be6fb-e798-6fc3-bfff-d8da482e0388",
+      "checkpoint_id": "1f1be798-8abd-6873-bfff-8ad05bb9aaf6",
       "values": {}
     },
     {
@@ -88,31 +113,77 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be6fb-e79f-6092-8000-0264486e118a",
+      "checkpoint_id": "1f1be798-8ac2-699b-8000-400f69d1385e",
       "values": {
-        "question": "¿Cómo va la incidencia 9999?"
+        "question": "¿Cómo va la incidencia 9999?",
+        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "user_id": null,
+        "run_id": "ticket-not-found"
       }
     },
     {
       "step": 1,
       "source": "loop",
       "next": [
-        "route_question"
+        "load_pending_proposal"
       ],
-      "checkpoint_id": "1f1be6fb-e7a4-68d2-8001-78f5d6e0d702",
+      "checkpoint_id": "1f1be798-8ac9-689c-8001-c85040be8886",
       "values": {
-        "question": "¿Cómo va la incidencia 9999?"
+        "question": "¿Cómo va la incidencia 9999?",
+        "message": "¿Cómo va la incidencia 9999?",
+        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "user_id": null,
+        "run_id": "ticket-not-found"
       }
     },
     {
       "step": 2,
       "source": "loop",
       "next": [
-        "lookup_tickets"
+        "recall_memory"
       ],
-      "checkpoint_id": "1f1be6fc-052e-6536-8002-aecc71c0f100",
+      "checkpoint_id": "1f1be798-8acf-6a3c-8002-8ce0449a48a7",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
+        "message": "¿Cómo va la incidencia 9999?",
+        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "user_id": null,
+        "run_id": "ticket-not-found",
+        "pending_proposal": null
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [
+        "route_question"
+      ],
+      "checkpoint_id": "1f1be798-8ae2-649b-8003-523f6650f512",
+      "values": {
+        "question": "¿Cómo va la incidencia 9999?",
+        "message": "¿Cómo va la incidencia 9999?",
+        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "user_id": null,
+        "run_id": "ticket-not-found",
+        "pending_proposal": null,
+        "memories": []
+      }
+    },
+    {
+      "step": 4,
+      "source": "loop",
+      "next": [
+        "lookup_tickets"
+      ],
+      "checkpoint_id": "1f1be798-9fad-68e0-8004-156412a04cc8",
+      "values": {
+        "question": "¿Cómo va la incidencia 9999?",
+        "message": "¿Cómo va la incidencia 9999?",
+        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "user_id": null,
+        "run_id": "ticket-not-found",
+        "pending_proposal": null,
+        "memories": [],
         "route": {
           "ticket_ids": [
             9999
@@ -123,14 +194,20 @@
       }
     },
     {
-      "step": 3,
+      "step": 5,
       "source": "loop",
       "next": [
         "ticket_fallback"
       ],
-      "checkpoint_id": "1f1be6fc-0823-6a7e-8003-a466e7d7840a",
+      "checkpoint_id": "1f1be798-a310-6610-8005-2bca72554c56",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
+        "message": "¿Cómo va la incidencia 9999?",
+        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "user_id": null,
+        "run_id": "ticket-not-found",
+        "pending_proposal": null,
+        "memories": [],
         "route": {
           "ticket_ids": [
             9999
@@ -148,12 +225,18 @@
       }
     },
     {
-      "step": 4,
+      "step": 6,
       "source": "loop",
       "next": [],
-      "checkpoint_id": "1f1be6fc-0825-658d-8004-af39c4cee350",
+      "checkpoint_id": "1f1be798-a311-6647-8006-6877b4fa8e5a",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
+        "message": "¿Cómo va la incidencia 9999?",
+        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "user_id": null,
+        "run_id": "ticket-not-found",
+        "pending_proposal": null,
+        "memories": [],
         "route": {
           "ticket_ids": [
             9999

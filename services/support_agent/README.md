@@ -6,39 +6,58 @@ tiempo real). El propio agente decide
 qué fuente necesita cada pregunta. Se monta en la API principal (`services/api/main.py`) y convive con
 `/knowledge/query`.
 
+Además tiene **memoria aprobada** (`memory/`, sobre Redis): propone recordar correcciones dentro de su respuesta y solo
+las guarda si el usuario lo decide explícitamente en el turno siguiente. Diseño, política de lo que nunca se recuerda
+y evidencias en [`docs/agent-memory/memory-design.md`](../../docs/agent-memory/memory-design.md).
+
 ## Grafo
 
 ```mermaid
 flowchart LR
   S((START)) --> RQ[receive_question]
   RQ -- pregunta vacía --> RJ[reject_question] --> E((END))
-  RQ -- hay pregunta --> RT[route_question]
+  RQ -- hay pregunta --> LP[load_pending_proposal]
+  LP -- propuesta pendiente --> RP[resolve_proposal]
+  LP -- ninguna --> M[recall_memory]
+  RP -- el mensaje también pregunta algo --> M
+  RP -- solo respondía a la propuesta --> E
+  M --> RT[route_question]
   RT -- cita tickets --> LT[lookup_tickets]
   RT -- sin tickets --> R[retrieve]
   LT -- también necesita la base de conocimiento --> R
-  LT -- algún ticket confirmado --> G[generate_answer] --> E
+  LT -- algún ticket confirmado --> G[generate_answer]
   LT -- ningún ticket confirmado --> TF[ticket_fallback] --> E
-  R -- hay contexto o tickets confirmados --> G
+  R -- hay contexto, tickets confirmados o memoria --> G
   R -- sin contexto, tickets sin confirmar --> TF
-  R -- sin contexto ni tickets --> N[no_information] --> E
+  R -- sin contexto, tickets ni memoria --> N[no_information]
+  G -- propuesta de memoria --> PM[propose_memory] --> E
+  N -- propuesta de memoria --> PM
+  G -- nada que recordar --> E
+  N -- nada que recordar --> E
 ```
 
 | Nodo | Responsabilidad | Escribe en el estado |
 | --- | --- | --- |
 | `receive_question` | Normaliza la pregunta | `question` |
 | `reject_question` | Termina sin consultar nada si la pregunta está vacía | `error` |
+| `load_pending_proposal` | Propuesta de memoria del usuario pendiente en esta conversación (antes descarta las caducadas) | `pending_proposal` |
+| `resolve_proposal` | Clasifica el mensaje frente a la propuesta (`approve`, `reject`, `edit`, `unrelated`), consolida si se aprueba y lo audita | `memory_decision`, `answer` o `question` |
+| `recall_memory` | Entradas de la memoria aprobada relevantes para la pregunta (como mucho 5) | `memories` |
 | `route_question` | Decide las fuentes (`routing.plan_route`) | `route` |
 | `lookup_tickets` | Tool `get_ticket` (cliente MCP) por cada ticket de la pregunta | `tickets` |
 | `retrieve` | `data.pipelines.rag.retrieve(question)` | `context` |
-| `generate_answer` | `data.pipelines.rag.generate_answer(question, context)` con el contexto recuperado y los tickets confirmados | `answer` |
+| `generate_answer` | `memory.self_evaluation.generate_reply(question, context)`: una sola llamada que devuelve la respuesta y `propuesta_memoria`, con el contexto recuperado, los tickets confirmados y la memoria recordada | `answer`, `memory_candidate` |
 | `ticket_fallback` | Respuesta honesta sin llamar al modelo: ningún ticket se pudo confirmar | `answer` |
-| `no_information` | Respuesta honesta sin llamar al modelo: nada superó el umbral del RAG | `answer` |
+| `no_information` | Respuesta fija sin contexto; el modelo solo auto-evalúa el mensaje (su texto no se usa) | `answer`, `memory_candidate` |
+| `propose_memory` | Valida la propuesta (`memory.policy`), la deja pendiente y la pregunta al final de la respuesta | `memory_proposal`, `answer` |
 
 Ningún nodo llama a `query()`: cada fuente se consulta una sola vez y queda en el trace. Un ticket que no se pudo
 confirmar nunca llega al modelo; el agente lo avisa con un texto fijo y no inventa un estado.
 
-**Estado (`state.py`):** `question`, `route`, `tickets`, `context`, `answer`, `error`. Sin historial de conversación:
-cada pregunta se responde de forma independiente.
+**Estado (`state.py`):** `question`, `message`, `conversation_id`, `user_id`, `run_id`, los campos de memoria
+(`pending_proposal`, `memory_decision`, `memories`, `memory_candidate`, `memory_proposal`, `memory_notices`), `route`,
+`tickets`, `context`, `answer`, `error`. Sin historial de conversación: lo único que une dos turnos es la propuesta
+pendiente, que vive en Redis.
 
 **Enrutado (`routing.py`):** el modelo de generación devuelve un JSON `{ticket_ids, needs_knowledge}`. Solo se aceptan
 los números de ticket que aparecen en la pregunta, y sin tickets la pregunta va al RAG. Si el modelo falla o su JSON no

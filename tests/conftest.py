@@ -4,6 +4,7 @@ controlado, de modo que nunca toca `services/api/*.json` ni depende del `.env`."
 from collections.abc import Callable
 from typing import Any
 
+import fakeredis
 import pytest
 
 from services.api.auth_models import User, UserCreate, UserRole, UserUpdate
@@ -11,6 +12,7 @@ from services.api.routes.incidents import summary_cache
 from services.api.routes.inventory import products_cache
 from services.api.routes.telemetry_report import report_cache
 from services.api.user_service import create_user, update_user
+from services.support_agent.memory.store import MemoryStore, use_memory_store
 from tests.helpers import DEFAULT_PASSWORD, TEST_SECRET
 
 
@@ -39,6 +41,10 @@ def isolated_environment(tmp_path, monkeypatch):
     products_cache.invalidate("test")
     summary_cache.invalidate("test")
     report_cache.invalidate("test")
+    # La memoria del agente usa un Redis en memoria propio de cada test, nunca el de `REDIS_URL`.
+    use_memory_store(MemoryStore(fakeredis.FakeRedis(decode_responses=True)))
+    yield
+    use_memory_store(None)
 
 
 @pytest.fixture
