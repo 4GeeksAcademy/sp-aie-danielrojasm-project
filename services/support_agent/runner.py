@@ -19,7 +19,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from services.support_agent.graph import graph as default_graph
 from services.support_agent.state import AgentState
-from services.support_agent.tracing import TRACE_VERSION, load_trace, trace_path, write_trace
+from services.support_agent.tracing import TRACE_VERSION, load_trace, sources_used, trace_path, write_trace
 
 
 logger = logging.getLogger("trackflow.agent")
@@ -115,8 +115,9 @@ def _execute(
     state: AgentState = trace["final_state"]
     compiled.checkpointer.delete_thread(run_id)
     logger.info(
-        "agent_run run_id=%s status=completed nodes=%s duration_ms=%.0f trace=%s",
+        "agent_run run_id=%s status=completed sources=%s nodes=%s duration_ms=%.0f trace=%s",
         run_id,
+        ">".join(trace["sources_used"]) or "-",
         ">".join(step["node"] for step in trace["steps"]),
         trace["duration_ms"],
         path,
@@ -134,6 +135,7 @@ def _finish(
 ) -> Path:
     trace["status"] = status
     trace["duration_ms"] = round(trace.get("duration_ms", 0) + (time.perf_counter() - started) * 1000, 1)
+    trace["sources_used"] = sources_used(trace["steps"])
     trace["final_state"] = dict(compiled.get_state(config).values)
     trace["checkpoints"] = [
         {

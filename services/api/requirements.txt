@@ -16,3 +16,4 @@ flower>=2.0
 qdrant-client>=1.15
 openai>=1.100
 langgraph>=1.2.12
+httpx>=0.28
