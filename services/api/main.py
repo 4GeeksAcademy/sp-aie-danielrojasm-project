@@ -16,6 +16,7 @@ from sqlmodel import SQLModel
 
 from services.api import inventory_telemetry, telemetry
 from services.api import models  # noqa: F401  registra las tablas de inventario
+from data.pipelines.rfp_intake import schema as rfp_schema  # noqa: F401  registra las tablas de RFPs
 from services.api.telemetry_storage import api_event_buffer  # registra telemetry_events
 from services.api.common_models import HealthResponse
 from services.api.database import DatabaseNotConfiguredError, get_engine
@@ -40,6 +41,7 @@ from services.api.routes.tasks import router as tasks_router
 from services.api.routes.users import router as users_router
 from services.api.security import get_current_user
 from services.reporting.router import router as reporting_router
+from services.rfp_intake.router import router as rfp_router
 from services.support_agent.router import router as agent_router
 
 
@@ -120,6 +122,7 @@ app.include_router(reporting_router)
 app.include_router(tasks_router)
 app.include_router(knowledge_router)
 app.include_router(agent_router)
+app.include_router(rfp_router)
 app.add_exception_handler(IncidentValidationError, handle_incident_validation_error)
 
 

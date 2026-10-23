@@ -19,3 +19,5 @@ langgraph>=1.2.12
 httpx>=0.28
 langchain-mcp-adapters>=0.3.2
 redis>=6.4.0
+markitdown[pdf]>=0.1.9
+py-readability-metrics>=1.4.5

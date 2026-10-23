@@ -41,3 +41,6 @@ data/raw/.telemetry_*.csv.partial
 
 # Traces de cada corrida del agente LangGraph (los de los evals viven en data/eval/agent/traces/)
 data/raw/agent_traces/
+
+# PDFs de RFPs subidos desde el backoffice (documentos de clientes: no se versionan)
+data/raw/rfp_intake/

@@ -8,6 +8,28 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Flujo agéntico de RFPs, parte 1: recepción y enrutamiento
+
+- Ventas sube la RFP en PDF desde `/rfps` del backoffice (`/rfps/[ticketId]` muestra el ticket y se refresca cada
+   4 s mientras está en `analizando`). `POST /rfps` en la API principal guarda el PDF en `data/raw/rfp_intake/`, crea
+   el ticket, encola `rfp_intake.process_ticket` en Celery y responde `202`; el grafo corre en el worker.
+- Grafo dedicado `rfp_intake` en `data/pipelines/rfp_intake/`: PDF → Markdown (MarkItDown), clasificador,
+   extracción de metadatos + legibilidad (`py-readability-metrics`), orquestador, workers `warehouse`, `lastmile` y
+   `reverse` en paralelo (`Send`) y synthesizer. Ticket, metadatos y `key_aspects` por departamento en PostgreSQL
+   (`rfp_tickets`, `rfp_metadata`, `rfp_department_sections`); handoff `rfp_intake.handoff.v1` en `rfp_tickets.handoff`.
+- Verificado contra Supabase, con API, Redis, worker y backoffice en local, subiendo los PDF de muestra por el
+   origen del backoffice (`/api/rfps`): 202 en 0,5–1,1 s. `trackflow-request-1.pdf` (ModaViva) →
+   `analisis_completo`, ES/EUR, `warehouse` + `reverse`, ERP fuera de alcance; `trackflow-request-2.pdf` (Luna
+   Cosmetics) → `analisis_completo`, US/USD, `warehouse` + `lastmile`, 5.000 pedidos/mes;
+   `trackflow-request-3.pdf` (RapidShip) → `descartado` como pitch de transportista. Un intento por ticket, sin
+   errores en el log del worker; `/rfps` y `/rfps/[ticketId]` responden 200.
+- Pruebas: 36 nuevas (`tests/pipelines/test_rfp_intake_agents.py`, `test_rfp_intake_flow.py`,
+   `tests/http/test_rfp_api.py`); `uv run pytest` 725 y `npm run verify` en verde.
+- Hay que reconstruir los contenedores `api` y `worker` (dependencias nuevas y `punkt_tab` de NLTK en la imagen).
+- Datos locales: la verificación creó la cuenta `rfp-verificacion@trackflow.com` en `auth.json` y tres tickets en
+   Supabase con sus PDF en `data/raw/rfp_intake/` (ignorado por git).
+- Siguiente paso: PR desde `feature/rfp-intake`; la Parte 2 lee los tickets en `analisis_completo` y su handoff.
+
 ### Milestone 09 — Servidor MCP en Docker Compose (2026-10-02)
 
 - Servicio `mcp` en `docker-compose.yml` (`mcps/trackflow_tools/Dockerfile`, contexto en la raíz con

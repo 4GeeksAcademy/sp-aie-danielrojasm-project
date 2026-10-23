@@ -13,6 +13,8 @@ WORKDIR /app
 
 COPY api/requirements.txt requirements.txt
 RUN uv pip install --system --no-cache -r requirements.txt
+# Tokenizador de frases que necesita py-readability-metrics (recepción de RFPs).
+RUN python -m nltk.downloader -d /usr/local/share/nltk_data punkt_tab
 
 COPY . ./services
 
