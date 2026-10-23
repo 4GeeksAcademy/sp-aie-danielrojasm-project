@@ -8,6 +8,38 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Flujo agéntico de RFPs, parte 2: generación y evaluación de respuestas
+
+- Al llegar a `analisis_completo`, la tarea de la Parte 1 encola `rfp_intake.generate_responses`. La Parte 2 lee el
+   handoff `rfp_intake.handoff.v1` y los metadatos (nunca el PDF ni el Markdown) y ejecuta `response_graph.py`: un
+   subgrafo por departamento activo, en paralelo, con su generador, tres evaluadores en paralelo (legibilidad con
+   `py-readability-metrics`, pertinencia frente a los `key_aspects`, cumplimiento de las 5 reglas del BRIEFING §5 en
+   `compliance.py`) y un juez que devuelve la sección al generador con `feedback_for_generator` concreto.
+- Límite `RFP_MAX_GENERATION_ITERATIONS` (3). Al agotarlo, la sección queda en `needs_human_review` con su último
+   borrador y su `EvaluationResult` y va igual en `rfp_tickets.response_handoff` (`rfp_intake.response_handoff.v1`).
+   Estados del ticket: `generando_borrador` → `en_evaluación` → `needs_human_review` si alguna sección no pasó.
+- Generadores con la base de conocimiento (RAG) como contexto opcional: tarifas de almacenamiento, política de
+   devoluciones y SLA del 90 %. Sin Qdrant redactan sin contexto y lo registran.
+- Supabase: migración idempotente `data/pipelines/rfp_intake/migrations/001_response_generation.sql` (columnas
+   nuevas y `CHECK` de estados), aplicada al arrancar la API y desde el worker. Verificado: los dos `CHECK` incluyen
+   los estados nuevos.
+- Verificado contra Supabase y el gateway con `scripts/rfp_intake.py generate` sobre tickets de la Parte 1: ModaViva
+   (`warehouse` + `reverse`, EUR) pasa en 1-3 iteraciones por sección y Luna (`warehouse` + `lastmile`, USD) en 1
+   tras ajustar el criterio de pertinencia (antes 3: marcaba como no respondidos aspectos que solo describen al
+   cliente o fechas que la sección deja "a confirmar"). Media de las últimas cuatro secciones: 1,5 iteraciones.
+- Docker (`docker compose up -d --build -V api worker`): una subida por `POST /rfps` encadena las dos partes en el
+   worker sin intervención (ModaViva: `analizando` → `generando_borrador` → `en_evaluación` con handoff listo). El
+   worker no recibía `QDRANT_URL` por nombre de servicio (generó sin base de conocimiento y Reverse necesitó 3
+   iteraciones por el SLA): añadido en `docker-compose.yml`. Con él, Luna pasa las dos secciones a la primera en 55 s.
+- Backoffice con `npm run dev`: `/`, `/rfps`, `/rfps/<ticket_id>` y el rewrite `/api/rfps*` responden 200, sin
+   errores en el log. `npm run verify` en verde. La vista de borradores no se revisó en un navegador.
+- Pruebas nuevas: `tests/pipelines/test_rfp_response_agents.py` (22), `test_rfp_response_flow.py` (8) y 1 en
+   `tests/http/test_rfp_api.py`, sin gateway ni Redis.
+- Riesgo abierto: el generador a veces pone precios que no están en la base de conocimiento (p. ej. costo por envío
+   de Last Mile) aunque el prompt pide "a confirmar"; ninguna regla del §5 lo detecta y el responsable lo revisa en la
+   Parte 3.
+- Siguiente paso: PR desde `feature/rfp-response-generation` con un ejemplo de sección que pasa y otro que falla.
+
 ### Milestone 09 — Flujo agéntico de RFPs, parte 1: recepción y enrutamiento
 
 - Ventas sube la RFP en PDF desde `/rfps` del backoffice (`/rfps/[ticketId]` muestra el ticket y se refresca cada
