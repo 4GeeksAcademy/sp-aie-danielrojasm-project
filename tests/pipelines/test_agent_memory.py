@@ -13,7 +13,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from data.pipelines import rag
 from data.process.rag import RagServiceError
-from services.support_agent import nodes
+from services.support_agent import nodes, prompt
 from services.support_agent.graph import compile_graph, define_graph
 from services.support_agent.memory import decision, policy, self_evaluation
 from services.support_agent.memory.models import DecisionClassification, MemoryDraft, MemoryProposal
@@ -94,7 +94,7 @@ def agent(monkeypatch):
 
     def generate_reply(question, context):
         state["generated"].append((question, context))
-        return state["replies"].get(question, AgentReply(answer=f"Respuesta a: {question}"))
+        return state["replies"].get(question, AgentReply(answer=f"Respuesta a: {question}\nFuente: Cobertura"))
 
     def classify_decision(message, proposal):
         return state["decisions"][message]
@@ -236,7 +236,7 @@ def test_generation_prompt_carries_the_memory_criteria_and_asks_for_json(monkeyp
     assert self_evaluation.generate_reply("¿Ventana?", [CHUNK]) == AgentReply(answer="Ok.")
     assert sent["response_format"] == {"type": "json_object"}
     system = sent["messages"][0]["content"]
-    assert system.startswith(rag.SYSTEM_PROMPT) and "propuesta_memoria" in system and "Nunca propones" in system
+    assert system.startswith(prompt.SYSTEM_PROMPT) and "propuesta_memoria" in system and "Nunca propones" in system
 
 
 # --- Clasificación de la decisión -------------------------------------------------------------------
@@ -372,7 +372,7 @@ def test_approved_cycle_is_audited_and_reflected_in_a_later_conversation(compile
     second = turn(compiled, "Sí, guárdalo.")
     assert second.state["answer"] == nodes.DECISION_NOTICES["approved"].format(fact=SEUR_DRAFT.fact)
     assert executed_nodes(load_trace(second.trace_path)) == [
-        nodes.RECEIVE_QUESTION, nodes.LOAD_PENDING_PROPOSAL, nodes.RESOLVE_PROPOSAL,
+        nodes.RECEIVE_QUESTION, nodes.INPUT_GUARD, nodes.LOAD_PENDING_PROPOSAL, nodes.RESOLVE_PROPOSAL,
     ]
 
     later = turn(compiled, "¿Qué transportista uso en la zona rural de Zaragoza?", conversation_id="conv-2")
@@ -416,7 +416,7 @@ def test_answering_the_proposal_and_asking_something_else_in_the_same_message(co
     assert run.state["question"] == "¿cuál es la ventana de devolución?"
     assert run.state["answer"] == "\n\n".join(
         [nodes.DECISION_NOTICES["approved"].format(fact=COSMETICS_DRAFT.fact),
-         "Respuesta a: ¿cuál es la ventana de devolución?"]
+         "Respuesta a: ¿cuál es la ventana de devolución?\nFuente: Cobertura"]
     )
     assert len(store.entries()) == 1
 
@@ -430,7 +430,7 @@ def test_changing_topic_discards_the_proposal_and_answers_the_new_question(compi
     run = turn(compiled, message)
 
     assert run.state["memory_decision"]["outcome"] == "discarded"
-    assert run.state["answer"].endswith(f"Respuesta a: {message}")
+    assert run.state["answer"].endswith(f"Respuesta a: {message}\nFuente: Cobertura")
     assert store.entries() == [] and store.pending_for(USER, "conv-1", NOW) is None
 
 
@@ -476,4 +476,4 @@ def test_unavailable_memory_does_not_stop_the_answer_and_says_so(compiled, agent
 
     run = turn(compiled, "¿Ventana de devolución?")
 
-    assert run.state["answer"] == f"{nodes.MEMORY_UNAVAILABLE}\n\nRespuesta a: ¿Ventana de devolución?"
+    assert run.state["answer"] == f"{nodes.MEMORY_UNAVAILABLE}\n\nRespuesta a: ¿Ventana de devolución?\nFuente: Cobertura"

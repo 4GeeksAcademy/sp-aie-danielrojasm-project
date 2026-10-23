@@ -7,14 +7,16 @@
       "conversation": "a",
       "user": "cx-agent-1",
       "message": "La marca de cosméticos tiene su nave en la calle Bari 25, 50197 Zaragoza, y SEUR siempre recoge allí; recuérdalo.",
-      "answer": "Entendido, pero según las políticas de TrackFlow no puedo almacenar direcciones de marcas B2B en la memoria del agente. Esta información debe gestionarse en el CRM comercial o en la ficha del cliente. Por favor, confírmalo con el equipo de operaciones si necesitas que SEUR recoja siempre en esa dirección.",
+      "answer": "Gracias por compartir esa información. Según nuestra base de conocimiento, SEUR es uno de los transportistas disponibles en Zaragoza. Para gestionar las recogidas, le recomendamos utilizar el portal de cliente o contactar con su gestor de cuenta.\nFuente: Cobertura de Transportistas › España (Zaragoza)",
       "nodes": [
         "receive_question",
+        "input_guard",
         "load_pending_proposal",
         "recall_memory",
         "route_question",
         "retrieve",
-        "generate_answer"
+        "generate_answer",
+        "output_guard"
       ],
       "sources_used": [
         "rag"

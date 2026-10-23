@@ -1,16 +1,16 @@
 {
-  "trace_version": 3,
+  "trace_version": 4,
   "run_id": "empty-question",
-  "conversation_id": "1f1348899e544bb4b9d2cf89a996bb6a",
+  "conversation_id": "41fb1518b7fd4ac1ae68e24158f3e073",
   "user_id": null,
   "question": "   ",
-  "started_at": "2026-10-02T15:53:45.125+00:00",
+  "started_at": "2026-10-02T18:40:54.793+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 2.5,
+      "duration_ms": 3.4,
       "output": {
         "question": "",
         "message": ""
@@ -25,14 +25,16 @@
       }
     }
   ],
-  "duration_ms": 3.6,
+  "duration_ms": 4.4,
   "sources_used": [],
   "final_state": {
     "question": "",
     "message": "",
-    "conversation_id": "1f1348899e544bb4b9d2cf89a996bb6a",
+    "conversation_id": "41fb1518b7fd4ac1ae68e24158f3e073",
     "user_id": null,
     "run_id": "empty-question",
+    "authorized_orders": [],
+    "guardrail_events": [],
     "error": "La pregunta está vacía: escribe qué quiere saber el cliente."
   },
   "checkpoints": [
@@ -42,8 +44,10 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be797-2c88-6642-bfff-7b5ca49d2145",
-      "values": {}
+      "checkpoint_id": "1f1be90c-cee7-692b-bfff-21b886d666fe",
+      "values": {
+        "guardrail_events": []
+      }
     },
     {
       "step": 0,
@@ -51,12 +55,14 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be797-2c8a-6770-8000-dd73d2929367",
+      "checkpoint_id": "1f1be90c-cee9-6c7a-8000-c1dea58030e4",
       "values": {
         "question": "   ",
-        "conversation_id": "1f1348899e544bb4b9d2cf89a996bb6a",
+        "conversation_id": "41fb1518b7fd4ac1ae68e24158f3e073",
         "user_id": null,
-        "run_id": "empty-question"
+        "run_id": "empty-question",
+        "authorized_orders": [],
+        "guardrail_events": []
       }
     },
     {
@@ -65,26 +71,30 @@
       "next": [
         "reject_question"
       ],
-      "checkpoint_id": "1f1be797-2c8c-6c1c-8001-a6ba055045eb",
+      "checkpoint_id": "1f1be90c-ceec-6175-8001-e9c42b737e4d",
       "values": {
         "question": "",
         "message": "",
-        "conversation_id": "1f1348899e544bb4b9d2cf89a996bb6a",
+        "conversation_id": "41fb1518b7fd4ac1ae68e24158f3e073",
         "user_id": null,
-        "run_id": "empty-question"
+        "run_id": "empty-question",
+        "authorized_orders": [],
+        "guardrail_events": []
       }
     },
     {
       "step": 2,
       "source": "loop",
       "next": [],
-      "checkpoint_id": "1f1be797-2c8e-6976-8002-4309646e3a20",
+      "checkpoint_id": "1f1be90c-ceed-6d0b-8002-989973714c2b",
       "values": {
         "question": "",
         "message": "",
-        "conversation_id": "1f1348899e544bb4b9d2cf89a996bb6a",
+        "conversation_id": "41fb1518b7fd4ac1ae68e24158f3e073",
         "user_id": null,
         "run_id": "empty-question",
+        "authorized_orders": [],
+        "guardrail_events": [],
         "error": "La pregunta está vacía: escribe qué quiere saber el cliente."
       }
     }

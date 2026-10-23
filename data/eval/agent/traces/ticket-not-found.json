@@ -1,16 +1,16 @@
 {
-  "trace_version": 3,
+  "trace_version": 4,
   "run_id": "ticket-not-found",
-  "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+  "conversation_id": "baf6bdf33df742f59a180c73b4d06e96",
   "user_id": null,
   "question": "¿Cómo va la incidencia 9999?",
-  "started_at": "2026-10-02T15:54:21.846+00:00",
+  "started_at": "2026-10-02T18:41:15.192+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 6.7,
+      "duration_ms": 7.6,
       "output": {
         "question": "¿Cómo va la incidencia 9999?",
         "message": "¿Cómo va la incidencia 9999?"
@@ -18,24 +18,39 @@
     },
     {
       "order": 2,
+      "node": "input_guard",
+      "duration_ms": 1.3,
+      "output": {
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": []
+      }
+    },
+    {
+      "order": 3,
       "node": "load_pending_proposal",
-      "duration_ms": 2.5,
+      "duration_ms": 0.7,
       "output": {
         "pending_proposal": null
       }
     },
     {
-      "order": 3,
+      "order": 4,
       "node": "recall_memory",
-      "duration_ms": 7.3,
+      "duration_ms": 3.3,
       "output": {
         "memories": []
       }
     },
     {
-      "order": 4,
+      "order": 5,
       "node": "route_question",
-      "duration_ms": 2180.5,
+      "duration_ms": 800.9,
       "output": {
         "route": {
           "ticket_ids": [
@@ -47,9 +62,9 @@
       }
     },
     {
-      "order": 5,
+      "order": 6,
       "node": "lookup_tickets",
-      "duration_ms": 355.0,
+      "duration_ms": 402.7,
       "output": {
         "tickets": [
           {
@@ -61,24 +76,42 @@
       }
     },
     {
-      "order": 6,
+      "order": 7,
       "node": "ticket_fallback",
-      "duration_ms": 1.1,
+      "duration_ms": 1.4,
       "output": {
         "answer": "No encuentro el ticket 9999 en el gestor de incidencias; revisa el número antes de responder al cliente.\nFuente: sin confirmación del gestor de incidencias"
       }
+    },
+    {
+      "order": 8,
+      "node": "output_guard",
+      "duration_ms": 5.7,
+      "output": {
+        "answer": "No encuentro el ticket 9999 en el gestor de incidencias; revisa el número antes de responder al cliente.\nFuente: sin confirmación del gestor de incidencias",
+        "guardrail_events": []
+      }
     }
   ],
-  "duration_ms": 2553.1,
+  "duration_ms": 1223.6,
   "sources_used": [
     "incidents_tool"
   ],
   "final_state": {
     "question": "¿Cómo va la incidencia 9999?",
     "message": "¿Cómo va la incidencia 9999?",
-    "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+    "conversation_id": "baf6bdf33df742f59a180c73b4d06e96",
     "user_id": null,
     "run_id": "ticket-not-found",
+    "authorized_orders": [],
+    "guardrail": {
+      "decision": "allow",
+      "category": "in_scope",
+      "failure_type": null,
+      "message": null,
+      "orders": []
+    },
+    "guardrail_events": [],
     "pending_proposal": null,
     "memories": [],
     "route": {
@@ -104,8 +137,10 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be798-8abd-6873-bfff-8ad05bb9aaf6",
-      "values": {}
+      "checkpoint_id": "1f1be90d-9178-6c3c-bfff-f98e1d491616",
+      "values": {
+        "guardrail_events": []
+      }
     },
     {
       "step": 0,
@@ -113,75 +148,130 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be798-8ac2-699b-8000-400f69d1385e",
+      "checkpoint_id": "1f1be90d-917e-6751-8000-e6ed09cefd1d",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
-        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "conversation_id": "baf6bdf33df742f59a180c73b4d06e96",
         "user_id": null,
-        "run_id": "ticket-not-found"
+        "run_id": "ticket-not-found",
+        "authorized_orders": [],
+        "guardrail_events": []
       }
     },
     {
       "step": 1,
       "source": "loop",
       "next": [
-        "load_pending_proposal"
+        "input_guard"
       ],
-      "checkpoint_id": "1f1be798-8ac9-689c-8001-c85040be8886",
+      "checkpoint_id": "1f1be90d-9181-6ff3-8001-a336e5a091fa",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
         "message": "¿Cómo va la incidencia 9999?",
-        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "conversation_id": "baf6bdf33df742f59a180c73b4d06e96",
         "user_id": null,
-        "run_id": "ticket-not-found"
+        "run_id": "ticket-not-found",
+        "authorized_orders": [],
+        "guardrail_events": []
       }
     },
     {
       "step": 2,
       "source": "loop",
       "next": [
-        "recall_memory"
+        "load_pending_proposal"
       ],
-      "checkpoint_id": "1f1be798-8acf-6a3c-8002-8ce0449a48a7",
+      "checkpoint_id": "1f1be90d-9185-6550-8002-8d67ba0a9c33",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
         "message": "¿Cómo va la incidencia 9999?",
-        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "conversation_id": "baf6bdf33df742f59a180c73b4d06e96",
         "user_id": null,
         "run_id": "ticket-not-found",
-        "pending_proposal": null
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": []
       }
     },
     {
       "step": 3,
       "source": "loop",
       "next": [
-        "route_question"
+        "recall_memory"
       ],
-      "checkpoint_id": "1f1be798-8ae2-649b-8003-523f6650f512",
+      "checkpoint_id": "1f1be90d-9186-6fec-8003-ab39a6dc3617",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
         "message": "¿Cómo va la incidencia 9999?",
-        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "conversation_id": "baf6bdf33df742f59a180c73b4d06e96",
         "user_id": null,
         "run_id": "ticket-not-found",
-        "pending_proposal": null,
-        "memories": []
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
+        "pending_proposal": null
       }
     },
     {
       "step": 4,
       "source": "loop",
       "next": [
-        "lookup_tickets"
+        "route_question"
       ],
-      "checkpoint_id": "1f1be798-9fad-68e0-8004-156412a04cc8",
+      "checkpoint_id": "1f1be90d-918f-6272-8004-3a01b2685782",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
         "message": "¿Cómo va la incidencia 9999?",
-        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "conversation_id": "baf6bdf33df742f59a180c73b4d06e96",
         "user_id": null,
         "run_id": "ticket-not-found",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
+        "pending_proposal": null,
+        "memories": []
+      }
+    },
+    {
+      "step": 5,
+      "source": "loop",
+      "next": [
+        "lookup_tickets"
+      ],
+      "checkpoint_id": "1f1be90d-9932-664a-8005-268a7b42bcc8",
+      "values": {
+        "question": "¿Cómo va la incidencia 9999?",
+        "message": "¿Cómo va la incidencia 9999?",
+        "conversation_id": "baf6bdf33df742f59a180c73b4d06e96",
+        "user_id": null,
+        "run_id": "ticket-not-found",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
         "pending_proposal": null,
         "memories": [],
         "route": {
@@ -194,18 +284,27 @@
       }
     },
     {
-      "step": 5,
+      "step": 6,
       "source": "loop",
       "next": [
         "ticket_fallback"
       ],
-      "checkpoint_id": "1f1be798-a310-6610-8005-2bca72554c56",
+      "checkpoint_id": "1f1be90d-9d08-672f-8006-9f1897606b04",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
         "message": "¿Cómo va la incidencia 9999?",
-        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "conversation_id": "baf6bdf33df742f59a180c73b4d06e96",
         "user_id": null,
         "run_id": "ticket-not-found",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
         "pending_proposal": null,
         "memories": [],
         "route": {
@@ -225,16 +324,66 @@
       }
     },
     {
-      "step": 6,
+      "step": 7,
       "source": "loop",
-      "next": [],
-      "checkpoint_id": "1f1be798-a311-6647-8006-6877b4fa8e5a",
+      "next": [
+        "output_guard"
+      ],
+      "checkpoint_id": "1f1be90d-9d0b-62a1-8007-8a28c239ac4b",
       "values": {
         "question": "¿Cómo va la incidencia 9999?",
         "message": "¿Cómo va la incidencia 9999?",
-        "conversation_id": "e41ed825bcb6467cb7e51727e5b2be48",
+        "conversation_id": "baf6bdf33df742f59a180c73b4d06e96",
         "user_id": null,
         "run_id": "ticket-not-found",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
+        "pending_proposal": null,
+        "memories": [],
+        "route": {
+          "ticket_ids": [
+            9999
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        },
+        "tickets": [
+          {
+            "ticket_id": 9999,
+            "outcome": "not_found",
+            "ticket": null
+          }
+        ],
+        "answer": "No encuentro el ticket 9999 en el gestor de incidencias; revisa el número antes de responder al cliente.\nFuente: sin confirmación del gestor de incidencias"
+      }
+    },
+    {
+      "step": 8,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be90d-9d16-693b-8008-bc49c43cedf3",
+      "values": {
+        "question": "¿Cómo va la incidencia 9999?",
+        "message": "¿Cómo va la incidencia 9999?",
+        "conversation_id": "baf6bdf33df742f59a180c73b4d06e96",
+        "user_id": null,
+        "run_id": "ticket-not-found",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
         "pending_proposal": null,
         "memories": [],
         "route": {

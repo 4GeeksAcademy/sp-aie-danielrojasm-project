@@ -1,10 +1,15 @@
 """Definición, validación y compilación del grafo del agente.
 
     START → receive_question ─┬─ (pregunta vacía) → reject_question → END
-                              └─ (hay pregunta) → load_pending_proposal ─┬─ (propuesta pendiente) → resolve_proposal
-                                                                         └─ (ninguna) → recall_memory
+                              └─ (hay pregunta) → input_guard ─┬─ (cambio de instrucciones, uso personal,
+                                                               │   pedido ajeno a la sesión) → guardrail_refusal → END
+                                                               └─ (se responde) → load_pending_proposal
 
-    resolve_proposal ─┬─ (el mensaje también pregunta algo) → recall_memory
+    load_pending_proposal ─┬─ (propuesta pendiente) → resolve_proposal
+                           ├─ (small talk) → small_talk_reply
+                           └─ (ninguna) → recall_memory
+
+    resolve_proposal ─┬─ (el mensaje también pregunta algo) → recall_memory, o small_talk_reply si es small talk
                       └─ (solo respondía a la propuesta) → END
 
     recall_memory → route_question ─┬─ (cita tickets) → lookup_tickets
@@ -12,15 +17,17 @@
 
     lookup_tickets ─┬─ (también necesita la base de conocimiento) → retrieve
                     ├─ (algún ticket confirmado) → generate_answer
-                    └─ (ningún ticket confirmado) → ticket_fallback → END
+                    └─ (ningún ticket confirmado) → ticket_fallback
 
     retrieve ─┬─ (hay contexto o tickets confirmados) → generate_answer
-              ├─ (sin contexto, tickets sin confirmar) → ticket_fallback → END
+              ├─ (sin contexto, tickets sin confirmar) → ticket_fallback
               ├─ (sin contexto ni tickets, con memoria recordada) → generate_answer
               └─ (sin contexto, tickets ni memoria) → no_information
 
-    generate_answer / no_information ─┬─ (el modelo propuso algo que recordar) → propose_memory → END
-                                      └─ (nada que recordar) → END
+    generate_answer / no_information / ticket_fallback / small_talk_reply → output_guard
+
+    output_guard ─┬─ (el modelo propuso algo que recordar) → propose_memory → END
+                  └─ (nada que recordar) → END
 
 `compile_graph()` se ejecuta al importar este módulo, antes de cualquier corrida. A la validación de LangGraph
 (aristas hacia nodos que no existen, falta de entrada) le añade la que LangGraph no hace: todo nodo tiene que ser
@@ -49,6 +56,9 @@ def define_graph() -> StateGraph:
     for name, node in (
         (nodes.RECEIVE_QUESTION, nodes.receive_question),
         (nodes.REJECT_QUESTION, nodes.reject_question),
+        (nodes.INPUT_GUARD, nodes.input_guard),
+        (nodes.GUARDRAIL_REFUSAL, nodes.guardrail_refusal),
+        (nodes.SMALL_TALK_REPLY, nodes.small_talk_reply),
         (nodes.LOAD_PENDING_PROPOSAL, nodes.load_pending_proposal),
         (nodes.RESOLVE_PROPOSAL, nodes.resolve_proposal),
         (nodes.RECALL_MEMORY, nodes.recall_memory),
@@ -59,17 +69,30 @@ def define_graph() -> StateGraph:
         (nodes.TICKET_FALLBACK, nodes.ticket_fallback),
         (nodes.NO_INFORMATION, nodes.no_information),
         (nodes.PROPOSE_MEMORY, nodes.propose_memory),
+        (nodes.OUTPUT_GUARD, nodes.output_guard),
     ):
         builder.add_node(name, node)
 
     builder.add_edge(START, nodes.RECEIVE_QUESTION)
+    _add_routes(builder, nodes.RECEIVE_QUESTION, nodes.route_after_question, nodes.REJECT_QUESTION, nodes.INPUT_GUARD)
     _add_routes(
-        builder, nodes.RECEIVE_QUESTION, nodes.route_after_question, nodes.REJECT_QUESTION, nodes.LOAD_PENDING_PROPOSAL
+        builder,
+        nodes.INPUT_GUARD,
+        nodes.route_after_input_guard,
+        nodes.GUARDRAIL_REFUSAL,
+        nodes.LOAD_PENDING_PROPOSAL,
     )
     _add_routes(
-        builder, nodes.LOAD_PENDING_PROPOSAL, nodes.route_after_pending, nodes.RESOLVE_PROPOSAL, nodes.RECALL_MEMORY
+        builder,
+        nodes.LOAD_PENDING_PROPOSAL,
+        nodes.route_after_pending,
+        nodes.RESOLVE_PROPOSAL,
+        nodes.SMALL_TALK_REPLY,
+        nodes.RECALL_MEMORY,
     )
-    _add_routes(builder, nodes.RESOLVE_PROPOSAL, nodes.route_after_resolution, nodes.RECALL_MEMORY, END)
+    _add_routes(
+        builder, nodes.RESOLVE_PROPOSAL, nodes.route_after_resolution, nodes.SMALL_TALK_REPLY, nodes.RECALL_MEMORY, END
+    )
     builder.add_edge(nodes.RECALL_MEMORY, nodes.ROUTE_QUESTION)
     _add_routes(builder, nodes.ROUTE_QUESTION, nodes.route_after_plan, nodes.LOOKUP_TICKETS, nodes.RETRIEVE)
     _add_routes(
@@ -88,9 +111,10 @@ def define_graph() -> StateGraph:
         nodes.TICKET_FALLBACK,
         nodes.NO_INFORMATION,
     )
-    for answered in (nodes.GENERATE_ANSWER, nodes.NO_INFORMATION):
-        _add_routes(builder, answered, nodes.route_after_answer, nodes.PROPOSE_MEMORY, END)
-    for final in (nodes.REJECT_QUESTION, nodes.TICKET_FALLBACK, nodes.PROPOSE_MEMORY):
+    for answered in (nodes.GENERATE_ANSWER, nodes.NO_INFORMATION, nodes.TICKET_FALLBACK, nodes.SMALL_TALK_REPLY):
+        builder.add_edge(answered, nodes.OUTPUT_GUARD)
+    _add_routes(builder, nodes.OUTPUT_GUARD, nodes.route_after_answer, nodes.PROPOSE_MEMORY, END)
+    for final in (nodes.REJECT_QUESTION, nodes.GUARDRAIL_REFUSAL, nodes.PROPOSE_MEMORY):
         builder.add_edge(final, END)
     return builder
 

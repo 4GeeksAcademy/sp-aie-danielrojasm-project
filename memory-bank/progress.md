@@ -8,6 +8,28 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Harness y guardrails del agente de soporte, parte 2 (Ticket #SEC-114)
+
+- El agente de `services/support_agent` (mismo grafo, tools y memoria) pasa a tener la identidad del CONTEXT: agente de
+   primera línea de CX de Valentina Cruz para B2B y B2C en EE. UU. y España. System prompt propio en `prompt.py`:
+   las instrucciones van solas en el mensaje de sistema; la consulta en `<mensaje_usuario>` y las fuentes en
+   `<contenido_externo>`, en el mensaje del usuario. `/knowledge/query` conserva su prompt.
+- `guardrails/`: guard de entrada (cambio de instrucciones → `security`; uso personal, pedido ajeno a la sesión,
+   small talk y mezcla de políticas entre países → `content`), aislamiento del RAG, los tickets y la memoria, y guard
+   de salida (fuga del prompt, datos sensibles del CONTEXT, línea "Fuente:", longitud del small talk). Cuatro nodos
+   nuevos: `input_guard`, `guardrail_refusal`, `small_talk_reply`, `output_guard`.
+- Observabilidad: log `trackflow.guardrails` por activación con el tipo de fallo; `guardrail_events` en el trace
+   (`trace_version` 4); `GET /agent/guardrails/summary`.
+- Verificado: `tests/pipelines/test_agent_guardrails.py` (94 tests deterministas, sin modelo) y 2 tests HTTP nuevos.
+   Traces de los evals regrabados con 5 casos nuevos (los 4 del CONTEXT y small talk) y evidencia de memoria
+   regrabada sin cambios de resultado. `uv run pytest` y `npm run verify` en verde. Smoke contra la API real: los 4
+   casos del CONTEXT, 3 reformulaciones de jailbreak, un poema, small talk y dos preguntas de dominio.
+- El smoke encontró un fallo, ya corregido: si el modelo pegaba "Fuente:" a la última frase, el guard añadía una
+   segunda línea; ahora la mueve a su propia línea.
+- Limitación: ningún modelo vincula pedidos con usuarios, así que la API no pasa `authorized_orders` y cualquier
+   número de pedido o tracking se rechaza por autorización. Al crear ese vínculo hay que pasarlo en `router.py`.
+- Siguiente paso: PR desde `feature/agent-guardrails` con los casos de jailbreak e inyección documentados.
+
 ### Milestone 09 — Servidor MCP en Docker Compose (2026-10-02)
 
 - Servicio `mcp` en `docker-compose.yml` (`mcps/trackflow_tools/Dockerfile`, contexto en la raíz con

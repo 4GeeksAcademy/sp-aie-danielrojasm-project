@@ -401,6 +401,29 @@ Detalle en `services/support_agent/README.md`.
 - **Evals:** se ejecutan contra traces grabados (`data/eval/agent/traces/`), no contra Qdrant ni el gateway.
 - **Memoria:** ver "Memoria del agente de soporte". El estado añade `message`, `conversation_id`, `user_id`, `run_id`
   y los campos de memoria; el trace pasa a `trace_version` 3 (`agent_memory` en `sources_used` solo si recordó algo).
+- **Guardrails:** ver "Guardrails del agente de soporte". El trace pasa a `trace_version` 4 (`guardrail` y
+  `guardrail_events` en el estado final).
+
+### Guardrails del agente de soporte — Milestone 09 (Ticket #SEC-114)
+
+Detalle en la sección "Guardrails" de `services/support_agent/README.md`.
+
+- **Identidad:** agente de primera línea de CX (B2B y B2C, EE. UU. y España) del CONTEXT. Su system prompt vive en
+  `services/support_agent/prompt.py`; `data/pipelines/rag.py` conserva el de `/knowledge/query`.
+- **Separación de autoridad:** el mensaje de sistema solo lleva instrucciones (más el criterio de memoria). La consulta
+  va en `<mensaje_usuario>` y el contenido del RAG, los tickets y la memoria en `<contenido_externo>`, en el mensaje del
+  usuario; `isolation.neutralize` quita esas etiquetas de cualquier texto para que no se pueda cerrar un bloque.
+- **Capas deterministas, sin modelo:** guard de entrada por patrones normalizados (minúsculas, sin acentos ni
+  caracteres invisibles, letras separadas por signos unidas); aislamiento que retira las frases con órdenes de las
+  fuentes; guard de salida (marca `PROMPT_CANARY`, trozos de 8 palabras de la jerarquía de instrucciones, datos
+  sensibles por frase, línea "Fuente:"). Un mensaje bloqueado no llega a la memoria, las tools ni el modelo.
+- **Tipos de fallo:** `structural`, `content`, `security`; acciones `block`, `redirect`, `constrain`, `sanitize`,
+  `redact`, `repair`. Log `trackflow.guardrails` (sin el mensaje) y contadores en proceso que se reinician con la API;
+  `GET /agent/guardrails/summary`.
+- **Restricción:** no hay vínculo pedido ↔ usuario. `run_agent(authorized_orders=…)` está preparado, pero
+  `POST /agent/query` no pasa ninguno: toda consulta de un pedido o tracking se rechaza por autorización.
+- **Tests:** `tests/pipelines/test_agent_guardrails.py` (determinista) y los casos `context-*` / `small-talk-redirect`
+  de `data/eval/agent/eval-cases.json` sobre traces grabados.
 
 ### Memoria del agente de soporte — Milestone 09 (Ticket #MEM-092)
 
@@ -534,6 +557,8 @@ Todos se ejecutan desde la raíz del monorepo:
   `uv run pytest tests/pipelines/test_agent_evals.py -v` los evalúa.
 - **Evidencia de la memoria del agente** — `uv run python scripts/record_memory_evidence.py` (gateway, Qdrant y Redis);
   `uv run pytest tests/pipelines/test_agent_memory_evals.py -v` la evalúa.
+- **Guardrails del agente** — `uv run pytest tests/pipelines/test_agent_guardrails.py -v` (sin servicios);
+  `GET /agent/guardrails/summary` con la API en marcha.
 - **Servidor MCP** — `docker compose up -d keycloak api mcp`, o `docker compose up -d keycloak api` y
   `uv run --env-file .env python -m mcps.trackflow_tools`;
   `uv run pytest tests/mcp -v`.
