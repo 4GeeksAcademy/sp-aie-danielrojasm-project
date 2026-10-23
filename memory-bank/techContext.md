@@ -465,8 +465,7 @@ Detalle, contrato de handoff y decisiones en `data/pipelines/rfp_intake/README.m
 - **Persistencia:** tablas `rfp_tickets`, `rfp_metadata` y `rfp_department_sections` (SQLModel, `schema.py`; las
   crea `create_all` al arrancar la API). El runner guarda el resultado en una sola transacción. El handoff a la
   Parte 2 es el campo `rfp_tickets.handoff` (`rfp_intake.handoff.v1`) y el Markdown queda en
-  `rfp_metadata.document_markdown`. El `CHECK` de `status` solo admite los tres estados de la Parte 1: la Parte 2
-  tendrá que ampliarlo (no hay Alembic).
+  `rfp_metadata.document_markdown`. El `CHECK` de `status` lo amplía la migración de la Parte 2 (ver abajo).
 - **Fallos:** el ticket sigue en `analizando` con `attempts` y `last_error`; 2 reintentos con backoff y DLQ.
   Reproceso manual: `scripts/rfp_intake.py reprocess <ticket_id> [--force]`.
 - **Docker:** `services/api/requirements.txt` añade las dos dependencias y `services/Dockerfile` descarga `punkt_tab`;
@@ -474,6 +473,41 @@ Detalle, contrato de handoff y decisiones en `data/pipelines/rfp_intake/README.m
   psycopg 3 por defecto con `postgresql://` y la API no arrancaba en la imagen reconstruida. En local, `readability_metrics` lo descarga la primera vez.
 - **Tests:** `tests/pipelines/test_rfp_intake_agents.py`, `test_rfp_intake_flow.py` (PDF mínimo real, SQLite) y
   `tests/http/test_rfp_api.py`, sin gateway ni Redis.
+
+### Generación y evaluación de respuestas a RFPs — Milestone 09 (Hito 9, parte 2)
+
+Detalle, grafo, reglas y contrato hacia la Parte 3 en `data/pipelines/rfp_intake/README.md` (sección "Parte 2").
+
+- **Disparo:** la tarea de la Parte 1 encola `rfp_intake.generate_responses` al dejar el ticket en
+  `analisis_completo`. Entrada = `rfp_tickets.handoff` (`v1`) + metadatos de `rfp_metadata`; nunca el PDF ni el
+  Markdown. Reanudación manual: `scripts/rfp_intake.py generate <ticket_id> [--max-iterations N]`.
+- **Grafo `response_graph.py`:** `Send` por workstream a `<dept>_section`, que ejecuta un subgrafo propio por
+  departamento: `retrieve_knowledge` → `<dept>_generator` → 3 evaluadores en paralelo (legibilidad, pertinencia,
+  cumplimiento; cada uno escribe solo su clave) → `judge` → reintento con `feedback_for_generator` o fin. Límite:
+  `RFP_MAX_GENERATION_ITERATIONS` (3 por defecto). Al agotarlo, la sección queda en `needs_human_review` con su último
+  borrador y su `EvaluationResult`, y va igual en el handoff.
+- **Cumplimiento anclado al BRIEFING §5** (`compliance.py`): 5 reglas con id comprobadas en código; el revisor con
+  modelo solo añade `returns-min-48h` / `no-carrier-rates` con cita literal verificada. Legibilidad:
+  `py-readability-metrics` sobre la prosa, 100-600 palabras y Flesch-Kincaid ≤ 14 (la fórmula inglesa puntúa más
+  alto el español; un texto comercial claro da ~11-13).
+- **RAG opcional:** el generador consulta `data/pipelines/rag.py` (tarifas, políticas, SLA del 90 %). Sin Qdrant
+  redacta sin contexto y lo registra.
+- **Persistencia:** columnas nuevas `rfp_tickets.response_handoff` (`rfp_intake.response_handoff.v1`),
+  `generation_attempts`; `rfp_department_sections.draft_status`, `iterations`, `evaluation_history`, además de
+  `draft_content` y `evaluation_results`. `create_all` no altera tablas existentes:
+  `migrations/001_response_generation.sql` (idempotente) la aplica `schema.ensure_response_schema` al arrancar la API
+  y en `runner.intake_engine()`. Sin ella, la API y el worker fallan al leer `rfp_tickets`. El archivo SQL no puede
+  contener el signo de porcentaje: pasa por psycopg2, que lo toma como parámetro.
+- **Estados:** ticket `generando_borrador` → `en_evaluación` (primer borrador evaluado; sigue ahí durante el ciclo) →
+  `needs_human_review` si alguna sección agotó el límite. Si todas pasan, sigue en `en_evaluación` con
+  `response_handoff`: los estados de aprobación son de la Parte 3. `DatabaseProgress` escribe el progreso de cada
+  sección en su fila (un lock serializa las escrituras de los hilos de cada departamento).
+- **API/UI:** `GET /rfps/{ticket_id}` añade `draft_status`, `iterations`, `draft_content` y `evaluation` por sección
+  y `response_handoff_ready`; `/rfps/[ticketId]` muestra los borradores con su evaluación y sigue consultando
+  mientras la generación está en curso (`isRfpInProgress`).
+- **Tests:** `tests/pipelines/test_rfp_response_agents.py` (generadores, evaluadores, una regla por caso),
+  `test_rfp_response_flow.py` (ciclo completo en SQLite, límite, encadenamiento de tareas) y un caso en
+  `tests/http/test_rfp_api.py`.
 
 ### Servidor MCP de herramientas — Milestone 09
 

@@ -6,11 +6,12 @@ import pytest
 from fastapi.testclient import TestClient
 from kombu.exceptions import OperationalError as BrokerError
 
-from data.pipelines.rfp_intake import llm, runner
+from data.pipelines.rfp_intake import compliance, generators, llm, response_runner, runner
 from services.api import database as api_database
 from services.api.main import app
 from services.rfp_intake import router as rfp_router
 from tests.pipelines.test_rfp_intake_flow import AGENT_OUTPUTS, RFP_LINES, minimal_pdf
+from tests.pipelines.test_rfp_response_agents import reverse_draft
 
 
 PASSWORD = "correct-password"
@@ -145,3 +146,42 @@ def test_processed_ticket_shows_what_each_department_has_to_provide(auth_client,
     assert detail["synthesis"]["next_steps"] == AGENT_OUTPUTS["synthesizer"]["next_steps"]
     listed = auth_client.get("/rfps").json()[0]
     assert listed["client_name"] == "Luna Cosmetics" and listed["departments_needed"] == ["warehouse", "lastmile"]
+
+
+def test_generated_ticket_shows_each_draft_with_its_evaluation(auth_client, queued, monkeypatch):
+    def ask_json(agent, system_prompt, user_prompt, schema):
+        if agent == "classifier":
+            return schema.model_validate({"is_rfp": True, "document_type": "rfp_informal", "confidence": 0.9, "reason": "Pide una propuesta."})
+        if agent in AGENT_OUTPUTS:
+            return schema.model_validate(AGENT_OUTPUTS[agent])
+        if agent.endswith("_generator"):
+            # Moneda equivocada (Luna es de EE. UU.): no pasa compliance y agota el límite.
+            return schema.model_validate({"content": reverse_draft()})
+        if agent.endswith("_relevance_evaluator"):
+            return schema.model_validate({"missing_aspect_ids": []})
+        return schema.model_validate({"violations": []})
+
+    monkeypatch.setattr(llm, "ask_json", ask_json)
+    monkeypatch.setattr(generators, "retrieve_knowledge", lambda department_id: [])
+    ticket_id = upload(auth_client, minimal_pdf(RFP_LINES)).json()["ticket_id"]
+    engine = api_database.get_engine()
+    runner.process_ticket(engine, queued[0])
+    response_runner.generate_responses(engine, ticket_id, max_iterations=1)
+
+    detail = auth_client.get(f"/rfps/{ticket_id}").json()
+
+    assert detail["status"] == "needs_human_review"
+    assert detail["response_handoff_ready"] is True and detail["max_iterations"] == 1
+    warehouse = detail["sections"][0]
+    assert warehouse["draft_status"] == "needs_human_review" and warehouse["iterations"] == 1
+    assert warehouse["draft_content"].startswith("## Reverse Logistics")
+    evaluation = warehouse["evaluation"]
+    assert evaluation["overall_pass"] is False and evaluation["readability"]["pass"] is True
+    assert evaluation["compliance"] == {
+        "pass": False,
+        "rule_ids": ["currency-by-country"],
+        "violations": evaluation["compliance"]["violations"],
+        "checked_rule_ids": list(compliance.RULES),
+    }
+    assert "[currency-by-country]" in evaluation["feedback_for_generator"]
+    assert auth_client.get("/rfps").json()[0]["status"] == "needs_human_review"

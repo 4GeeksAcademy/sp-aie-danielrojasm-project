@@ -3,8 +3,9 @@
  *
  * Único punto de la UI que llama a esas rutas. Pasa por `requestJson` (Bearer y
  * 401 → `/login`) y por el rewrite `/api/rfps*`. La subida responde `202` en
- * cuanto el ticket existe; el análisis corre en el worker y la UI consulta el
- * ticket cada pocos segundos mientras está en `analizando`.
+ * cuanto el ticket existe; el análisis y la generación de borradores corren en el
+ * worker y la UI consulta el ticket cada pocos segundos mientras siguen en curso
+ * (`isRfpInProgress`).
  */
 import { requestJson } from "@/lib/api-client";
 
@@ -12,10 +13,21 @@ const RFPS_API = "/api/rfps";
 
 /** Mismo límite que `MAX_UPLOAD_BYTES` en la API. */
 export const MAX_RFP_BYTES = 10 * 1024 * 1024;
-/** Cada cuánto se consulta un ticket que sigue en `analizando`. */
+/** Cada cuánto se consulta un ticket que sigue en curso. */
 export const RFP_POLL_INTERVAL_MS = 4000;
 
-export type RfpTicketStatus = "analizando" | "descartado" | "analisis_completo";
+export type RfpTicketStatus =
+  | "analizando"
+  | "descartado"
+  | "analisis_completo"
+  | "generando_borrador"
+  | "en_evaluación"
+  | "needs_human_review";
+export type RfpSectionStatus =
+  | "generando_borrador"
+  | "en_evaluación"
+  | "evaluacion_superada"
+  | "needs_human_review";
 export type RfpDepartmentId = "warehouse" | "lastmile" | "reverse";
 export type RfpClientCountry = "US" | "ES";
 export type RfpCurrency = "USD" | "EUR";
@@ -36,6 +48,7 @@ export interface RfpTicketListItem {
   departments_needed: RfpDepartmentId[];
   attempts: number;
   last_error: string | null;
+  response_handoff_ready: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -69,6 +82,34 @@ export interface RfpDepartmentSection {
   key_aspects: string[];
   requested_inputs: string[];
   open_questions: string[];
+  draft_status: RfpSectionStatus | null;
+  iterations: number;
+  draft_content: string | null;
+  evaluation: RfpEvaluationResult | null;
+}
+
+export interface RfpComplianceViolation {
+  rule_id: string;
+  detail: string;
+  evidence: string;
+  source: string;
+}
+
+/** `EvaluationResult` de la Parte 2 tal como lo persiste el pipeline. */
+export interface RfpEvaluationResult {
+  section_id: string;
+  department_id: RfpDepartmentId;
+  iteration: number;
+  readability: { pass: boolean; score: number | null; details: string };
+  relevance: { pass: boolean; missing_aspects: string[]; checked_aspects: number };
+  compliance: {
+    pass: boolean;
+    rule_ids: string[];
+    violations: RfpComplianceViolation[];
+    checked_rule_ids: string[];
+  };
+  overall_pass: boolean;
+  feedback_for_generator: string;
 }
 
 export interface RfpSynthesis {
@@ -91,13 +132,49 @@ export interface RfpTicket {
   sections: RfpDepartmentSection[];
   synthesis: RfpSynthesis | null;
   handoff_ready: boolean;
+  generation_attempts: number;
+  max_iterations: number | null;
+  response_handoff_ready: boolean;
 }
 
 export const rfpStatusLabels: Record<RfpTicketStatus, string> = {
   analizando: "Analizando",
   descartado: "Descartado",
   analisis_completo: "Análisis completo",
+  generando_borrador: "Generando borrador",
+  en_evaluación: "En evaluación",
+  needs_human_review: "Requiere revisión humana",
 };
+
+export const rfpSectionStatusLabels: Record<RfpSectionStatus, string> = {
+  generando_borrador: "Generando borrador",
+  en_evaluación: "En evaluación",
+  evaluacion_superada: "Evaluación superada",
+  needs_human_review: "Borrador provisional · requiere revisión humana",
+};
+
+/** Lineamientos del BRIEFING §5 que verifica el evaluador de cumplimiento. */
+export const rfpComplianceRuleLabels: Record<string, string> = {
+  "currency-by-country": "Moneda según el país del cliente",
+  "on-time-sla": "SLA de entrega a tiempo (%)",
+  "returns-min-48h": "Devoluciones nunca en menos de 48 horas",
+  "volume-discount-table": "Tabla de descuentos por volumen",
+  "no-carrier-rates": "Sin tarifas negociadas con transportistas",
+};
+
+const RFP_ACTIVE_STATUSES: ReadonlySet<RfpTicketStatus> = new Set([
+  "analizando",
+  "generando_borrador",
+  "en_evaluación",
+]);
+
+/**
+ * El análisis o la generación siguen en curso. Un ticket en `en_evaluación`
+ * con el handoff hacia la aprobación ya guardado ha terminado la Parte 2.
+ */
+export function isRfpInProgress(status: RfpTicketStatus, responseHandoffReady: boolean): boolean {
+  return RFP_ACTIVE_STATUSES.has(status) && !responseHandoffReady;
+}
 
 export const rfpDepartmentLabels: Record<RfpDepartmentId, string> = {
   warehouse: "Almacén",

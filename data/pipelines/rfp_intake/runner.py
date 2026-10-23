@@ -27,7 +27,14 @@ from sqlmodel import Session, col, select
 
 from data.pipelines.rfp_intake import graph as intake_graph
 from data.pipelines.rfp_intake.departments import TicketStatus
-from data.pipelines.rfp_intake.schema import RfpDepartmentSection, RfpMetadata, RfpTicket, new_id, utc_now
+from data.pipelines.rfp_intake.schema import (
+    RfpDepartmentSection,
+    RfpMetadata,
+    RfpTicket,
+    ensure_response_schema,
+    new_id,
+    utc_now,
+)
 from data.pipelines.rfp_intake.synthesizer import build_handoff
 
 
@@ -62,7 +69,9 @@ def intake_engine() -> Engine:
     database_url = os.getenv("DATABASE_URL", "").strip()
     if not database_url:
         raise DatabaseNotConfiguredError("Falta DATABASE_URL: los tickets de RFP viven en PostgreSQL (Supabase).")
-    return _engine_for(database_url)
+    engine = _engine_for(database_url)
+    ensure_response_schema(engine)
+    return engine
 
 
 # --- Recepción ---------------------------------------------------------------------------------
@@ -196,7 +205,7 @@ def reset_ticket(engine: Engine, ticket_id: str) -> None:
         ticket.status = TicketStatus.ANALIZANDO.value
         ticket.rfp_id = None
         ticket.is_rfp = ticket.classification_confidence = ticket.classification_reason = None
-        ticket.synthesis = ticket.handoff = None
+        ticket.synthesis = ticket.handoff = ticket.response_handoff = None
         ticket.last_error = None
         ticket.updated_at = utc_now()
         session.add(ticket)

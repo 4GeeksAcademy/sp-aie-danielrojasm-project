@@ -4,24 +4,38 @@
   de enrutamiento hacia la Parte 2 (ver README): solo se rellena cuando el ticket llega a `analisis_completo`.
 - `rfp_metadata`: metadatos extraídos, métricas de legibilidad y el Markdown convertido (la Parte 2 no vuelve a
   leer el PDF).
-- `rfp_department_sections`: una fila por departamento activo con sus `key_aspects`. Las columnas de borrador,
-  evaluación y aprobación son de las Partes 2 y 3 (BRIEFING §2.3); en la Parte 1 quedan vacías.
+- `rfp_department_sections`: una fila por departamento activo con sus `key_aspects` (Parte 1) y, desde la Parte 2,
+  el último borrador, su `EvaluationResult`, el estado del ciclo generador-evaluador y el historial de iteraciones.
+  Las columnas de aprobación son de la Parte 3 (BRIEFING §2.3).
 
-La API las crea con `SQLModel.metadata.create_all` al arrancar (importa este módulo). El pipeline no importa nada
-de `services/`.
+La API las crea con `SQLModel.metadata.create_all` al arrancar (importa este módulo). `create_all` no altera tablas
+existentes: las columnas y estados de la Parte 2 los añade `migrations/001_response_generation.sql`, que
+`ensure_response_schema` aplica en PostgreSQL al arrancar la API y al crear el engine del worker y de `scripts/`.
+El pipeline no importa nada de `services/`.
 """
 
 from __future__ import annotations
 
+import logging
+import threading
 from datetime import date, datetime, timezone
+from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import JSON, CheckConstraint, Column, DateTime, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.engine import Engine
 from sqlmodel import Field, SQLModel
 
-from data.pipelines.rfp_intake.departments import DEPARTMENTS, ClientCountry, Currency, TicketStatus
+from data.pipelines.rfp_intake.departments import DEPARTMENTS, ClientCountry, Currency, SectionStatus, TicketStatus
+
+
+logger = logging.getLogger("trackflow.rfp_intake")
+
+RESPONSE_MIGRATION = Path(__file__).resolve().parent / "migrations" / "001_response_generation.sql"
+_migrated: set[str] = set()
+_migration_lock = threading.Lock()
 
 
 def _one_of(column: str, values: list[str]) -> str:
@@ -64,8 +78,12 @@ class RfpTicket(SQLModel, table=True):
     # Resumen del synthesizer para Ventas (qué pedir a quién) y contrato de handoff hacia la Parte 2.
     synthesis: dict[str, Any] | None = Field(default=None, sa_column=_json_column())
     handoff: dict[str, Any] | None = Field(default=None, sa_column=_json_column())
+    # Contrato de la Parte 2 hacia la Parte 3: borradores + EvaluationResult por departamento.
+    response_handoff: dict[str, Any] | None = Field(default=None, sa_column=_json_column())
     # Intentos del pipeline y último fallo (clase y primera línea, sin trazas ni datos de conexión).
+    # `last_error` lo comparten las dos partes; `generation_attempts` cuenta los de la Parte 2.
     attempts: int = 0
+    generation_attempts: int = 0
     last_error: str | None = Field(default=None, sa_column=Column(Text))
     created_at: datetime = Field(default_factory=utc_now, sa_column=_timestamp_column())
     updated_at: datetime = Field(default_factory=utc_now, sa_column=_timestamp_column())
@@ -111,6 +129,10 @@ class RfpDepartmentSection(SQLModel, table=True):
     __table_args__ = (
         UniqueConstraint("ticket_id", "department_id", name="uq_rfp_department_sections_ticket_department"),
         CheckConstraint(_one_of("department_id", list(DEPARTMENTS)), name="ck_rfp_department_sections_department"),
+        CheckConstraint(
+            f"draft_status IS NULL OR {_one_of('draft_status', [s.value for s in SectionStatus])}",
+            name="ck_rfp_department_sections_draft_status",
+        ),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -120,10 +142,32 @@ class RfpDepartmentSection(SQLModel, table=True):
     key_aspects: list[str] = Field(default_factory=list, sa_column=_json_column(nullable=False))
     requested_inputs: list[str] = Field(default_factory=list, sa_column=_json_column(nullable=False))
     open_questions: list[str] = Field(default_factory=list, sa_column=_json_column(nullable=False))
-    # Partes 2 y 3.
+    # Parte 2: último borrador y su EvaluationResult; el historial guarda cada iteración (borrador + evaluación).
+    draft_status: str | None = Field(default=None, max_length=30)
+    iterations: int = 0
     draft_content: str | None = Field(default=None, sa_column=Column(Text))
     evaluation_results: dict[str, Any] | None = Field(default=None, sa_column=_json_column())
+    evaluation_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=_json_column(nullable=False))
+    # Parte 3.
     approval_status: str | None = Field(default=None, max_length=30)
     approver: str | None = Field(default=None, max_length=120)
     approved_at: datetime | None = Field(default=None, sa_column=_timestamp_column(nullable=True))
     created_at: datetime = Field(default_factory=utc_now, sa_column=_timestamp_column())
+
+
+def ensure_response_schema(engine: Engine) -> None:
+    """Aplica la migración de la Parte 2 en PostgreSQL, una vez por proceso. SQLite (tests) usa `create_all`.
+
+    Sin ella, una base creada por la Parte 1 no tiene las columnas nuevas y cualquier lectura de `rfp_tickets`
+    falla. La migración es idempotente y no borra datos.
+    """
+    if engine.dialect.name != "postgresql":
+        return
+    key = engine.url.render_as_string(hide_password=True)
+    with _migration_lock:
+        if key in _migrated:
+            return
+        with engine.begin() as connection:
+            connection.exec_driver_sql(RESPONSE_MIGRATION.read_text(encoding="utf-8"))
+        _migrated.add(key)
+    logger.info("Esquema de la Parte 2 de RFPs listo en PostgreSQL.")

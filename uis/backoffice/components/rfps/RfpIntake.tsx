@@ -8,6 +8,7 @@ import { Panel } from "@/components/ui/Panel";
 import { getUserMessage } from "@/lib/api-client";
 import {
   formatRfpDate,
+  isRfpInProgress,
   listRfps,
   rfpCountryLabels,
   rfpDepartmentLabels,
@@ -29,9 +30,11 @@ export function RfpIntake() {
   const [created, setCreated] = useState<RfpTicketCreated | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const tickets = useApiList(listRfps, LIST_FALLBACK_ERROR, String(refreshKey));
-  const pending = tickets.items.some((ticket) => ticket.status === "analizando");
+  const pending = tickets.items.some((ticket) =>
+    isRfpInProgress(ticket.status, ticket.response_handoff_ready),
+  );
 
-  // Mientras haya tickets en análisis, la lista se refresca sola hasta que cambien de estado.
+  // Mientras haya tickets en análisis o generación, la lista se refresca sola hasta que cambien de estado.
   useEffect(() => {
     if (!pending) return;
     const timer = window.setTimeout(() => setRefreshKey((key) => key + 1), RFP_POLL_INTERVAL_MS);

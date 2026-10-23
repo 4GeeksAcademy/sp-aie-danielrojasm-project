@@ -80,7 +80,7 @@ def readability_metrics(markdown: str) -> ReadabilityMetrics:
     tokens = max(1, round(len(markdown) / CHARS_PER_TOKEN))
     grade = fog = ease = None
     try:
-        _ensure_sentence_tokenizer()
+        ensure_sentence_tokenizer()
         scores = Readability(markdown)
         grade = round(scores.flesch_kincaid().score, 2)
         fog = round(scores.gunning_fog().score, 2)
@@ -93,7 +93,7 @@ def readability_metrics(markdown: str) -> ReadabilityMetrics:
     return ReadabilityMetrics(words, tokens, grade, fog, ease)
 
 
-def _ensure_sentence_tokenizer() -> None:
+def ensure_sentence_tokenizer() -> None:
     import nltk
 
     try:

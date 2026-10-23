@@ -16,7 +16,7 @@ from sqlmodel import SQLModel
 
 from services.api import inventory_telemetry, telemetry
 from services.api import models  # noqa: F401  registra las tablas de inventario
-from data.pipelines.rfp_intake import schema as rfp_schema  # noqa: F401  registra las tablas de RFPs
+from data.pipelines.rfp_intake.schema import ensure_response_schema  # registra las tablas de RFPs
 from services.api.telemetry_storage import api_event_buffer  # registra telemetry_events
 from services.api.common_models import HealthResponse
 from services.api.database import DatabaseNotConfiguredError, get_engine
@@ -84,6 +84,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     # resto de módulos (TinyDB) siguen funcionando y el inventario responde 503.
     try:
         SQLModel.metadata.create_all(get_engine())
+        # `create_all` no altera tablas existentes: columnas y estados de la Parte 2 de RFPs.
+        ensure_response_schema(get_engine())
         logger.info("Esquema de inventario listo en PostgreSQL.")
     except DatabaseNotConfiguredError as error:
         logger.warning("Inventario desactivado: %s", error)

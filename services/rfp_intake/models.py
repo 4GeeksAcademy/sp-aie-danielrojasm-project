@@ -1,7 +1,8 @@
 """Respuestas de `/rfps/*`.
 
-El Markdown del documento y el payload completo del handoff no salen por la API: son para la Parte 2, que los lee
-de la base de datos. La UI solo necesita el estado, los metadatos y qué pedir a quién.
+El Markdown del documento y el payload completo de los handoffs no salen por la API: los leen las Partes 2 y 3 de
+la base de datos. La UI necesita el estado, los metadatos, qué pedir a quién y, desde la Parte 2, el borrador y el
+`EvaluationResult` de cada sección.
 """
 
 from datetime import date, datetime
@@ -9,9 +10,14 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from data.pipelines.rfp_intake.evaluators import EvaluationResult
 
-TicketStatus = Literal["analizando", "descartado", "analisis_completo"]
+
+TicketStatus = Literal[
+    "analizando", "descartado", "analisis_completo", "generando_borrador", "en_evaluación", "needs_human_review"
+]
 DepartmentId = Literal["warehouse", "lastmile", "reverse"]
+SectionStatus = Literal["generando_borrador", "en_evaluación", "evaluacion_superada", "needs_human_review"]
 
 
 class RfpTicketCreated(BaseModel):
@@ -29,6 +35,7 @@ class RfpTicketListItem(BaseModel):
     departments_needed: list[DepartmentId]
     attempts: int
     last_error: str | None
+    response_handoff_ready: bool
     created_at: datetime
     updated_at: datetime
 
@@ -68,6 +75,12 @@ class DepartmentSectionRead(BaseModel):
     key_aspects: list[str]
     requested_inputs: list[str] = Field(description="Qué tiene que pedirle Ventas al responsable.")
     open_questions: list[str] = Field(description="Datos que faltan en la RFP y hay que preguntar al cliente.")
+    draft_status: SectionStatus | None = Field(
+        description="Etapa del ciclo generador-evaluador; `None` antes de la Parte 2."
+    )
+    iterations: int = Field(description="Iteraciones del ciclo generador-evaluador hasta ahora.")
+    draft_content: str | None = Field(description="Último borrador de la sección (Markdown).")
+    evaluation: EvaluationResult | None = Field(description="Evaluación del último borrador.")
 
 
 class RfpSynthesisRead(BaseModel):
@@ -90,3 +103,6 @@ class RfpTicketRead(BaseModel):
     sections: list[DepartmentSectionRead]
     synthesis: RfpSynthesisRead | None
     handoff_ready: bool = Field(description="El handoff hacia la Parte 2 está guardado con el ticket.")
+    generation_attempts: int = Field(description="Intentos de la Parte 2 (generación y evaluación).")
+    max_iterations: int | None = Field(description="Límite de iteraciones por sección de la última generación.")
+    response_handoff_ready: bool = Field(description="El handoff hacia la Parte 3 está guardado con el ticket.")

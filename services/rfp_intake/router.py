@@ -4,8 +4,9 @@
   `analizando`, encola la tarea `rfp_intake.process_ticket` y responde `202` con el `ticket_id`. El grafo nunca corre
   en la API: lo ejecuta el worker de Celery (`services/tasks/rfp_intake.py`).
 - `GET /rfps`: últimos tickets, para la vista de recepción.
-- `GET /rfps/{ticket_id}`: estado, clasificación, metadatos, aspectos clave por departamento y síntesis. La UI lo
-  consulta periódicamente mientras el ticket está en `analizando`.
+- `GET /rfps/{ticket_id}`: estado, clasificación, metadatos, aspectos clave por departamento y síntesis y, desde
+  la Parte 2, el borrador y el `EvaluationResult` de cada sección. La UI lo consulta periódicamente mientras el
+  análisis o la generación siguen en curso.
 
 Aquí no hay lógica de agentes: los handlers llaman a `data/pipelines/rfp_intake/runner.py`.
 """
@@ -20,6 +21,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from data.pipelines.rfp_intake import runner
 from data.pipelines.rfp_intake.departments import DEPARTMENTS
+from data.pipelines.rfp_intake.evaluators import EvaluationResult
 from data.pipelines.rfp_intake.schema import RfpMetadata
 from services.api.auth_models import User
 from services.api.database import DatabaseNotConfiguredError, get_engine
@@ -130,6 +132,7 @@ def list_rfps() -> list[RfpTicketListItem]:
             departments_needed=metadata.departments_needed if metadata else [],
             attempts=ticket.attempts,
             last_error=ticket.last_error,
+            response_handoff_ready=ticket.response_handoff is not None,
             created_at=ticket.created_at,
             updated_at=ticket.updated_at,
         )
@@ -175,6 +178,12 @@ def get_rfp(ticket_id: str) -> RfpTicketRead:
                 key_aspects=section.key_aspects,
                 requested_inputs=section.requested_inputs,
                 open_questions=section.open_questions,
+                draft_status=section.draft_status,
+                iterations=section.iterations,
+                draft_content=section.draft_content,
+                evaluation=EvaluationResult.model_validate(section.evaluation_results)
+                if section.evaluation_results
+                else None,
             )
             for section in detail.sections
         ],
@@ -187,6 +196,9 @@ def get_rfp(ticket_id: str) -> RfpTicketRead:
         if synthesis
         else None,
         handoff_ready=ticket.handoff is not None,
+        generation_attempts=ticket.generation_attempts,
+        max_iterations=ticket.response_handoff["max_iterations"] if ticket.response_handoff else None,
+        response_handoff_ready=ticket.response_handoff is not None,
     )
 
 
