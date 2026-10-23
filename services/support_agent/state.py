@@ -7,7 +7,8 @@ memoria pendiente, que vive en el almacén de memoria (`memory/store.py`), no en
 
 from __future__ import annotations
 
-from typing import Any, TypedDict
+import operator
+from typing import Annotated, Any, TypedDict
 
 
 class AgentState(TypedDict, total=False):
@@ -21,6 +22,12 @@ class AgentState(TypedDict, total=False):
     conversation_id: str
     user_id: str | None
     run_id: str
+    # Pedidos que la sesión autenticada puede consultar; cualquier otro se rechaza por falta de autorización.
+    authorized_orders: list[str]
+    # Veredicto del guard de entrada (`InputVerdict` serializado): `decision`, `category`, `failure_type`, `message`.
+    guardrail: dict[str, Any]
+    # Activaciones de guardrails de la corrida (`GuardrailEvent` serializados), en orden; cada nodo añade las suyas.
+    guardrail_events: Annotated[list[dict[str, Any]], operator.add]
     # Propuesta de memoria pendiente del usuario en esta conversación (`MemoryProposal` serializada), si la hay.
     pending_proposal: dict[str, Any] | None
     # Resultado de la decisión sobre la propuesta pendiente: `proposal_id`, `outcome`, `reason`, `fact`.

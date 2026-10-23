@@ -1,16 +1,16 @@
 {
-  "trace_version": 3,
+  "trace_version": 4,
   "run_id": "ticket-service-down",
-  "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+  "conversation_id": "930a5f2bc8c249a897253336f0b4a67b",
   "user_id": null,
   "question": "¿En qué estado está el ticket 1?",
-  "started_at": "2026-10-02T15:54:24.402+00:00",
+  "started_at": "2026-10-02T18:41:16.424+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 6.4,
+      "duration_ms": 2.4,
       "output": {
         "question": "¿En qué estado está el ticket 1?",
         "message": "¿En qué estado está el ticket 1?"
@@ -18,24 +18,39 @@
     },
     {
       "order": 2,
+      "node": "input_guard",
+      "duration_ms": 1.2,
+      "output": {
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": []
+      }
+    },
+    {
+      "order": 3,
       "node": "load_pending_proposal",
-      "duration_ms": 0.7,
+      "duration_ms": 3.2,
       "output": {
         "pending_proposal": null
       }
     },
     {
-      "order": 3,
+      "order": 4,
       "node": "recall_memory",
-      "duration_ms": 3.2,
+      "duration_ms": 6.6,
       "output": {
         "memories": []
       }
     },
     {
-      "order": 4,
+      "order": 5,
       "node": "route_question",
-      "duration_ms": 1678.5,
+      "duration_ms": 1806.6,
       "output": {
         "route": {
           "ticket_ids": [
@@ -47,9 +62,9 @@
       }
     },
     {
-      "order": 5,
+      "order": 6,
       "node": "lookup_tickets",
-      "duration_ms": 2126.2,
+      "duration_ms": 2135.0,
       "output": {
         "tickets": [
           {
@@ -61,24 +76,42 @@
       }
     },
     {
-      "order": 6,
+      "order": 7,
       "node": "ticket_fallback",
-      "duration_ms": 1.4,
+      "duration_ms": 1.5,
       "output": {
         "answer": "No pude confirmar el estado del ticket 1 ahora mismo: el gestor de incidencias no respondió. Vuelve a intentarlo en unos minutos.\nFuente: sin confirmación del gestor de incidencias"
       }
+    },
+    {
+      "order": 8,
+      "node": "output_guard",
+      "duration_ms": 4.5,
+      "output": {
+        "answer": "No pude confirmar el estado del ticket 1 ahora mismo: el gestor de incidencias no respondió. Vuelve a intentarlo en unos minutos.\nFuente: sin confirmación del gestor de incidencias",
+        "guardrail_events": []
+      }
     }
   ],
-  "duration_ms": 3816.5,
+  "duration_ms": 3961.1,
   "sources_used": [
     "incidents_tool"
   ],
   "final_state": {
     "question": "¿En qué estado está el ticket 1?",
     "message": "¿En qué estado está el ticket 1?",
-    "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+    "conversation_id": "930a5f2bc8c249a897253336f0b4a67b",
     "user_id": null,
     "run_id": "ticket-service-down",
+    "authorized_orders": [],
+    "guardrail": {
+      "decision": "allow",
+      "category": "in_scope",
+      "failure_type": null,
+      "message": null,
+      "orders": []
+    },
+    "guardrail_events": [],
     "pending_proposal": null,
     "memories": [],
     "route": {
@@ -104,8 +137,10 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be798-a31a-6874-bfff-b637ba996906",
-      "values": {}
+      "checkpoint_id": "1f1be90d-9d2f-6b9c-bfff-46e0183e8e5f",
+      "values": {
+        "guardrail_events": []
+      }
     },
     {
       "step": 0,
@@ -113,75 +148,130 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be798-a31c-64eb-8000-6b72d11b7f64",
+      "checkpoint_id": "1f1be90d-9d31-6a05-8000-b3d0126cd2c3",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
-        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "conversation_id": "930a5f2bc8c249a897253336f0b4a67b",
         "user_id": null,
-        "run_id": "ticket-service-down"
+        "run_id": "ticket-service-down",
+        "authorized_orders": [],
+        "guardrail_events": []
       }
     },
     {
       "step": 1,
       "source": "loop",
       "next": [
-        "load_pending_proposal"
+        "input_guard"
       ],
-      "checkpoint_id": "1f1be798-a328-6e90-8001-abd6958150cf",
+      "checkpoint_id": "1f1be90d-9d33-6b65-8001-b23b318089a0",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
         "message": "¿En qué estado está el ticket 1?",
-        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "conversation_id": "930a5f2bc8c249a897253336f0b4a67b",
         "user_id": null,
-        "run_id": "ticket-service-down"
+        "run_id": "ticket-service-down",
+        "authorized_orders": [],
+        "guardrail_events": []
       }
     },
     {
       "step": 2,
       "source": "loop",
       "next": [
-        "recall_memory"
+        "load_pending_proposal"
       ],
-      "checkpoint_id": "1f1be798-a32a-6be9-8002-8a45847987c7",
+      "checkpoint_id": "1f1be90d-9d36-6534-8002-14273d94946b",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
         "message": "¿En qué estado está el ticket 1?",
-        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "conversation_id": "930a5f2bc8c249a897253336f0b4a67b",
         "user_id": null,
         "run_id": "ticket-service-down",
-        "pending_proposal": null
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": []
       }
     },
     {
       "step": 3,
       "source": "loop",
       "next": [
-        "route_question"
+        "recall_memory"
       ],
-      "checkpoint_id": "1f1be798-a332-68de-8003-388d28aa338a",
+      "checkpoint_id": "1f1be90d-9d3d-63d0-8003-6c9845a25cec",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
         "message": "¿En qué estado está el ticket 1?",
-        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "conversation_id": "930a5f2bc8c249a897253336f0b4a67b",
         "user_id": null,
         "run_id": "ticket-service-down",
-        "pending_proposal": null,
-        "memories": []
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
+        "pending_proposal": null
       }
     },
     {
       "step": 4,
       "source": "loop",
       "next": [
-        "lookup_tickets"
+        "route_question"
       ],
-      "checkpoint_id": "1f1be798-b332-6cbf-8004-f076fdde12b9",
+      "checkpoint_id": "1f1be90d-9d4e-67f0-8004-9c06b7b07a72",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
         "message": "¿En qué estado está el ticket 1?",
-        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "conversation_id": "930a5f2bc8c249a897253336f0b4a67b",
         "user_id": null,
         "run_id": "ticket-service-down",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
+        "pending_proposal": null,
+        "memories": []
+      }
+    },
+    {
+      "step": 5,
+      "source": "loop",
+      "next": [
+        "lookup_tickets"
+      ],
+      "checkpoint_id": "1f1be90d-ae88-6e67-8005-422ccd21ca40",
+      "values": {
+        "question": "¿En qué estado está el ticket 1?",
+        "message": "¿En qué estado está el ticket 1?",
+        "conversation_id": "930a5f2bc8c249a897253336f0b4a67b",
+        "user_id": null,
+        "run_id": "ticket-service-down",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
         "pending_proposal": null,
         "memories": [],
         "route": {
@@ -194,18 +284,27 @@
       }
     },
     {
-      "step": 5,
+      "step": 6,
       "source": "loop",
       "next": [
         "ticket_fallback"
       ],
-      "checkpoint_id": "1f1be798-c77b-63d6-8005-ff85ca77225d",
+      "checkpoint_id": "1f1be90d-c2e4-6fb3-8006-2babc545c066",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
         "message": "¿En qué estado está el ticket 1?",
-        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "conversation_id": "930a5f2bc8c249a897253336f0b4a67b",
         "user_id": null,
         "run_id": "ticket-service-down",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
         "pending_proposal": null,
         "memories": [],
         "route": {
@@ -225,16 +324,66 @@
       }
     },
     {
-      "step": 6,
+      "step": 7,
       "source": "loop",
-      "next": [],
-      "checkpoint_id": "1f1be798-c77c-66ba-8006-5676780d0a8c",
+      "next": [
+        "output_guard"
+      ],
+      "checkpoint_id": "1f1be90d-c2e7-6383-8007-233c59b7c492",
       "values": {
         "question": "¿En qué estado está el ticket 1?",
         "message": "¿En qué estado está el ticket 1?",
-        "conversation_id": "937b65de6ae5463c9e6b440c4e148214",
+        "conversation_id": "930a5f2bc8c249a897253336f0b4a67b",
         "user_id": null,
         "run_id": "ticket-service-down",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
+        "pending_proposal": null,
+        "memories": [],
+        "route": {
+          "ticket_ids": [
+            1
+          ],
+          "needs_knowledge": false,
+          "decided_by": "llm"
+        },
+        "tickets": [
+          {
+            "ticket_id": 1,
+            "outcome": "unavailable",
+            "ticket": null
+          }
+        ],
+        "answer": "No pude confirmar el estado del ticket 1 ahora mismo: el gestor de incidencias no respondió. Vuelve a intentarlo en unos minutos.\nFuente: sin confirmación del gestor de incidencias"
+      }
+    },
+    {
+      "step": 8,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be90d-c2ec-68ed-8008-4e383fa20d92",
+      "values": {
+        "question": "¿En qué estado está el ticket 1?",
+        "message": "¿En qué estado está el ticket 1?",
+        "conversation_id": "930a5f2bc8c249a897253336f0b4a67b",
+        "user_id": null,
+        "run_id": "ticket-service-down",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
         "pending_proposal": null,
         "memories": [],
         "route": {

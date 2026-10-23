@@ -7,14 +7,16 @@
       "conversation": "a",
       "user": "cx-agent-1",
       "message": "En realidad SEUR ya no cubre esa zona rural de Zaragoza, hay que usar el carrier local desde el mes pasado.",
-      "answer": "En TrackFlow, según nuestra documentación actual, SEUR tiene la mejor cobertura en zonas rurales de Aragón. Sin embargo, me han informado de un cambio reciente: al parecer SEUR ya no cubre esa zona rural de Zaragoza y ahora se utiliza el transportista local. Antes de confirmarte esto, necesito verificarlo con el equipo de operaciones para asegurarme de que la información está actualizada. Te confirmaré en cuanto tenga la respuesta definitiva.\n\nFuente: Cobertura de Transportistas › España (Zaragoza)\n\n¿Quieres que recuerde esto para próximas conversaciones? «SEUR ya no cubre zonas rurales de Zaragoza; para esas zonas usar transportista local.» Responde sí, no o corrígelo.",
+      "answer": "Gracias por la información. Tomamos nota de que, según nos indicas, SEUR ya no cubre esa zona rural de Zaragoza y que se debe usar el transportista local. Esto lo revisaremos con el equipo responsable para actualizar nuestros registros.\nFuente: sin información en la base de conocimiento\n\n¿Quieres que recuerde esto para próximas conversaciones? «SEUR ya no cubre la zona rural de Zaragoza; usar transportista local desde el mes pasado.» Responde sí, no o corrígelo.",
       "nodes": [
         "receive_question",
+        "input_guard",
         "load_pending_proposal",
         "recall_memory",
         "route_question",
         "retrieve",
         "generate_answer",
+        "output_guard",
         "propose_memory"
       ],
       "sources_used": [
@@ -22,8 +24,8 @@
       ],
       "memory_candidate": {
         "category": "carrier_rule",
-        "fact": "SEUR ya no cubre zonas rurales de Zaragoza; para esas zonas usar transportista local.",
-        "reason": "Actualización de cobertura de SEUR en Zaragoza reportada por account manager, no reflejada en la base de conocimiento actual.",
+        "fact": "SEUR ya no cubre la zona rural de Zaragoza; usar transportista local desde el mes pasado.",
+        "reason": "Actualiza la cobertura de SEUR en España, que actualmente indica mejor cobertura en zonas rurales de Aragón. Servirá para futuras consultas sobre transportistas en Zaragoza.",
         "user_quote": "En realidad SEUR ya no cubre esa zona rural de Zaragoza, hay que usar el carrier local desde el mes pasado.",
         "carrier": "SEUR",
         "country": "ES",
@@ -31,21 +33,21 @@
         "client": null
       },
       "memory_proposal": {
-        "proposal_id": "e79969d91abe44e295e82079059cd6e8",
+        "proposal_id": "66dfa9122f8542639197d6fabca36403",
         "category": "carrier_rule",
         "subject_key": "carrier_rule:seur:ES",
         "subject": "SEUR (ES)",
         "keywords": [
           "seur"
         ],
-        "fact": "SEUR ya no cubre zonas rurales de Zaragoza; para esas zonas usar transportista local.",
-        "reason": "Actualización de cobertura de SEUR en Zaragoza reportada por account manager, no reflejada en la base de conocimiento actual.",
+        "fact": "SEUR ya no cubre la zona rural de Zaragoza; usar transportista local desde el mes pasado.",
+        "reason": "Actualiza la cobertura de SEUR en España, que actualmente indica mejor cobertura en zonas rurales de Aragón. Servirá para futuras consultas sobre transportistas en Zaragoza.",
         "user_id": "cx-agent-1",
-        "conversation_id": "cbeb11ab542d432aa17b3d52b3033282",
-        "run_id": "91b168b02ddb4aeaa082aa91b3bf1109",
+        "conversation_id": "bc162ab2d7c34f4ab4b2fc4ce86952b7",
+        "run_id": "107e6d33e4f544cd8465c732ec1ca2cd",
         "source_message": "en realidad seur ya no cubre esa zona rural de zaragoza, hay que usar el carrier local desde el mes pasado.",
-        "proposed_at": "2026-10-02T16:04:49.467097Z",
-        "expires_at": "2026-10-02T16:34:49.467097Z"
+        "proposed_at": "2026-10-02T18:42:45.120104Z",
+        "expires_at": "2026-10-02T19:12:45.120104Z"
       },
       "memory_decision": null,
       "memories_recalled": [],
@@ -54,18 +56,18 @@
   ],
   "audit": [
     {
-      "id": "1790957089469-0",
+      "id": "1790966565137-0",
       "event": "proposed",
-      "at": "2026-10-02T16:04:49.467097+00:00",
-      "proposal_id": "e79969d91abe44e295e82079059cd6e8",
+      "at": "2026-10-02T18:42:45.120104+00:00",
+      "proposal_id": "66dfa9122f8542639197d6fabca36403",
       "user_id": "cx-agent-1",
-      "conversation_id": "cbeb11ab542d432aa17b3d52b3033282",
-      "run_id": "91b168b02ddb4aeaa082aa91b3bf1109",
+      "conversation_id": "bc162ab2d7c34f4ab4b2fc4ce86952b7",
+      "run_id": "107e6d33e4f544cd8465c732ec1ca2cd",
       "category": "carrier_rule",
       "subject_key": "carrier_rule:seur:ES",
-      "proposed_fact": "SEUR ya no cubre zonas rurales de Zaragoza; para esas zonas usar transportista local.",
-      "reason": "Actualización de cobertura de SEUR en Zaragoza reportada por account manager, no reflejada en la base de conocimiento actual.",
-      "expires_at": "2026-10-02T16:34:49.467097+00:00",
+      "proposed_fact": "SEUR ya no cubre la zona rural de Zaragoza; usar transportista local desde el mes pasado.",
+      "reason": "Actualiza la cobertura de SEUR en España, que actualmente indica mejor cobertura en zonas rurales de Aragón. Servirá para futuras consultas sobre transportistas en Zaragoza.",
+      "expires_at": "2026-10-02T19:12:45.120104+00:00",
       "source_message": "en realidad seur ya no cubre esa zona rural de zaragoza, hay que usar el carrier local desde el mes pasado."
     }
   ]

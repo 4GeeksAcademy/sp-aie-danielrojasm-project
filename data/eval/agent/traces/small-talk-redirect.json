@@ -1,0 +1,267 @@
+{
+  "trace_version": 4,
+  "run_id": "small-talk-redirect",
+  "conversation_id": "6f36f64cf2de44f49fcb4c5041560985",
+  "user_id": null,
+  "question": "¿Qué hora es en Tokio?",
+  "started_at": "2026-10-02T18:41:45.149+00:00",
+  "status": "completed",
+  "steps": [
+    {
+      "order": 1,
+      "node": "receive_question",
+      "duration_ms": 2.1,
+      "output": {
+        "question": "¿Qué hora es en Tokio?",
+        "message": "¿Qué hora es en Tokio?"
+      }
+    },
+    {
+      "order": 2,
+      "node": "input_guard",
+      "duration_ms": 1.0,
+      "output": {
+        "guardrail": {
+          "decision": "redirect",
+          "category": "small_talk",
+          "failure_type": "content",
+          "message": "Por cierto, estoy aquí para ayudarte con TrackFlow: el estado de un envío, devoluciones y SLAs de Estados Unidos o España, o una incidencia con tu paquete. ¿En qué te ayudo?",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "redirect",
+            "reason": "small_talk"
+          }
+        ]
+      }
+    },
+    {
+      "order": 3,
+      "node": "load_pending_proposal",
+      "duration_ms": 0.5,
+      "output": {
+        "pending_proposal": null
+      }
+    },
+    {
+      "order": 4,
+      "node": "small_talk_reply",
+      "duration_ms": 2047.2,
+      "output": {
+        "answer": "No tengo acceso a internet ni reloj, así que no puedo saber la hora actual en Tokio. Lamento no poder ayudarte con eso."
+      }
+    },
+    {
+      "order": 5,
+      "node": "output_guard",
+      "duration_ms": 6.8,
+      "output": {
+        "answer": "No tengo acceso a internet ni reloj, así que no puedo saber la hora actual en Tokio. Lamento no poder ayudarte con eso.\n\nPor cierto, estoy aquí para ayudarte con TrackFlow: el estado de un envío, devoluciones y SLAs de Estados Unidos o España, o una incidencia con tu paquete. ¿En qué te ayudo?",
+        "guardrail_events": []
+      }
+    }
+  ],
+  "duration_ms": 2057.7,
+  "sources_used": [],
+  "final_state": {
+    "question": "¿Qué hora es en Tokio?",
+    "message": "¿Qué hora es en Tokio?",
+    "conversation_id": "6f36f64cf2de44f49fcb4c5041560985",
+    "user_id": null,
+    "run_id": "small-talk-redirect",
+    "authorized_orders": [],
+    "guardrail": {
+      "decision": "redirect",
+      "category": "small_talk",
+      "failure_type": "content",
+      "message": "Por cierto, estoy aquí para ayudarte con TrackFlow: el estado de un envío, devoluciones y SLAs de Estados Unidos o España, o una incidencia con tu paquete. ¿En qué te ayudo?",
+      "orders": []
+    },
+    "guardrail_events": [
+      {
+        "guardrail": "input_guard",
+        "failure_type": "content",
+        "action": "redirect",
+        "reason": "small_talk"
+      }
+    ],
+    "pending_proposal": null,
+    "answer": "No tengo acceso a internet ni reloj, así que no puedo saber la hora actual en Tokio. Lamento no poder ayudarte con eso.\n\nPor cierto, estoy aquí para ayudarte con TrackFlow: el estado de un envío, devoluciones y SLAs de Estados Unidos o España, o una incidencia con tu paquete. ¿En qué te ayudo?"
+  },
+  "checkpoints": [
+    {
+      "step": -1,
+      "source": "input",
+      "next": [
+        "__start__"
+      ],
+      "checkpoint_id": "1f1be90e-af22-6dee-bfff-8f328b65fabb",
+      "values": {
+        "guardrail_events": []
+      }
+    },
+    {
+      "step": 0,
+      "source": "loop",
+      "next": [
+        "receive_question"
+      ],
+      "checkpoint_id": "1f1be90e-af24-68db-8000-fb804e2f7d44",
+      "values": {
+        "question": "¿Qué hora es en Tokio?",
+        "conversation_id": "6f36f64cf2de44f49fcb4c5041560985",
+        "user_id": null,
+        "run_id": "small-talk-redirect",
+        "authorized_orders": [],
+        "guardrail_events": []
+      }
+    },
+    {
+      "step": 1,
+      "source": "loop",
+      "next": [
+        "input_guard"
+      ],
+      "checkpoint_id": "1f1be90e-af26-65a5-8001-a56c48307b83",
+      "values": {
+        "question": "¿Qué hora es en Tokio?",
+        "message": "¿Qué hora es en Tokio?",
+        "conversation_id": "6f36f64cf2de44f49fcb4c5041560985",
+        "user_id": null,
+        "run_id": "small-talk-redirect",
+        "authorized_orders": [],
+        "guardrail_events": []
+      }
+    },
+    {
+      "step": 2,
+      "source": "loop",
+      "next": [
+        "load_pending_proposal"
+      ],
+      "checkpoint_id": "1f1be90e-af28-6dc1-8002-e96095cfc415",
+      "values": {
+        "question": "¿Qué hora es en Tokio?",
+        "message": "¿Qué hora es en Tokio?",
+        "conversation_id": "6f36f64cf2de44f49fcb4c5041560985",
+        "user_id": null,
+        "run_id": "small-talk-redirect",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "redirect",
+          "category": "small_talk",
+          "failure_type": "content",
+          "message": "Por cierto, estoy aquí para ayudarte con TrackFlow: el estado de un envío, devoluciones y SLAs de Estados Unidos o España, o una incidencia con tu paquete. ¿En qué te ayudo?",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "redirect",
+            "reason": "small_talk"
+          }
+        ]
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [
+        "small_talk_reply"
+      ],
+      "checkpoint_id": "1f1be90e-af2a-61c2-8003-69a94d320448",
+      "values": {
+        "question": "¿Qué hora es en Tokio?",
+        "message": "¿Qué hora es en Tokio?",
+        "conversation_id": "6f36f64cf2de44f49fcb4c5041560985",
+        "user_id": null,
+        "run_id": "small-talk-redirect",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "redirect",
+          "category": "small_talk",
+          "failure_type": "content",
+          "message": "Por cierto, estoy aquí para ayudarte con TrackFlow: el estado de un envío, devoluciones y SLAs de Estados Unidos o España, o una incidencia con tu paquete. ¿En qué te ayudo?",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "redirect",
+            "reason": "small_talk"
+          }
+        ],
+        "pending_proposal": null
+      }
+    },
+    {
+      "step": 4,
+      "source": "loop",
+      "next": [
+        "output_guard"
+      ],
+      "checkpoint_id": "1f1be90e-c2ad-6e8f-8004-6fad5d55435c",
+      "values": {
+        "question": "¿Qué hora es en Tokio?",
+        "message": "¿Qué hora es en Tokio?",
+        "conversation_id": "6f36f64cf2de44f49fcb4c5041560985",
+        "user_id": null,
+        "run_id": "small-talk-redirect",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "redirect",
+          "category": "small_talk",
+          "failure_type": "content",
+          "message": "Por cierto, estoy aquí para ayudarte con TrackFlow: el estado de un envío, devoluciones y SLAs de Estados Unidos o España, o una incidencia con tu paquete. ¿En qué te ayudo?",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "redirect",
+            "reason": "small_talk"
+          }
+        ],
+        "pending_proposal": null,
+        "answer": "No tengo acceso a internet ni reloj, así que no puedo saber la hora actual en Tokio. Lamento no poder ayudarte con eso."
+      }
+    },
+    {
+      "step": 5,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be90e-c2ba-6956-8005-6e67a2271a1b",
+      "values": {
+        "question": "¿Qué hora es en Tokio?",
+        "message": "¿Qué hora es en Tokio?",
+        "conversation_id": "6f36f64cf2de44f49fcb4c5041560985",
+        "user_id": null,
+        "run_id": "small-talk-redirect",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "redirect",
+          "category": "small_talk",
+          "failure_type": "content",
+          "message": "Por cierto, estoy aquí para ayudarte con TrackFlow: el estado de un envío, devoluciones y SLAs de Estados Unidos o España, o una incidencia con tu paquete. ¿En qué te ayudo?",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "redirect",
+            "reason": "small_talk"
+          }
+        ],
+        "pending_proposal": null,
+        "answer": "No tengo acceso a internet ni reloj, así que no puedo saber la hora actual en Tokio. Lamento no poder ayudarte con eso.\n\nPor cierto, estoy aquí para ayudarte con TrackFlow: el estado de un envío, devoluciones y SLAs de Estados Unidos o España, o una incidencia con tu paquete. ¿En qué te ayudo?"
+      }
+    }
+  ]
+}

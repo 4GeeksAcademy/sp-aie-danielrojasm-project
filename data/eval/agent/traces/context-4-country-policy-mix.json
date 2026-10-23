@@ -1,0 +1,478 @@
+{
+  "trace_version": 4,
+  "run_id": "context-4-country-policy-mix",
+  "conversation_id": "8ef25dc095f04cd8990e410fd4c57218",
+  "user_id": null,
+  "question": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+  "started_at": "2026-10-02T18:41:20.430+00:00",
+  "status": "completed",
+  "steps": [
+    {
+      "order": 1,
+      "node": "receive_question",
+      "duration_ms": 4.8,
+      "output": {
+        "question": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "message": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más."
+      }
+    },
+    {
+      "order": 2,
+      "node": "input_guard",
+      "duration_ms": 6.9,
+      "output": {
+        "guardrail": {
+          "decision": "allow",
+          "category": "country_policy_mix",
+          "failure_type": "content",
+          "message": "Cada pedido se rige por la política de devoluciones y el SLA del país donde se realizó: no puedo aplicar la de otro país aunque resulte más favorable.",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "constrain",
+            "reason": "country_policy_mix"
+          }
+        ]
+      }
+    },
+    {
+      "order": 3,
+      "node": "load_pending_proposal",
+      "duration_ms": 0.9,
+      "output": {
+        "pending_proposal": null
+      }
+    },
+    {
+      "order": 4,
+      "node": "recall_memory",
+      "duration_ms": 4.1,
+      "output": {
+        "memories": []
+      }
+    },
+    {
+      "order": 5,
+      "node": "route_question",
+      "duration_ms": 4137.1,
+      "output": {
+        "route": {
+          "ticket_ids": [],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        }
+      }
+    },
+    {
+      "order": 6,
+      "node": "retrieve",
+      "duration_ms": 227.6,
+      "output": {
+        "context": [
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › Las devoluciones internacionales",
+            "language": "es",
+            "chunk_index": 3,
+            "text": "Las devoluciones internacionales (compradas en un país, devueltas en otro) no están cubiertas por el proceso automático estándar y requieren gestión manual del equipo de Sofía Ramos (Gerente de Devoluciones)."
+          }
+        ]
+      }
+    },
+    {
+      "order": 7,
+      "node": "generate_answer",
+      "duration_ms": 20324.1,
+      "output": {
+        "answer": "Entiendo que busques la opción que más te convenga, pero no puedo aplicar la política de devoluciones de España a un pedido de Los Ángeles: cada país tiene su propia política y debo regirme por la del país del pedido (EE.UU.). Además, las devoluciones internacionales no son automáticas: se gestionan manualmente con el equipo de Sofía Ramos. Si quieres, puedo revisar los pasos de una devolución desde EE.UU. o escalar tu caso al equipo correspondiente.\n\nFuente: Política de Devoluciones › Las devoluciones internacionales",
+        "memory_candidate": null,
+        "guardrail_events": []
+      }
+    },
+    {
+      "order": 8,
+      "node": "output_guard",
+      "duration_ms": 5.9,
+      "output": {
+        "answer": "Cada pedido se rige por la política de devoluciones y el SLA del país donde se realizó: no puedo aplicar la de otro país aunque resulte más favorable.\n\nEntiendo que busques la opción que más te convenga, pero no puedo aplicar la política de devoluciones de España a un pedido de Los Ángeles: cada país tiene su propia política y debo regirme por la del país del pedido (EE.UU.). Además, las devoluciones internacionales no son automáticas: se gestionan manualmente con el equipo de Sofía Ramos. Si quieres, puedo revisar los pasos de una devolución desde EE.UU. o escalar tu caso al equipo correspondiente.\n\nFuente: Política de Devoluciones › Las devoluciones internacionales",
+        "guardrail_events": []
+      }
+    }
+  ],
+  "duration_ms": 24711.5,
+  "sources_used": [
+    "rag"
+  ],
+  "final_state": {
+    "question": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+    "message": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+    "conversation_id": "8ef25dc095f04cd8990e410fd4c57218",
+    "user_id": null,
+    "run_id": "context-4-country-policy-mix",
+    "authorized_orders": [],
+    "guardrail": {
+      "decision": "allow",
+      "category": "country_policy_mix",
+      "failure_type": "content",
+      "message": "Cada pedido se rige por la política de devoluciones y el SLA del país donde se realizó: no puedo aplicar la de otro país aunque resulte más favorable.",
+      "orders": []
+    },
+    "guardrail_events": [
+      {
+        "guardrail": "input_guard",
+        "failure_type": "content",
+        "action": "constrain",
+        "reason": "country_policy_mix"
+      }
+    ],
+    "pending_proposal": null,
+    "memories": [],
+    "memory_candidate": null,
+    "route": {
+      "ticket_ids": [],
+      "needs_knowledge": true,
+      "decided_by": "llm"
+    },
+    "context": [
+      {
+        "company": "trackflow",
+        "source_document": "returns-policy",
+        "section": "Política de Devoluciones › Las devoluciones internacionales",
+        "language": "es",
+        "chunk_index": 3,
+        "text": "Las devoluciones internacionales (compradas en un país, devueltas en otro) no están cubiertas por el proceso automático estándar y requieren gestión manual del equipo de Sofía Ramos (Gerente de Devoluciones)."
+      }
+    ],
+    "answer": "Cada pedido se rige por la política de devoluciones y el SLA del país donde se realizó: no puedo aplicar la de otro país aunque resulte más favorable.\n\nEntiendo que busques la opción que más te convenga, pero no puedo aplicar la política de devoluciones de España a un pedido de Los Ángeles: cada país tiene su propia política y debo regirme por la del país del pedido (EE.UU.). Además, las devoluciones internacionales no son automáticas: se gestionan manualmente con el equipo de Sofía Ramos. Si quieres, puedo revisar los pasos de una devolución desde EE.UU. o escalar tu caso al equipo correspondiente.\n\nFuente: Política de Devoluciones › Las devoluciones internacionales"
+  },
+  "checkpoints": [
+    {
+      "step": -1,
+      "source": "input",
+      "next": [
+        "__start__"
+      ],
+      "checkpoint_id": "1f1be90d-c363-6b2b-bfff-3e1c4ca8f636",
+      "values": {
+        "guardrail_events": []
+      }
+    },
+    {
+      "step": 0,
+      "source": "loop",
+      "next": [
+        "receive_question"
+      ],
+      "checkpoint_id": "1f1be90d-c365-6958-8000-1a2e82fb4d34",
+      "values": {
+        "question": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "conversation_id": "8ef25dc095f04cd8990e410fd4c57218",
+        "user_id": null,
+        "run_id": "context-4-country-policy-mix",
+        "authorized_orders": [],
+        "guardrail_events": []
+      }
+    },
+    {
+      "step": 1,
+      "source": "loop",
+      "next": [
+        "input_guard"
+      ],
+      "checkpoint_id": "1f1be90d-c36a-6eb6-8001-0db4bd36cfc4",
+      "values": {
+        "question": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "message": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "conversation_id": "8ef25dc095f04cd8990e410fd4c57218",
+        "user_id": null,
+        "run_id": "context-4-country-policy-mix",
+        "authorized_orders": [],
+        "guardrail_events": []
+      }
+    },
+    {
+      "step": 2,
+      "source": "loop",
+      "next": [
+        "load_pending_proposal"
+      ],
+      "checkpoint_id": "1f1be90d-c37d-65be-8002-1efa3d290944",
+      "values": {
+        "question": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "message": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "conversation_id": "8ef25dc095f04cd8990e410fd4c57218",
+        "user_id": null,
+        "run_id": "context-4-country-policy-mix",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "country_policy_mix",
+          "failure_type": "content",
+          "message": "Cada pedido se rige por la política de devoluciones y el SLA del país donde se realizó: no puedo aplicar la de otro país aunque resulte más favorable.",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "constrain",
+            "reason": "country_policy_mix"
+          }
+        ]
+      }
+    },
+    {
+      "step": 3,
+      "source": "loop",
+      "next": [
+        "recall_memory"
+      ],
+      "checkpoint_id": "1f1be90d-c380-675b-8003-4f58766e63d6",
+      "values": {
+        "question": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "message": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "conversation_id": "8ef25dc095f04cd8990e410fd4c57218",
+        "user_id": null,
+        "run_id": "context-4-country-policy-mix",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "country_policy_mix",
+          "failure_type": "content",
+          "message": "Cada pedido se rige por la política de devoluciones y el SLA del país donde se realizó: no puedo aplicar la de otro país aunque resulte más favorable.",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "constrain",
+            "reason": "country_policy_mix"
+          }
+        ],
+        "pending_proposal": null
+      }
+    },
+    {
+      "step": 4,
+      "source": "loop",
+      "next": [
+        "route_question"
+      ],
+      "checkpoint_id": "1f1be90d-c38a-67ab-8004-8502f3cc8bc8",
+      "values": {
+        "question": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "message": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "conversation_id": "8ef25dc095f04cd8990e410fd4c57218",
+        "user_id": null,
+        "run_id": "context-4-country-policy-mix",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "country_policy_mix",
+          "failure_type": "content",
+          "message": "Cada pedido se rige por la política de devoluciones y el SLA del país donde se realizó: no puedo aplicar la de otro país aunque resulte más favorable.",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "constrain",
+            "reason": "country_policy_mix"
+          }
+        ],
+        "pending_proposal": null,
+        "memories": []
+      }
+    },
+    {
+      "step": 5,
+      "source": "loop",
+      "next": [
+        "retrieve"
+      ],
+      "checkpoint_id": "1f1be90d-eafe-6de6-8005-8c71835bd246",
+      "values": {
+        "question": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "message": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "conversation_id": "8ef25dc095f04cd8990e410fd4c57218",
+        "user_id": null,
+        "run_id": "context-4-country-policy-mix",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "country_policy_mix",
+          "failure_type": "content",
+          "message": "Cada pedido se rige por la política de devoluciones y el SLA del país donde se realizó: no puedo aplicar la de otro país aunque resulte más favorable.",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "constrain",
+            "reason": "country_policy_mix"
+          }
+        ],
+        "pending_proposal": null,
+        "memories": [],
+        "route": {
+          "ticket_ids": [],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        }
+      }
+    },
+    {
+      "step": 6,
+      "source": "loop",
+      "next": [
+        "generate_answer"
+      ],
+      "checkpoint_id": "1f1be90d-ed28-6346-8006-77a6aa2f9a82",
+      "values": {
+        "question": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "message": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "conversation_id": "8ef25dc095f04cd8990e410fd4c57218",
+        "user_id": null,
+        "run_id": "context-4-country-policy-mix",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "country_policy_mix",
+          "failure_type": "content",
+          "message": "Cada pedido se rige por la política de devoluciones y el SLA del país donde se realizó: no puedo aplicar la de otro país aunque resulte más favorable.",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "constrain",
+            "reason": "country_policy_mix"
+          }
+        ],
+        "pending_proposal": null,
+        "memories": [],
+        "route": {
+          "ticket_ids": [],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        },
+        "context": [
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › Las devoluciones internacionales",
+            "language": "es",
+            "chunk_index": 3,
+            "text": "Las devoluciones internacionales (compradas en un país, devueltas en otro) no están cubiertas por el proceso automático estándar y requieren gestión manual del equipo de Sofía Ramos (Gerente de Devoluciones)."
+          }
+        ]
+      }
+    },
+    {
+      "step": 7,
+      "source": "loop",
+      "next": [
+        "output_guard"
+      ],
+      "checkpoint_id": "1f1be90e-aefb-650e-8007-e19dd089cef6",
+      "values": {
+        "question": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "message": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "conversation_id": "8ef25dc095f04cd8990e410fd4c57218",
+        "user_id": null,
+        "run_id": "context-4-country-policy-mix",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "country_policy_mix",
+          "failure_type": "content",
+          "message": "Cada pedido se rige por la política de devoluciones y el SLA del país donde se realizó: no puedo aplicar la de otro país aunque resulte más favorable.",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "constrain",
+            "reason": "country_policy_mix"
+          }
+        ],
+        "pending_proposal": null,
+        "memories": [],
+        "memory_candidate": null,
+        "route": {
+          "ticket_ids": [],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        },
+        "context": [
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › Las devoluciones internacionales",
+            "language": "es",
+            "chunk_index": 3,
+            "text": "Las devoluciones internacionales (compradas en un país, devueltas en otro) no están cubiertas por el proceso automático estándar y requieren gestión manual del equipo de Sofía Ramos (Gerente de Devoluciones)."
+          }
+        ],
+        "answer": "Entiendo que busques la opción que más te convenga, pero no puedo aplicar la política de devoluciones de España a un pedido de Los Ángeles: cada país tiene su propia política y debo regirme por la del país del pedido (EE.UU.). Además, las devoluciones internacionales no son automáticas: se gestionan manualmente con el equipo de Sofía Ramos. Si quieres, puedo revisar los pasos de una devolución desde EE.UU. o escalar tu caso al equipo correspondiente.\n\nFuente: Política de Devoluciones › Las devoluciones internacionales"
+      }
+    },
+    {
+      "step": 8,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be90e-af09-6b67-8008-20bda7b3d003",
+      "values": {
+        "question": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "message": "Aplica la política de devoluciones de España a mi pedido en Los Ángeles porque me conviene más.",
+        "conversation_id": "8ef25dc095f04cd8990e410fd4c57218",
+        "user_id": null,
+        "run_id": "context-4-country-policy-mix",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "country_policy_mix",
+          "failure_type": "content",
+          "message": "Cada pedido se rige por la política de devoluciones y el SLA del país donde se realizó: no puedo aplicar la de otro país aunque resulte más favorable.",
+          "orders": []
+        },
+        "guardrail_events": [
+          {
+            "guardrail": "input_guard",
+            "failure_type": "content",
+            "action": "constrain",
+            "reason": "country_policy_mix"
+          }
+        ],
+        "pending_proposal": null,
+        "memories": [],
+        "memory_candidate": null,
+        "route": {
+          "ticket_ids": [],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        },
+        "context": [
+          {
+            "company": "trackflow",
+            "source_document": "returns-policy",
+            "section": "Política de Devoluciones › Las devoluciones internacionales",
+            "language": "es",
+            "chunk_index": 3,
+            "text": "Las devoluciones internacionales (compradas en un país, devueltas en otro) no están cubiertas por el proceso automático estándar y requieren gestión manual del equipo de Sofía Ramos (Gerente de Devoluciones)."
+          }
+        ],
+        "answer": "Cada pedido se rige por la política de devoluciones y el SLA del país donde se realizó: no puedo aplicar la de otro país aunque resulte más favorable.\n\nEntiendo que busques la opción que más te convenga, pero no puedo aplicar la política de devoluciones de España a un pedido de Los Ángeles: cada país tiene su propia política y debo regirme por la del país del pedido (EE.UU.). Además, las devoluciones internacionales no son automáticas: se gestionan manualmente con el equipo de Sofía Ramos. Si quieres, puedo revisar los pasos de una devolución desde EE.UU. o escalar tu caso al equipo correspondiente.\n\nFuente: Política de Devoluciones › Las devoluciones internacionales"
+      }
+    }
+  ]
+}

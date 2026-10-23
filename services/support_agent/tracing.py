@@ -1,13 +1,14 @@
 """Traces de las corridas del agente: un JSON por corrida en `AGENT_TRACE_DIR` (por defecto `data/raw/agent_traces/`).
 
-Formato (`trace_version` 3):
+Formato (`trace_version` 4):
 
 - `run_id`, `conversation_id`, `user_id`, `question`, `started_at`, `duration_ms`, `status` (`completed` | `failed`).
 - `sources_used`: fuentes consultadas en orden (`agent_memory` = memoria aprobada, solo si recuperó alguna entrada;
   `incidents_tool` = gestor de incidencias; `rag` = base de conocimiento); vacío si no consultó ninguna.
 - `steps`: nodos en el orden en que se ejecutaron, con `order`, `node`, `duration_ms` y `output` (lo que el nodo
   escribió en el estado; el de `route_question` es la decisión de fuentes y quién la tomó).
-- `final_state`: estado al terminar (`question`, `context`, `answer` o `error`).
+- `final_state`: estado al terminar (`question`, `context`, `answer` o `error`), con el veredicto del guard de
+  entrada (`guardrail`) y las activaciones de guardrails de la corrida (`guardrail_events`).
 - `checkpoints`: un checkpoint por transición (`step`, `source`, `next`, `checkpoint_id`, `values`), del más antiguo
   al más reciente.
 - `error`: solo si falló (`node`, `type`, `message`).
@@ -22,7 +23,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[2]
-TRACE_VERSION = 3
+TRACE_VERSION = 4
 
 # Nodos que consultan una fuente de datos externa al grafo.
 SOURCE_BY_NODE = {"recall_memory": "agent_memory", "lookup_tickets": "incidents_tool", "retrieve": "rag"}

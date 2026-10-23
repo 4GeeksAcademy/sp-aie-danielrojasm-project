@@ -1,16 +1,16 @@
 {
-  "trace_version": 3,
+  "trace_version": 4,
   "run_id": "out-of-scope",
-  "conversation_id": "e116d3b0f03f4c499ad58de6c524d7d2",
+  "conversation_id": "e8144cc48fe3435eaf81d30d4b2866b5",
   "user_id": null,
   "question": "¿Tenéis almacén propio en Ciudad de México?",
-  "started_at": "2026-10-02T15:53:34.114+00:00",
+  "started_at": "2026-10-02T18:40:45.148+00:00",
   "status": "completed",
   "steps": [
     {
       "order": 1,
       "node": "receive_question",
-      "duration_ms": 2.4,
+      "duration_ms": 3.6,
       "output": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
         "message": "¿Tenéis almacén propio en Ciudad de México?"
@@ -18,24 +18,39 @@
     },
     {
       "order": 2,
+      "node": "input_guard",
+      "duration_ms": 1.2,
+      "output": {
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": []
+      }
+    },
+    {
+      "order": 3,
       "node": "load_pending_proposal",
-      "duration_ms": 0.9,
+      "duration_ms": 0.6,
       "output": {
         "pending_proposal": null
       }
     },
     {
-      "order": 3,
+      "order": 4,
       "node": "recall_memory",
-      "duration_ms": 15.8,
+      "duration_ms": 3.8,
       "output": {
         "memories": []
       }
     },
     {
-      "order": 4,
+      "order": 5,
       "node": "route_question",
-      "duration_ms": 3588.1,
+      "duration_ms": 2452.7,
       "output": {
         "route": {
           "ticket_ids": [],
@@ -45,33 +60,51 @@
       }
     },
     {
-      "order": 5,
+      "order": 6,
       "node": "retrieve",
-      "duration_ms": 268.2,
+      "duration_ms": 265.4,
       "output": {
         "context": []
       }
     },
     {
-      "order": 6,
+      "order": 7,
       "node": "no_information",
-      "duration_ms": 7132.9,
+      "duration_ms": 6908.0,
       "output": {
         "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento",
         "memory_candidate": null
       }
+    },
+    {
+      "order": 8,
+      "node": "output_guard",
+      "duration_ms": 1.5,
+      "output": {
+        "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento",
+        "guardrail_events": []
+      }
     }
   ],
-  "duration_ms": 11008.3,
+  "duration_ms": 9636.7,
   "sources_used": [
     "rag"
   ],
   "final_state": {
     "question": "¿Tenéis almacén propio en Ciudad de México?",
     "message": "¿Tenéis almacén propio en Ciudad de México?",
-    "conversation_id": "e116d3b0f03f4c499ad58de6c524d7d2",
+    "conversation_id": "e8144cc48fe3435eaf81d30d4b2866b5",
     "user_id": null,
     "run_id": "out-of-scope",
+    "authorized_orders": [],
+    "guardrail": {
+      "decision": "allow",
+      "category": "in_scope",
+      "failure_type": null,
+      "message": null,
+      "orders": []
+    },
+    "guardrail_events": [],
     "pending_proposal": null,
     "memories": [],
     "memory_candidate": null,
@@ -90,8 +123,10 @@
       "next": [
         "__start__"
       ],
-      "checkpoint_id": "1f1be796-c385-63bc-bfff-ee1e3ebfd4ea",
-      "values": {}
+      "checkpoint_id": "1f1be90c-72eb-6e9d-bfff-7fd84ca3e826",
+      "values": {
+        "guardrail_events": []
+      }
     },
     {
       "step": 0,
@@ -99,75 +134,130 @@
       "next": [
         "receive_question"
       ],
-      "checkpoint_id": "1f1be796-c387-660a-8000-500dc971f890",
+      "checkpoint_id": "1f1be90c-72ee-6f7b-8000-77e0a728d1e1",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
-        "conversation_id": "e116d3b0f03f4c499ad58de6c524d7d2",
+        "conversation_id": "e8144cc48fe3435eaf81d30d4b2866b5",
         "user_id": null,
-        "run_id": "out-of-scope"
+        "run_id": "out-of-scope",
+        "authorized_orders": [],
+        "guardrail_events": []
       }
     },
     {
       "step": 1,
       "source": "loop",
       "next": [
-        "load_pending_proposal"
+        "input_guard"
       ],
-      "checkpoint_id": "1f1be796-c389-692b-8001-c61aff937be6",
+      "checkpoint_id": "1f1be90c-72f1-65be-8001-e9eba08744e4",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
         "message": "¿Tenéis almacén propio en Ciudad de México?",
-        "conversation_id": "e116d3b0f03f4c499ad58de6c524d7d2",
+        "conversation_id": "e8144cc48fe3435eaf81d30d4b2866b5",
         "user_id": null,
-        "run_id": "out-of-scope"
+        "run_id": "out-of-scope",
+        "authorized_orders": [],
+        "guardrail_events": []
       }
     },
     {
       "step": 2,
       "source": "loop",
       "next": [
-        "recall_memory"
+        "load_pending_proposal"
       ],
-      "checkpoint_id": "1f1be796-c38b-6ab2-8002-00c388f37b4f",
+      "checkpoint_id": "1f1be90c-72f4-63d4-8002-dd2c0ca9f341",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
         "message": "¿Tenéis almacén propio en Ciudad de México?",
-        "conversation_id": "e116d3b0f03f4c499ad58de6c524d7d2",
+        "conversation_id": "e8144cc48fe3435eaf81d30d4b2866b5",
         "user_id": null,
         "run_id": "out-of-scope",
-        "pending_proposal": null
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": []
       }
     },
     {
       "step": 3,
       "source": "loop",
       "next": [
-        "route_question"
+        "recall_memory"
       ],
-      "checkpoint_id": "1f1be796-c3b2-6363-8003-6c922f750d93",
+      "checkpoint_id": "1f1be90c-72f5-6abd-8003-b7b60a0d647c",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
         "message": "¿Tenéis almacén propio en Ciudad de México?",
-        "conversation_id": "e116d3b0f03f4c499ad58de6c524d7d2",
+        "conversation_id": "e8144cc48fe3435eaf81d30d4b2866b5",
         "user_id": null,
         "run_id": "out-of-scope",
-        "pending_proposal": null,
-        "memories": []
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
+        "pending_proposal": null
       }
     },
     {
       "step": 4,
       "source": "loop",
       "next": [
-        "retrieve"
+        "route_question"
       ],
-      "checkpoint_id": "1f1be796-e5ea-63ba-8004-ede7058ef55d",
+      "checkpoint_id": "1f1be90c-72fe-6dd0-8004-beb711df6771",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
         "message": "¿Tenéis almacén propio en Ciudad de México?",
-        "conversation_id": "e116d3b0f03f4c499ad58de6c524d7d2",
+        "conversation_id": "e8144cc48fe3435eaf81d30d4b2866b5",
         "user_id": null,
         "run_id": "out-of-scope",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
+        "pending_proposal": null,
+        "memories": []
+      }
+    },
+    {
+      "step": 5,
+      "source": "loop",
+      "next": [
+        "retrieve"
+      ],
+      "checkpoint_id": "1f1be90c-8a62-6c79-8005-f7efec83ef73",
+      "values": {
+        "question": "¿Tenéis almacén propio en Ciudad de México?",
+        "message": "¿Tenéis almacén propio en Ciudad de México?",
+        "conversation_id": "e8144cc48fe3435eaf81d30d4b2866b5",
+        "user_id": null,
+        "run_id": "out-of-scope",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
         "pending_proposal": null,
         "memories": [],
         "route": {
@@ -178,18 +268,27 @@
       }
     },
     {
-      "step": 5,
+      "step": 6,
       "source": "loop",
       "next": [
         "no_information"
       ],
-      "checkpoint_id": "1f1be796-e878-6fe1-8005-86503321781b",
+      "checkpoint_id": "1f1be90c-8cea-6444-8006-3a61aa34970b",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
         "message": "¿Tenéis almacén propio en Ciudad de México?",
-        "conversation_id": "e116d3b0f03f4c499ad58de6c524d7d2",
+        "conversation_id": "e8144cc48fe3435eaf81d30d4b2866b5",
         "user_id": null,
         "run_id": "out-of-scope",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
         "pending_proposal": null,
         "memories": [],
         "route": {
@@ -201,16 +300,59 @@
       }
     },
     {
-      "step": 6,
+      "step": 7,
       "source": "loop",
-      "next": [],
-      "checkpoint_id": "1f1be797-2c7e-61e5-8006-8af53cacd7b5",
+      "next": [
+        "output_guard"
+      ],
+      "checkpoint_id": "1f1be90c-cecb-6d22-8007-3e270dc3e4dd",
       "values": {
         "question": "¿Tenéis almacén propio en Ciudad de México?",
         "message": "¿Tenéis almacén propio en Ciudad de México?",
-        "conversation_id": "e116d3b0f03f4c499ad58de6c524d7d2",
+        "conversation_id": "e8144cc48fe3435eaf81d30d4b2866b5",
         "user_id": null,
         "run_id": "out-of-scope",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
+        "pending_proposal": null,
+        "memories": [],
+        "memory_candidate": null,
+        "route": {
+          "ticket_ids": [],
+          "needs_knowledge": true,
+          "decided_by": "llm"
+        },
+        "context": [],
+        "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento"
+      }
+    },
+    {
+      "step": 8,
+      "source": "loop",
+      "next": [],
+      "checkpoint_id": "1f1be90c-cece-6002-8008-3d2eff8c0517",
+      "values": {
+        "question": "¿Tenéis almacén propio en Ciudad de México?",
+        "message": "¿Tenéis almacén propio en Ciudad de México?",
+        "conversation_id": "e8144cc48fe3435eaf81d30d4b2866b5",
+        "user_id": null,
+        "run_id": "out-of-scope",
+        "authorized_orders": [],
+        "guardrail": {
+          "decision": "allow",
+          "category": "in_scope",
+          "failure_type": null,
+          "message": null,
+          "orders": []
+        },
+        "guardrail_events": [],
         "pending_proposal": null,
         "memories": [],
         "memory_candidate": null,

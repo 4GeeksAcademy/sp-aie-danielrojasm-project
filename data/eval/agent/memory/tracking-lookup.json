@@ -7,18 +7,13 @@
       "conversation": "a",
       "user": "cx-agent-1",
       "message": "¿Dónde está el paquete con tracking XJ4471?",
-      "answer": "No tengo información sobre eso en la base de conocimiento de TrackFlow. Antes de responder al cliente, confírmalo con el equipo responsable.\nFuente: sin información en la base de conocimiento",
+      "answer": "No puedo darte información del pedido #XJ4471: no está asociado a tu sesión autenticada y solo puedo consultar los pedidos de la cuenta con la que has iniciado sesión. Si el pedido es tuyo, accede con esa cuenta o pide al equipo de CX que verifique tu identidad.",
       "nodes": [
         "receive_question",
-        "load_pending_proposal",
-        "recall_memory",
-        "route_question",
-        "retrieve",
-        "no_information"
+        "input_guard",
+        "guardrail_refusal"
       ],
-      "sources_used": [
-        "rag"
-      ],
+      "sources_used": [],
       "memory_candidate": null,
       "memory_proposal": null,
       "memory_decision": null,
