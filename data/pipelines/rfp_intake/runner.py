@@ -26,9 +26,11 @@ from sqlalchemy.engine import Engine
 from sqlmodel import Session, col, select
 
 from data.pipelines.rfp_intake import graph as intake_graph
+from data.pipelines.rfp_intake import tracing
 from data.pipelines.rfp_intake.departments import TicketStatus
 from data.pipelines.rfp_intake.schema import (
     RfpDepartmentSection,
+    RfpFinalDocument,
     RfpMetadata,
     RfpTicket,
     ensure_response_schema,
@@ -57,6 +59,7 @@ class TicketDetail:
     ticket: RfpTicket
     metadata: RfpMetadata | None
     sections: list[RfpDepartmentSection]
+    final_document: RfpFinalDocument | None = None
 
 
 @lru_cache(maxsize=4)
@@ -146,7 +149,8 @@ def get_ticket_detail(engine: Engine, ticket_id: str) -> TicketDetail:
             .where(RfpDepartmentSection.ticket_id == ticket_id)
             .order_by(col(RfpDepartmentSection.id))
         ).all()
-        return TicketDetail(ticket, metadata, list(sections))
+        document = session.exec(select(RfpFinalDocument).where(RfpFinalDocument.ticket_id == ticket_id)).first()
+        return TicketDetail(ticket, metadata, list(sections), document)
 
 
 # --- Procesamiento -----------------------------------------------------------------------------
@@ -196,16 +200,21 @@ def record_failure(engine: Engine, ticket_id: str, error: BaseException) -> None
 
 
 def reset_ticket(engine: Engine, ticket_id: str) -> None:
-    """Vuelve a dejar un ticket en `analizando` sin resultados (reproceso manual desde `scripts/`)."""
+    """Vuelve a dejar un ticket en `analizando` sin resultados de ninguna parte (reproceso manual desde `scripts/`).
+
+    No borra el hilo de checkpoints de la Parte 3: lo hace `approval_runner.forget` (el script llama a los dos).
+    """
     with Session(engine) as session:
         ticket = session.get(RfpTicket, ticket_id)
         if ticket is None:
             raise TicketNotFoundError(ticket_id)
         _delete_results(session, ticket_id)
+        session.exec(delete(RfpFinalDocument).where(col(RfpFinalDocument.ticket_id) == ticket_id))
         ticket.status = TicketStatus.ANALIZANDO.value
         ticket.rfp_id = None
         ticket.is_rfp = ticket.classification_confidence = ticket.classification_reason = None
         ticket.synthesis = ticket.handoff = ticket.response_handoff = None
+        ticket.trace, ticket.arbitrations = [], []
         ticket.last_error = None
         ticket.updated_at = utc_now()
         session.add(ticket)
@@ -232,6 +241,7 @@ def _persist_result(engine: Engine, ticket_id: str, state: dict[str, Any]) -> st
         ticket.is_rfp = classification["is_rfp"]
         ticket.classification_confidence = classification["confidence"]
         ticket.classification_reason = classification["reason"]
+        ticket.trace = tracing.ordered(state.get("trace", []))
         ticket.updated_at = utc_now()
         _delete_results(session, ticket_id)
         if not classification["is_rfp"]:

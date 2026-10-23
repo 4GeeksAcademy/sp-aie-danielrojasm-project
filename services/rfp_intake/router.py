@@ -4,11 +4,16 @@
   `analizando`, encola la tarea `rfp_intake.process_ticket` y responde `202` con el `ticket_id`. El grafo nunca corre
   en la API: lo ejecuta el worker de Celery (`services/tasks/rfp_intake.py`).
 - `GET /rfps`: últimos tickets, para la vista de recepción.
-- `GET /rfps/{ticket_id}`: estado, clasificación, metadatos, aspectos clave por departamento y síntesis y, desde
-  la Parte 2, el borrador y el `EvaluationResult` de cada sección. La UI lo consulta periódicamente mientras el
-  análisis o la generación siguen en curso.
+- `GET /rfps/{ticket_id}`: estado, clasificación, metadatos, aspectos clave por departamento y síntesis; desde
+  la Parte 2, el borrador y el `EvaluationResult` de cada sección y, desde la Parte 3, la aprobación de cada
+  responsable, la revisión pendiente, los arbitrajes y la traza. La UI lo consulta periódicamente mientras el ticket
+  sigue en curso.
+- `POST /rfps/{ticket_id}/sections/{department_id}/decision`: registra la decisión del responsable de una sección.
+  Se valida contra la revisión pendiente en el checkpoint antes de encolar `rfp_intake.resume_approval`; responde
+  `202` y el worker reanuda solo la rama de ese departamento.
+- `GET /rfps/{ticket_id}/document`: el documento final (Markdown) cuando el ticket está en `terminado`.
 
-Aquí no hay lógica de agentes: los handlers llaman a `data/pipelines/rfp_intake/runner.py`.
+Aquí no hay lógica de agentes: los handlers llaman a `data/pipelines/rfp_intake/runner.py` y `approval_runner.py`.
 """
 
 import logging
@@ -19,15 +24,19 @@ from redis.exceptions import RedisError
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import SQLAlchemyError
 
-from data.pipelines.rfp_intake import runner
-from data.pipelines.rfp_intake.departments import DEPARTMENTS
+from data.pipelines.rfp_intake import approval, approval_runner, runner
+from data.pipelines.rfp_intake.departments import DEPARTMENTS, TicketStatus
 from data.pipelines.rfp_intake.evaluators import EvaluationResult
 from data.pipelines.rfp_intake.schema import RfpMetadata
 from services.api.auth_models import User
 from services.api.database import DatabaseNotConfiguredError, get_engine
 from services.api.security import get_current_user
 from services.rfp_intake.models import (
+    ApprovalDecisionAccepted,
+    DepartmentId,
     DepartmentSectionRead,
+    FinalDocumentRead,
+    PendingReviewRead,
     RfpClassificationRead,
     RfpMetadataRead,
     RfpReadabilityRead,
@@ -36,7 +45,7 @@ from services.rfp_intake.models import (
     RfpTicketListItem,
     RfpTicketRead,
 )
-from services.tasks.rfp_intake import process_rfp_ticket_task
+from services.tasks.rfp_intake import process_rfp_ticket_task, resume_approval_task
 
 
 logger = logging.getLogger("trackflow.rfp_intake")
@@ -54,6 +63,13 @@ NOT_A_PDF_DETAIL = "El archivo tiene que ser un PDF."
 EMPTY_FILE_DETAIL = "El archivo está vacío."
 TOO_LARGE_DETAIL = "El PDF supera el tamaño máximo de 10 MB."
 TICKET_NOT_FOUND_DETAIL = "No existe ninguna RFP con ese ticket."
+NO_PENDING_REVIEW_DETAIL = (
+    "Esta sección no tiene ninguna revisión esperando decisión: puede que ya se haya registrado. Recarga el ticket."
+)
+DECISION_QUEUE_DETAIL = (
+    "No se pudo registrar la decisión porque la cola de tareas no está disponible. Inténtalo de nuevo en unos minutos."
+)
+DOCUMENT_NOT_READY_DETAIL = "El documento final todavía no existe: falta la aprobación de alguna sección."
 
 
 def get_rfp_engine() -> Engine:
@@ -146,14 +162,16 @@ def list_rfps() -> list[RfpTicketListItem]:
     responses={404: {"description": TICKET_NOT_FOUND_DETAIL}},
 )
 def get_rfp(ticket_id: str) -> RfpTicketRead:
+    engine = get_rfp_engine()
     try:
-        detail = runner.get_ticket_detail(get_rfp_engine(), ticket_id)
+        detail = runner.get_ticket_detail(engine, ticket_id)
     except runner.TicketNotFoundError as error:
         raise HTTPException(status.HTTP_404_NOT_FOUND, TICKET_NOT_FOUND_DETAIL) from error
     except SQLAlchemyError as error:
         raise _unavailable(error, "leer la RFP") from error
     ticket = detail.ticket
     synthesis = ticket.synthesis
+    pending = _pending_reviews(engine, ticket_id) if ticket.status == TicketStatus.ESPERANDO_APROBACION.value else {}
     return RfpTicketRead(
         ticket_id=ticket.ticket_id,
         status=ticket.status,
@@ -184,6 +202,15 @@ def get_rfp(ticket_id: str) -> RfpTicketRead:
                 evaluation=EvaluationResult.model_validate(section.evaluation_results)
                 if section.evaluation_results
                 else None,
+                approval_status=section.approval_status,
+                approver=section.approver,
+                approved_at=section.approved_at,
+                review_round=section.review_round,
+                revisions=section.revisions,
+                approval_history=section.approval_history,
+                pending_review=PendingReviewRead.model_validate(pending[section.department_id])
+                if section.department_id in pending
+                else None,
             )
             for section in detail.sections
         ],
@@ -199,7 +226,91 @@ def get_rfp(ticket_id: str) -> RfpTicketRead:
         generation_attempts=ticket.generation_attempts,
         max_iterations=ticket.response_handoff["max_iterations"] if ticket.response_handoff else None,
         response_handoff_ready=ticket.response_handoff is not None,
+        approval_attempts=ticket.approval_attempts,
+        arbitrations=ticket.arbitrations,
+        trace=ticket.trace,
+        final_document_ready=detail.final_document is not None,
     )
+
+
+@router.post(
+    "/{ticket_id}/sections/{department_id}/decision",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=ApprovalDecisionAccepted,
+    responses={
+        404: {"description": TICKET_NOT_FOUND_DETAIL},
+        409: {"description": "La sección no tiene una revisión pendiente o la decisión no encaja con ella."},
+        503: {"description": "PostgreSQL, el checkpoint o la cola de tareas no están disponibles."},
+    },
+)
+def decide_section(
+    ticket_id: str,
+    department_id: DepartmentId,
+    body: approval.DecisionInput,
+    user: User = Depends(get_current_user),
+) -> ApprovalDecisionAccepted:
+    engine = get_rfp_engine()
+    try:
+        runner.get_ticket_detail(engine, ticket_id)
+    except runner.TicketNotFoundError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, TICKET_NOT_FOUND_DETAIL) from error
+    except SQLAlchemyError as error:
+        raise _unavailable(error, "leer la RFP") from error
+    review = _pending_reviews(engine, ticket_id).get(department_id)
+    if review is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, NO_PENDING_REVIEW_DETAIL)
+    decision = approval.ApprovalDecision(**body.model_dump(), decided_by=str(user.email))
+    try:
+        approval.check_against(decision, review)
+    except approval.InvalidDecisionError as error:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(error)) from error
+    try:
+        result = resume_approval_task.apply_async(args=[ticket_id, department_id, decision.model_dump()], retry=False)
+    except (BrokerError, RedisError, OSError) as error:
+        logger.error("ticket=%s no se pudo encolar la decisión: %s", ticket_id, type(error).__name__)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, DECISION_QUEUE_DETAIL) from error
+    logger.info(
+        "ticket=%s decisión encolada department=%s decision=%s review_round=%s task_id=%s user=%s",
+        ticket_id,
+        department_id,
+        decision.decision,
+        decision.review_round,
+        result.id,
+        user.id,
+    )
+    return ApprovalDecisionAccepted(ticket_id=ticket_id, department_id=department_id, task_id=result.id)
+
+
+@router.get(
+    "/{ticket_id}/document",
+    response_model=FinalDocumentRead,
+    responses={404: {"description": DOCUMENT_NOT_READY_DETAIL}},
+)
+def get_final_document(ticket_id: str) -> FinalDocumentRead:
+    try:
+        detail = runner.get_ticket_detail(get_rfp_engine(), ticket_id)
+    except runner.TicketNotFoundError as error:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, TICKET_NOT_FOUND_DETAIL) from error
+    except SQLAlchemyError as error:
+        raise _unavailable(error, "leer el documento final") from error
+    document = detail.final_document
+    if document is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, DOCUMENT_NOT_READY_DETAIL)
+    return FinalDocumentRead(
+        ticket_id=document.ticket_id,
+        rfp_id=document.rfp_id,
+        currency=document.currency,
+        generated_at=document.generated_at,
+        sections=document.sections,
+        content=document.content,
+    )
+
+
+def _pending_reviews(engine: Engine, ticket_id: str) -> dict[str, dict]:
+    try:
+        return approval_runner.pending_reviews(engine, ticket_id)
+    except approval_runner.CheckpointUnavailableError as error:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, RFP_UNAVAILABLE_DETAIL) from error
 
 
 def _metadata_read(metadata: RfpMetadata) -> RfpMetadataRead:

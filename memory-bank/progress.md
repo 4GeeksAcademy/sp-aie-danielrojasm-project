@@ -8,6 +8,47 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Flujo agéntico de RFPs, parte 3: aprobación humana y cierre del documento
+
+- Al terminar la Parte 2, su tarea encola `rfp_intake.start_approval`. El grafo `approval_graph.py` (hilo
+   `rfp-{ticket_id}` en un `PostgresSaver` sobre Supabase) abre una rama por departamento activo con un `interrupt`
+   para su responsable (Ana Whitfield, Carlos Vega, Sofía Ramos). Cada decisión entra por
+   `POST /rfps/{ticket_id}/sections/{department_id}/decision` (validada contra la revisión pendiente del checkpoint;
+   `409` si no encaja) y el worker la aplica con `rfp_intake.resume_approval` → `Command(resume={interrupt_id: …})`:
+   solo avanza esa rama.
+- `request_changes` devuelve la sección al ciclo generador-evaluador de la Parte 2 y a una nueva revisión;
+   `reject` la cierra sin documento final. Límite `RFP_MAX_APPROVAL_ROUNDS` (3) para revisiones por sección y rondas
+   de arbitraje. Arbitraje en código con los triggers y árbitros del BRIEFING §7 (`conflicts.py`).
+- Con todas las secciones aprobadas, `finalize_document` guarda `rfp_final_documents` y deja el ticket en
+   `terminado`; `GET /rfps/{ticket_id}/document` lo sirve y el backoffice lo muestra y descarga en `.md`.
+   Estados nuevos: `esperando_aprobación` y `terminado` (migración `002_approval_completion.sql`, aplicada en Supabase).
+- Traza por nodo en las tres partes (`tracing.py`): agente, entrada, salida y timestamp en la clave `trace` del
+   estado y en `rfp_tickets.trace`; el backoffice la muestra en "Traza de la ejecución".
+- Verificado contra Supabase y el gateway con `scripts/rfp_intake.py e2e` y el fixture
+   `tests/fixtures/rfp/simulated_approvals.json`: Luna (`warehouse` + `lastmile`, USD) y ModaViva (`warehouse` +
+   `reverse`, EUR) llegan a `terminado`; Last Mile/Reverse piden cambios y se aprueban en la revisión 2 mientras
+   Warehouse sigue esperando; RapidShip se descarta en la Parte 1. Reanudación desde otro proceso con
+   `approval decide`: `volume-vs-capacity` (Ana compromete 4.000, Last Mile asume 5.000) lo arbitra Miguel Torres y,
+   al agotar el límite, la regla rechaza la sección y no hay documento.
+- Fallos encontrados en la verificación real y corregidos: el ciclo de evaluación devolvía el volumen arbitrado a
+   5.000 (pertinencia frente al aspecto clave); ahora la instrucción del árbitro va también en el brief y pide
+   explicar el volumen de la RFP frente al límite (arbitraje resuelto en una ronda). La capacidad que registra Ana al
+   aprobar se escribe en la línea de capacidad de su sección (antes el texto aprobado decía otra cifra).
+- Docker (`docker compose up -d --build -V api worker`, `requirements.txt` con `langgraph-checkpoint-postgres`,
+   `langgraph-checkpoint-sqlite` y `psycopg[binary]`): subida de ModaViva por `POST /rfps` → `esperando_aprobación`
+   en ~4 min; tres decisiones por HTTP → `terminado` con documento en EUR y 58 pasos de traza, sin errores en el worker.
+- Pruebas nuevas: `tests/pipelines/test_rfp_approval_agents.py` (19) y `test_rfp_approval_flow.py` (14: E2E Partes
+   1→3 con resumes simulados, B aprobado con A interrumpido, reanudación en otro proceso, límites, arbitraje, tickets
+   concurrentes) y 1 en `tests/http/test_rfp_api.py`. `npm run verify` y Jest (137) en verde.
+- Backoffice: `npm run verify` en verde y `next start` del build sirve `/`, `/rfps` y `/rfps/[ticketId]` con 200.
+   El `next dev` que ya corría en el 3002 (no lanzado en esta tarea) respondió 200 y, tras el `next build` de
+   `verify` sobre la misma `.next`, pasó a dar 500 en `/rfps/[ticketId]`; hay que reiniciarlo. Formulario de
+   aprobación no probado en un navegador.
+- Datos locales: cuenta `rfp-verificacion-p3@trackflow.com` en `auth.json` y tickets de prueba en Supabase (uno de
+   Luna queda con Last Mile rechazada por el límite de arbitraje, a propósito).
+- Siguiente paso: PR desde `feature/rfp-approval-completion` con el ejemplo completo (RFP, aprobaciones simuladas,
+   documento final) y el enlace al test de integración.
+
 ### Milestone 09 — Flujo agéntico de RFPs, parte 2: generación y evaluación de respuestas
 
 - Al llegar a `analisis_completo`, la tarea de la Parte 1 encola `rfp_intake.generate_responses`. La Parte 2 lee el

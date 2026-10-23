@@ -6,10 +6,11 @@
   leer el PDF).
 - `rfp_department_sections`: una fila por departamento activo con sus `key_aspects` (Parte 1) y, desde la Parte 2,
   el último borrador, su `EvaluationResult`, el estado del ciclo generador-evaluador y el historial de iteraciones.
-  Las columnas de aprobación son de la Parte 3 (BRIEFING §2.3).
+  Desde la Parte 3, la aprobación del responsable (`approval_status`, `approver`, `approved_at`) y su historial.
+- `rfp_final_documents`: el documento final consolidado (BRIEFING §2.3, `FinalDocument`), uno por ticket.
 
 La API las crea con `SQLModel.metadata.create_all` al arrancar (importa este módulo). `create_all` no altera tablas
-existentes: las columnas y estados de la Parte 2 los añade `migrations/001_response_generation.sql`, que
+existentes: las columnas y estados de las Partes 2 y 3 los añaden `migrations/*.sql` (en orden), que
 `ensure_response_schema` aplica en PostgreSQL al arrancar la API y al crear el engine del worker y de `scripts/`.
 El pipeline no importa nada de `services/`.
 """
@@ -28,12 +29,19 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Engine
 from sqlmodel import Field, SQLModel
 
-from data.pipelines.rfp_intake.departments import DEPARTMENTS, ClientCountry, Currency, SectionStatus, TicketStatus
+from data.pipelines.rfp_intake.departments import (
+    DEPARTMENTS,
+    ApprovalStatus,
+    ClientCountry,
+    Currency,
+    SectionStatus,
+    TicketStatus,
+)
 
 
 logger = logging.getLogger("trackflow.rfp_intake")
 
-RESPONSE_MIGRATION = Path(__file__).resolve().parent / "migrations" / "001_response_generation.sql"
+MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
 _migrated: set[str] = set()
 _migration_lock = threading.Lock()
 
@@ -81,10 +89,15 @@ class RfpTicket(SQLModel, table=True):
     # Contrato de la Parte 2 hacia la Parte 3: borradores + EvaluationResult por departamento.
     response_handoff: dict[str, Any] | None = Field(default=None, sa_column=_json_column())
     # Intentos del pipeline y último fallo (clase y primera línea, sin trazas ni datos de conexión).
-    # `last_error` lo comparten las dos partes; `generation_attempts` cuenta los de la Parte 2.
+    # `last_error` lo comparten las tres partes; `generation_attempts` y `approval_attempts` cuentan los de las
+    # Partes 2 y 3.
     attempts: int = 0
     generation_attempts: int = 0
+    approval_attempts: int = 0
     last_error: str | None = Field(default=None, sa_column=Column(Text))
+    # Trazabilidad: una entrada por nodo ejecutado en las tres partes (`tracing.py`) y las decisiones de arbitraje.
+    trace: list[dict[str, Any]] = Field(default_factory=list, sa_column=_json_column(nullable=False))
+    arbitrations: list[dict[str, Any]] = Field(default_factory=list, sa_column=_json_column(nullable=False))
     created_at: datetime = Field(default_factory=utc_now, sa_column=_timestamp_column())
     updated_at: datetime = Field(default_factory=utc_now, sa_column=_timestamp_column())
 
@@ -133,6 +146,10 @@ class RfpDepartmentSection(SQLModel, table=True):
             f"draft_status IS NULL OR {_one_of('draft_status', [s.value for s in SectionStatus])}",
             name="ck_rfp_department_sections_draft_status",
         ),
+        CheckConstraint(
+            f"approval_status IS NULL OR {_one_of('approval_status', [s.value for s in ApprovalStatus])}",
+            name="ck_rfp_department_sections_approval_status",
+        ),
     )
 
     id: int | None = Field(default=None, primary_key=True)
@@ -148,18 +165,39 @@ class RfpDepartmentSection(SQLModel, table=True):
     draft_content: str | None = Field(default=None, sa_column=Column(Text))
     evaluation_results: dict[str, Any] | None = Field(default=None, sa_column=_json_column())
     evaluation_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=_json_column(nullable=False))
-    # Parte 3.
+    # Parte 3: decisión del responsable nombrado (BRIEFING §2.1). `review_round` numera las revisiones humanas de la
+    # sección y `revisions` cuenta las reescrituras pedidas por el responsable o por el árbitro.
     approval_status: str | None = Field(default=None, max_length=30)
     approver: str | None = Field(default=None, max_length=120)
     approved_at: datetime | None = Field(default=None, sa_column=_timestamp_column(nullable=True))
+    review_round: int = 0
+    revisions: int = 0
+    approval_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=_json_column(nullable=False))
     created_at: datetime = Field(default_factory=utc_now, sa_column=_timestamp_column())
 
 
-def ensure_response_schema(engine: Engine) -> None:
-    """Aplica la migración de la Parte 2 en PostgreSQL, una vez por proceso. SQLite (tests) usa `create_all`.
+class RfpFinalDocument(SQLModel, table=True):
+    """`FinalDocument` del BRIEFING §2.3: las secciones aprobadas, consolidadas sin reescribirlas."""
 
-    Sin ella, una base creada por la Parte 1 no tiene las columnas nuevas y cualquier lectura de `rfp_tickets`
-    falla. La migración es idempotente y no borra datos.
+    __tablename__ = "rfp_final_documents"
+    __table_args__ = (
+        CheckConstraint(_one_of("currency", [c.value for c in Currency]), name="ck_rfp_final_documents_currency"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    ticket_id: str = Field(foreign_key="rfp_tickets.ticket_id", unique=True, max_length=36, ondelete="CASCADE")
+    rfp_id: str | None = Field(default=None, max_length=36)
+    currency: str = Field(max_length=3)
+    sections: list[dict[str, Any]] = Field(default_factory=list, sa_column=_json_column(nullable=False))
+    content: str = Field(sa_column=Column(Text, nullable=False))
+    generated_at: datetime = Field(default_factory=utc_now, sa_column=_timestamp_column())
+
+
+def ensure_response_schema(engine: Engine) -> None:
+    """Aplica las migraciones de las Partes 2 y 3 en PostgreSQL, una vez por proceso. SQLite (tests) usa `create_all`.
+
+    Sin ellas, una base creada por la Parte 1 no tiene las columnas nuevas y cualquier lectura de `rfp_tickets`
+    falla. Las migraciones son idempotentes y no borran datos.
     """
     if engine.dialect.name != "postgresql":
         return
@@ -168,6 +206,7 @@ def ensure_response_schema(engine: Engine) -> None:
         if key in _migrated:
             return
         with engine.begin() as connection:
-            connection.exec_driver_sql(RESPONSE_MIGRATION.read_text(encoding="utf-8"))
+            for migration in sorted(MIGRATIONS_DIR.glob("*.sql")):
+                connection.exec_driver_sql(migration.read_text(encoding="utf-8"))
         _migrated.add(key)
-    logger.info("Esquema de la Parte 2 de RFPs listo en PostgreSQL.")
+    logger.info("Esquema de las Partes 2 y 3 de RFPs listo en PostgreSQL.")

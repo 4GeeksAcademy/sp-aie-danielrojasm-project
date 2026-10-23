@@ -31,6 +31,9 @@ dependencies = [
     "redis>=6.4.0",
     "markitdown[pdf]>=0.1.9",
     "py-readability-metrics>=1.4.5",
+    "langgraph-checkpoint-postgres>=3.2.0",
+    "langgraph-checkpoint-sqlite>=3.1.2",
+    "psycopg[binary]>=3.3.6",
 ]
 
 [project.scripts]

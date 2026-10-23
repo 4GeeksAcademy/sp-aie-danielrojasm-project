@@ -11,6 +11,7 @@
   Sus secciones se acumulan con un reducer, así que el orden de llegada no importa.
 - El grafo no escribe en la base de datos: `runner.py` persiste el resultado en una sola transacción, de modo que
   un fallo a mitad no deja un ticket a medio escribir.
+- Cada nodo deja su entrada en `trace` (agente, entrada, salida y timestamp; ver `tracing.py`).
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from langgraph.types import Send
 
 from data.pipelines.rfp_intake import classifier, document, extraction, orchestrator, synthesizer, workers
 from data.pipelines.rfp_intake.departments import DEPARTMENTS
+from data.pipelines.rfp_intake.tracing import traced
 
 
 logger = logging.getLogger("trackflow.rfp_intake")
@@ -36,6 +38,7 @@ DISCARD = "discard"
 EXTRACT_METADATA = "extract_metadata"
 ORCHESTRATE = "orchestrate"
 SYNTHESIZE = "synthesize"
+PART = "parte_1"
 
 
 def worker_node_name(department_id: str) -> str:
@@ -55,6 +58,7 @@ class IntakeState(TypedDict, total=False):
     # Una sección por worker; el reducer las acumula aunque lleguen en paralelo.
     sections: Annotated[list[dict[str, Any]], operator.add]
     synthesis: dict[str, Any]
+    trace: Annotated[list[dict[str, Any]], operator.add]
 
 
 class WorkerInput(TypedDict):
@@ -172,15 +176,23 @@ def synthesize(state: IntakeState) -> dict[str, Any]:
 
 def define_graph() -> StateGraph:
     builder = StateGraph(IntakeState)
-    builder.add_node(CONVERT_DOCUMENT, convert_document)
-    builder.add_node(CLASSIFY_DOCUMENT, classify_document)
-    builder.add_node(DISCARD, discard)
-    builder.add_node(EXTRACT_METADATA, extract_metadata)
-    builder.add_node(ORCHESTRATE, orchestrate)
+    builder.add_node(
+        CONVERT_DOCUMENT, traced(PART, CONVERT_DOCUMENT, "markitdown", convert_document, input_keys=("pdf_path",))
+    )
+    builder.add_node(CLASSIFY_DOCUMENT, traced(PART, CLASSIFY_DOCUMENT, "classifier", classify_document, input_keys=()))
+    builder.add_node(DISCARD, traced(PART, DISCARD, "código", discard, input_keys=("classification",)))
+    builder.add_node(
+        EXTRACT_METADATA, traced(PART, EXTRACT_METADATA, "metadata_extractor", extract_metadata, input_keys=())
+    )
+    builder.add_node(ORCHESTRATE, traced(PART, ORCHESTRATE, "orchestrator", orchestrate, input_keys=("metadata",)))
     worker_names = [worker_node_name(department_id) for department_id in DEPARTMENTS]
     for department_id in DEPARTMENTS:
-        builder.add_node(worker_node_name(department_id), make_worker(department_id))
-    builder.add_node(SYNTHESIZE, synthesize)
+        name = worker_node_name(department_id)
+        builder.add_node(name, traced(PART, name, name, make_worker(department_id), input_keys=("focus", "excerpts")))
+    builder.add_node(
+        SYNTHESIZE,
+        traced(PART, SYNTHESIZE, "synthesizer", synthesize, input_keys=("metadata", "sections", "out_of_scope")),
+    )
 
     builder.add_edge(START, CONVERT_DOCUMENT)
     builder.add_edge(CONVERT_DOCUMENT, CLASSIFY_DOCUMENT)
@@ -200,4 +212,4 @@ graph: CompiledStateGraph = define_graph().compile()
 
 
 def run_graph(ticket_id: str, pdf_path: str) -> IntakeState:
-    return graph.invoke({"ticket_id": ticket_id, "pdf_path": pdf_path, "sections": []})
+    return graph.invoke({"ticket_id": ticket_id, "pdf_path": pdf_path, "sections": [], "trace": []})

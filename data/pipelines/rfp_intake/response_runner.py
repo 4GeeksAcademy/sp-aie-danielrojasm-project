@@ -24,7 +24,8 @@ from typing import Any
 from sqlalchemy.engine import Engine
 from sqlmodel import Session, select
 
-from data.pipelines.rfp_intake import response_graph
+from data.pipelines.rfp_intake import graph as intake_graph
+from data.pipelines.rfp_intake import response_graph, tracing
 from data.pipelines.rfp_intake.departments import DEPARTMENTS, SectionStatus, TicketStatus
 from data.pipelines.rfp_intake.runner import TicketNotFoundError, record_failure
 from data.pipelines.rfp_intake.schema import (
@@ -101,7 +102,7 @@ def generate_responses(engine: Engine, ticket_id: str, max_iterations: int | Non
         if ticket.response_handoff is not None or ticket.status not in ENTRY_STATUSES:
             logger.info("ticket=%s en %s: la Parte 2 no lo procesa.", ticket_id, ticket.status)
             return ticket.status
-        handoff = _read_handoff(ticket)
+        handoff = read_handoff(ticket)
         if not handoff["workstreams"]:
             logger.warning("ticket=%s sin departamentos activos: no hay secciones que generar.", ticket_id)
             return ticket.status
@@ -132,7 +133,9 @@ def generate_responses(engine: Engine, ticket_id: str, max_iterations: int | Non
         state = response_graph.run_graph(
             ticket_id, shared, handoff["workstreams"], limit, progress=DatabaseProgress(engine, ticket_id)
         )
-        status = _persist_responses(engine, ticket_id, rfp_id, handoff, state["sections"], limit)
+        status = _persist_responses(
+            engine, ticket_id, rfp_id, handoff, state["sections"], limit, state.get("trace", [])
+        )
     except Exception as error:
         record_failure(engine, ticket_id, error)
         raise
@@ -191,7 +194,7 @@ def build_response_handoff(
     }
 
 
-def _read_handoff(ticket: RfpTicket) -> dict[str, Any]:
+def read_handoff(ticket: RfpTicket) -> dict[str, Any]:
     handoff = ticket.handoff
     if not handoff or handoff.get("version") != HANDOFF_VERSION:
         raise HandoffError(f"El ticket {ticket.ticket_id} no tiene un handoff {HANDOFF_VERSION} de la Parte 1.")
@@ -205,6 +208,7 @@ def _persist_responses(
     handoff: dict[str, Any],
     sections: list[dict[str, Any]],
     max_iterations: int,
+    trace: list[dict[str, Any]],
 ) -> str:
     needs_review = any(section["draft_status"] == SectionStatus.NEEDS_HUMAN_REVIEW.value for section in sections)
     status = TicketStatus.NEEDS_HUMAN_REVIEW.value if needs_review else TicketStatus.EN_EVALUACION.value
@@ -223,6 +227,11 @@ def _persist_responses(
             session.add(row)
         ticket.status = status
         ticket.response_handoff = build_response_handoff(ticket_id, rfp_id, status, handoff, sections, max_iterations)
+        # La traza de la Parte 1 se conserva; la de un intento anterior de la Parte 2 se sustituye.
+        ticket.trace = [
+            *(entry for entry in ticket.trace if entry["part"] == intake_graph.PART),
+            *tracing.ordered(trace),
+        ]
         ticket.updated_at = utc_now()
         session.add(ticket)
         session.commit()

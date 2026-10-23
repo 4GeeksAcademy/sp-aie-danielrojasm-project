@@ -5,7 +5,9 @@
  * 401 → `/login`) y por el rewrite `/api/rfps*`. La subida responde `202` en
  * cuanto el ticket existe; el análisis y la generación de borradores corren en el
  * worker y la UI consulta el ticket cada pocos segundos mientras siguen en curso
- * (`isRfpInProgress`).
+ * (`isRfpInProgress`) o mientras espera la aprobación de algún responsable.
+ * La decisión de cada responsable (Parte 3) también responde `202`: el worker
+ * reanuda solo la rama de ese departamento.
  */
 import { requestJson } from "@/lib/api-client";
 
@@ -22,7 +24,13 @@ export type RfpTicketStatus =
   | "analisis_completo"
   | "generando_borrador"
   | "en_evaluación"
-  | "needs_human_review";
+  | "needs_human_review"
+  | "esperando_aprobación"
+  | "terminado";
+export type RfpApprovalStatus = "pendiente" | "cambios_solicitados" | "aprobada" | "rechazada";
+export type RfpDecision = "approve" | "request_changes" | "reject";
+export type RfpTriggerId = "volume-vs-capacity" | "returns-sla-breach" | "currency-mismatch";
+export type RfpTracePart = "parte_1" | "parte_2" | "parte_3";
 export type RfpSectionStatus =
   | "generando_borrador"
   | "en_evaluación"
@@ -86,6 +94,80 @@ export interface RfpDepartmentSection {
   iterations: number;
   draft_content: string | null;
   evaluation: RfpEvaluationResult | null;
+  approval_status: RfpApprovalStatus | null;
+  approver: string | null;
+  approved_at: string | null;
+  review_round: number;
+  revisions: number;
+  approval_history: RfpApprovalDecisionRecord[];
+  pending_review: RfpPendingReview | null;
+}
+
+/** Revisión esperando al responsable: el valor del `interrupt` de su rama. */
+export interface RfpPendingReview {
+  approver: string;
+  review_round: number;
+  revisions: number;
+  max_rounds: number;
+  evaluation_pass: boolean | null;
+  failed_rules: string[];
+  arbitration_notes: string[];
+  allowed_decisions: RfpDecision[];
+}
+
+export interface RfpApprovalDecisionRecord {
+  decision: RfpDecision;
+  review_round: number;
+  comment: string;
+  decided_by: string;
+  approver: string;
+  decided_at: string;
+  committed_monthly_capacity: number | null;
+}
+
+export interface RfpDecisionInput {
+  decision: RfpDecision;
+  review_round: number;
+  comment: string;
+  committed_monthly_capacity?: number;
+}
+
+export interface RfpArbitration {
+  round: number;
+  trigger_id: RfpTriggerId;
+  arbiter: string;
+  rule: string;
+  department_id: RfpDepartmentId;
+  action: "request_changes" | "reject";
+  instruction: string | null;
+  evidence: string;
+  decided_at: string;
+}
+
+export interface RfpTraceEntry {
+  part: RfpTracePart;
+  node: string;
+  agent: string;
+  department_id: string | null;
+  input: unknown;
+  output: unknown;
+  timestamp: string;
+  duration_ms: number | null;
+}
+
+export interface RfpFinalDocument {
+  ticket_id: string;
+  rfp_id: string | null;
+  currency: RfpCurrency;
+  generated_at: string;
+  sections: {
+    department_id: RfpDepartmentId;
+    department_name: string;
+    approver: string;
+    approved_at: string;
+    review_round: number;
+  }[];
+  content: string;
 }
 
 export interface RfpComplianceViolation {
@@ -135,6 +217,16 @@ export interface RfpTicket {
   generation_attempts: number;
   max_iterations: number | null;
   response_handoff_ready: boolean;
+  approval_attempts: number;
+  arbitrations: RfpArbitration[];
+  trace: RfpTraceEntry[];
+  final_document_ready: boolean;
+}
+
+export interface RfpDecisionAccepted {
+  ticket_id: string;
+  department_id: RfpDepartmentId;
+  task_id: string;
 }
 
 export const rfpStatusLabels: Record<RfpTicketStatus, string> = {
@@ -144,6 +236,39 @@ export const rfpStatusLabels: Record<RfpTicketStatus, string> = {
   generando_borrador: "Generando borrador",
   en_evaluación: "En evaluación",
   needs_human_review: "Requiere revisión humana",
+  esperando_aprobación: "Esperando aprobación",
+  terminado: "Terminado",
+};
+
+export const rfpApprovalStatusLabels: Record<RfpApprovalStatus, string> = {
+  pendiente: "Pendiente de aprobación",
+  cambios_solicitados: "Cambios solicitados",
+  aprobada: "Aprobada",
+  rechazada: "Rechazada",
+};
+
+export const rfpDecisionLabels: Record<RfpDecision, string> = {
+  approve: "Aprobar",
+  request_changes: "Pedir cambios",
+  reject: "Rechazar",
+};
+
+/** Triggers de conflicto del BRIEFING §7 que resuelve el árbitro fijo. */
+export const rfpTriggerLabels: Record<RfpTriggerId, string> = {
+  "volume-vs-capacity": "Volumen por encima de la capacidad de almacén",
+  "returns-sla-breach": "Devoluciones prometidas en menos de 48 horas",
+  "currency-mismatch": "Monedas distintas entre secciones o frente al país",
+};
+
+export const rfpArbitrationActionLabels: Record<RfpArbitration["action"], string> = {
+  request_changes: "Cambios obligatorios",
+  reject: "Sección rechazada",
+};
+
+export const rfpTracePartLabels: Record<RfpTracePart, string> = {
+  parte_1: "Recepción",
+  parte_2: "Generación",
+  parte_3: "Aprobación",
 };
 
 export const rfpSectionStatusLabels: Record<RfpSectionStatus, string> = {
@@ -166,14 +291,21 @@ const RFP_ACTIVE_STATUSES: ReadonlySet<RfpTicketStatus> = new Set([
   "analizando",
   "generando_borrador",
   "en_evaluación",
+  "needs_human_review",
 ]);
 
 /**
- * El análisis o la generación siguen en curso. Un ticket en `en_evaluación`
- * con el handoff hacia la aprobación ya guardado ha terminado la Parte 2.
+ * El worker sigue trabajando en el ticket: análisis, generación o, con el
+ * handoff de la Parte 2 ya guardado (`en_evaluación` / `needs_human_review`),
+ * la apertura de la aprobación por departamento.
  */
-export function isRfpInProgress(status: RfpTicketStatus, responseHandoffReady: boolean): boolean {
-  return RFP_ACTIVE_STATUSES.has(status) && !responseHandoffReady;
+export function isRfpInProgress(status: RfpTicketStatus): boolean {
+  return RFP_ACTIVE_STATUSES.has(status);
+}
+
+/** La Parte 2 terminó y el worker está abriendo la revisión de cada responsable. */
+export function isRfpOpeningApproval(status: RfpTicketStatus, responseHandoffReady: boolean): boolean {
+  return responseHandoffReady && (status === "en_evaluación" || status === "needs_human_review");
 }
 
 export const rfpDepartmentLabels: Record<RfpDepartmentId, string> = {
@@ -223,6 +355,34 @@ export async function getRfp(ticketId: string): Promise<RfpTicket> {
     {},
     "No se pudo cargar la RFP.",
   );
+}
+
+export async function submitRfpDecision(
+  ticketId: string,
+  departmentId: RfpDepartmentId,
+  input: RfpDecisionInput,
+): Promise<RfpDecisionAccepted> {
+  return requestJson<RfpDecisionAccepted>(
+    `${RFPS_API}/${encodeURIComponent(ticketId)}/sections/${departmentId}/decision`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) },
+    "No se pudo registrar la decisión.",
+  );
+}
+
+export async function getRfpDocument(ticketId: string): Promise<RfpFinalDocument> {
+  return requestJson<RfpFinalDocument>(
+    `${RFPS_API}/${encodeURIComponent(ticketId)}/document`,
+    {},
+    "No se pudo cargar el documento final.",
+  );
+}
+
+/** Mensaje de validación local de una decisión, o `null` si se puede enviar. */
+export function validateRfpDecision(decision: RfpDecision, comment: string): string | null {
+  if (decision !== "approve" && comment.trim().length < 10) {
+    return "Explica el motivo (al menos 10 caracteres): el generador y Ventas lo usan.";
+  }
+  return null;
 }
 
 export function formatRfpDate(value: string): string {

@@ -16,6 +16,8 @@ Cada `<dept>_section` ejecuta el subgrafo del ciclo generador-evaluador de su de
   queda en `needs_human_review`; nunca se descarta.
 - El grafo no conoce la base de datos: informa del progreso por el `ProgressSink` que recibe en
   `config["configurable"]["progress"]` (el runner lo usa para que el ticket refleje cada paso en PostgreSQL).
+- Cada nodo, también los del subgrafo, deja su entrada en `trace` (ver `tracing.py`). La Parte 3 reutiliza el
+  subgrafo de un departamento para revisar su sección cuando un responsable o el árbitro piden cambios.
 """
 
 from __future__ import annotations
@@ -32,6 +34,7 @@ from langgraph.types import Send
 
 from data.pipelines.rfp_intake import evaluators, generators
 from data.pipelines.rfp_intake.departments import DEPARTMENTS, SectionStatus
+from data.pipelines.rfp_intake.tracing import traced
 
 
 logger = logging.getLogger("trackflow.rfp_intake")
@@ -43,6 +46,7 @@ RELEVANCE_EVALUATOR = "relevance_evaluator"
 COMPLIANCE_EVALUATOR = "compliance_evaluator"
 JUDGE = "judge"
 EVALUATORS = (READABILITY_EVALUATOR, RELEVANCE_EVALUATOR, COMPLIANCE_EVALUATOR)
+PART = "parte_2"
 
 
 def max_iterations_from_env() -> int:
@@ -81,6 +85,7 @@ class SectionState(TypedDict, total=False):
     evaluation: dict[str, Any]
     history: Annotated[list[dict[str, Any]], operator.add]
     status: str
+    trace: Annotated[list[dict[str, Any]], operator.add]
 
 
 class ResponseState(TypedDict, total=False):
@@ -89,6 +94,7 @@ class ResponseState(TypedDict, total=False):
     workstreams: list[dict[str, Any]]
     max_iterations: int
     sections: Annotated[list[dict[str, Any]], operator.add]
+    trace: Annotated[list[dict[str, Any]], operator.add]
 
 
 def _report(config: RunnableConfig, department_id: str, **fields: Any) -> None:
@@ -200,15 +206,33 @@ def route_after_judge(state: SectionState) -> str:
     return END
 
 
-def define_section_graph(department_id: str) -> StateGraph:
+def define_section_graph(department_id: str, part: str = PART) -> StateGraph:
     generator_name = generator_node_name(department_id)
     builder = StateGraph(SectionState)
-    builder.add_node(RETRIEVE_KNOWLEDGE, retrieve_knowledge)
-    builder.add_node(generator_name, make_generator(department_id))
-    builder.add_node(READABILITY_EVALUATOR, readability_evaluator)
-    builder.add_node(RELEVANCE_EVALUATOR, relevance_evaluator)
-    builder.add_node(COMPLIANCE_EVALUATOR, compliance_evaluator)
-    builder.add_node(JUDGE, judge)
+    builder.add_node(RETRIEVE_KNOWLEDGE, traced(part, RETRIEVE_KNOWLEDGE, "rag", retrieve_knowledge, input_keys=()))
+    builder.add_node(
+        generator_name,
+        traced(part, generator_name, generator_name, make_generator(department_id), input_keys=("feedback",)),
+    )
+    builder.add_node(
+        READABILITY_EVALUATOR,
+        traced(part, READABILITY_EVALUATOR, "py-readability-metrics", readability_evaluator, input_keys=("iteration",)),
+    )
+    builder.add_node(
+        RELEVANCE_EVALUATOR,
+        traced(
+            part, RELEVANCE_EVALUATOR, f"{department_id}_relevance_evaluator", relevance_evaluator,
+            input_keys=("iteration",),
+        ),
+    )
+    builder.add_node(
+        COMPLIANCE_EVALUATOR,
+        traced(
+            part, COMPLIANCE_EVALUATOR, f"{department_id}_compliance_evaluator", compliance_evaluator,
+            input_keys=("iteration",),
+        ),
+    )
+    builder.add_node(JUDGE, traced(part, JUDGE, "judge", judge, input_keys=("iteration", "max_iterations")))
 
     builder.add_edge(START, RETRIEVE_KNOWLEDGE)
     builder.add_edge(RETRIEVE_KNOWLEDGE, generator_name)
@@ -222,6 +246,10 @@ def define_section_graph(department_id: str) -> StateGraph:
 
 section_graphs: dict[str, CompiledStateGraph] = {
     department_id: define_section_graph(department_id).compile() for department_id in DEPARTMENTS
+}
+# Mismo ciclo, con la traza etiquetada como Parte 3: lo usa la revisión tras una petición de cambios.
+revision_graphs: dict[str, CompiledStateGraph] = {
+    department_id: define_section_graph(department_id, part="parte_3").compile() for department_id in DEPARTMENTS
 }
 
 
@@ -259,7 +287,8 @@ def make_section(department_id: str):
                     "evaluation_results": result["evaluation"],
                     "evaluation_history": result["history"],
                 }
-            ]
+            ],
+            "trace": result.get("trace", []),
         }
 
     section.__name__ = section_node_name(department_id)
@@ -270,7 +299,8 @@ def define_graph() -> StateGraph:
     builder = StateGraph(ResponseState)
     section_names = [section_node_name(department_id) for department_id in DEPARTMENTS]
     for department_id in DEPARTMENTS:
-        builder.add_node(section_node_name(department_id), make_section(department_id))
+        name = section_node_name(department_id)
+        builder.add_node(name, traced(PART, name, "section_cycle", make_section(department_id), input_keys=()))
     builder.add_conditional_edges(START, dispatch_sections, section_names)
     for name in section_names:
         builder.add_edge(name, END)
@@ -295,6 +325,7 @@ def run_graph(
             "workstreams": workstreams,
             "max_iterations": max_iterations,
             "sections": [],
+            "trace": [],
         },
         {"configurable": {"progress": progress}},
     )

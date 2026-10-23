@@ -11,7 +11,7 @@ from enum import Enum
 
 
 class TicketStatus(str, Enum):
-    """Estados del ticket de las Partes 1 y 2 (BRIEFING §2.3). La Parte 3 continúa el mismo ticket."""
+    """Estados del mismo ticket en las Partes 1, 2 y 3 (BRIEFING §2.3)."""
 
     ANALIZANDO = "analizando"
     DESCARTADO = "descartado"
@@ -19,6 +19,17 @@ class TicketStatus(str, Enum):
     GENERANDO_BORRADOR = "generando_borrador"
     EN_EVALUACION = "en_evaluación"
     NEEDS_HUMAN_REVIEW = "needs_human_review"
+    ESPERANDO_APROBACION = "esperando_aprobación"
+    TERMINADO = "terminado"
+
+
+class ApprovalStatus(str, Enum):
+    """Estado de la aprobación humana de cada sección (Parte 3)."""
+
+    PENDIENTE = "pendiente"
+    CAMBIOS_SOLICITADOS = "cambios_solicitados"
+    APROBADA = "aprobada"
+    RECHAZADA = "rechazada"
 
 
 class SectionStatus(str, Enum):

@@ -509,6 +509,38 @@ Detalle, grafo, reglas y contrato hacia la Parte 3 en `data/pipelines/rfp_intake
   `test_rfp_response_flow.py` (ciclo completo en SQLite, límite, encadenamiento de tareas) y un caso en
   `tests/http/test_rfp_api.py`.
 
+### Aprobación humana y cierre de RFPs — Milestone 09 (Hito 9, parte 3)
+
+Detalle, grafo, triggers y respuestas a las preguntas de diseño en `data/pipelines/rfp_intake/README.md` (sección
+"Parte 3").
+
+- **Disparo y `resume`:** la tarea de la Parte 2 encola `rfp_intake.start_approval`; cada decisión del backoffice
+  (`POST /rfps/{ticket_id}/sections/{department_id}/decision`, `202`) encola `rfp_intake.resume_approval`. Los dos
+  son puntos de entrada explícitos de `approval_runner.py`; el `resume` es `Command(resume={interrupt_id: decisión})`
+  sobre la interrupción pendiente de ese departamento, nunca un reinicio.
+- **Grafo `approval_graph.py`:** `check_conflicts` → `arbitrate` (si hay trigger) → `Send` a `<dept>_approval`
+  (subgrafo: `revise_section` → `request_review` → `human_review` con `interrupt` → `record_decision`) →
+  `check_conflicts` → `finalize_document` o `close_without_document`. La interrupción vive en el subgrafo de la rama:
+  aprobar o pedir cambios en una rama no toca las otras interrupciones; la convergencia espera a todas.
+- **Checkpointer (`checkpoints.py`):** `PostgresSaver` en Supabase (pool de psycopg 3 con `prepare_threshold=None` por
+  el pooler en modo transacción, cerrado con `atexit`); `SqliteSaver` si el engine es SQLite (tests). Hilo
+  `rfp-{ticket_id}`, un namespace por rama. `ticket_lock` (`pg_advisory_xact_lock`) serializa inicio y `resume` de un
+  ticket. Un intento que se quedó a mitad continúa con `graph.invoke(None)`.
+- **Validación:** `approval.DecisionInput` (API) / `ApprovalDecision` (+ `decided_by`) y `check_against` frente al
+  `ReviewRequest` del checkpoint (ronda, decisiones permitidas, capacidad solo para Warehouse).
+- **Límites y arbitraje:** `RFP_MAX_APPROVAL_ROUNDS` (3) para revisiones por sección y rondas de arbitraje.
+  `conflicts.py` extrae hechos estructurados (líneas fijas `**Moneda:**`, `**Capacidad comprometida:**`,
+  `**Volumen asumido:**` que ahora escribe el generador, importes y la capacidad de la decisión de Ana Whitfield) y
+  aplica los 3 triggers del BRIEFING §7 con su árbitro fijo; al agotar el límite, rechaza la sección ofensora.
+- **Persistencia:** `migrations/002_approval_completion.sql` (estados `esperando_aprobación` y `terminado`;
+  `rfp_tickets.approval_attempts`, `trace`, `arbitrations`; `rfp_department_sections.review_round`, `revisions`,
+  `approval_history` y `CHECK` de `approval_status`; tabla `rfp_final_documents`). `ensure_response_schema` aplica
+  `migrations/*.sql` en orden. El documento final consolida el texto aprobado sin modelo (`final_document.py`).
+- **Trazabilidad (`tracing.py`):** `traced(...)` envuelve los nodos de los tres grafos; entrada por nodo con agente,
+  entrada/salida compactas y timestamp en `trace` del estado y en `rfp_tickets.trace`.
+- **Tests:** `tests/pipelines/test_rfp_approval_agents.py`, `test_rfp_approval_flow.py` (ruta E2E reproducible con
+  checkpointer SQLite y resumes simulados) y un caso en `tests/http/test_rfp_api.py`.
+
 ### Servidor MCP de herramientas — Milestone 09
 
 Detalle en `mcps/trackflow_tools/README.md`.
@@ -624,6 +656,13 @@ Todos se ejecutan desde la raíz del monorepo:
   `uv run pytest tests/pipelines/test_agent_evals.py -v` los evalúa.
 - **Recepción de RFPs** — `uv run --env-file .env python scripts/rfp_intake.py smoke <pdf>` (grafo sin base de datos)
   o `reprocess <ticket_id> [--force]`; la subida normal es `/rfps` en el backoffice con la API, Redis y el worker.
+- **Aprobación de RFPs (Parte 3)** — `scripts/rfp_intake.py approval start|status|decide <ticket_id> …`; E2E Partes
+  1→3 con aprobaciones simuladas: `PYTHONIOENCODING=utf-8 uv run --env-file .env python scripts/rfp_intake.py e2e
+  <pdf> [--decisions tests/fixtures/rfp/simulated_approvals.json]` (sin `PYTHONIOENCODING`, la consola de Windows
+  falla al imprimir `→`).
+- **`next build` y `next dev`** — `npm run verify` reconstruye `.next` del backoffice; un `next dev` que ya estuviera
+  en marcha puede empezar a responder 500 en rutas dinámicas ("Jest worker encountered 2 child process
+  exceptions"); hay que reiniciarlo.
 - **Evidencia de la memoria del agente** — `uv run python scripts/record_memory_evidence.py` (gateway, Qdrant y Redis);
   `uv run pytest tests/pipelines/test_agent_memory_evals.py -v` la evalúa.
 - **Guardrails del agente** — `uv run pytest tests/pipelines/test_agent_guardrails.py -v` (sin servicios);
