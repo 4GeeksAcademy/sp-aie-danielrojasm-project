@@ -1,0 +1,30 @@
+{
+  "description": "Aprobaciones simuladas de la Parte 3 para `scripts/rfp_intake.py e2e`. Se aplican en orden; un paso de un departamento que la RFP no activa se omite. Last Mile pide cambios y se aprueba mientras Warehouse sigue esperando: demuestra que una rama avanza sin bloquear a las demás.",
+  "decided_by": "e2e@trackflow.com",
+  "steps": [
+    {
+      "department_id": "lastmile",
+      "decision": "request_changes",
+      "comment": "Indica el SLA de entrega por tipo de servicio (estándar y express) dentro de EE. UU."
+    },
+    {
+      "department_id": "lastmile",
+      "decision": "approve"
+    },
+    {
+      "department_id": "reverse",
+      "decision": "request_changes",
+      "comment": "Aclara quién asume el envío de vuelta cuando la devolución es por error de TrackFlow."
+    },
+    {
+      "department_id": "reverse",
+      "decision": "approve"
+    },
+    {
+      "department_id": "warehouse",
+      "decision": "approve",
+      "comment": "Capacidad confirmada en el almacén del país del cliente.",
+      "committed_monthly_capacity": 8000
+    }
+  ]
+}

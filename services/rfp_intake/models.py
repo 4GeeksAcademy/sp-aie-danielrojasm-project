@@ -1,23 +1,33 @@
 """Respuestas de `/rfps/*`.
 
-El Markdown del documento y el payload completo de los handoffs no salen por la API: los leen las Partes 2 y 3 de
-la base de datos. La UI necesita el estado, los metadatos, qué pedir a quién y, desde la Parte 2, el borrador y el
-`EvaluationResult` de cada sección.
+El Markdown de la RFP y el payload completo de los handoffs no salen por la API: los leen las Partes 2 y 3 de la
+base de datos. La UI necesita el estado, los metadatos, qué pedir a quién, desde la Parte 2 el borrador y el
+`EvaluationResult` de cada sección y, desde la Parte 3, la revisión pendiente de cada responsable, los arbitrajes,
+la traza de la ejecución y el documento final.
 """
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+from data.pipelines.rfp_intake.approval import Decision
 from data.pipelines.rfp_intake.evaluators import EvaluationResult
 
 
 TicketStatus = Literal[
-    "analizando", "descartado", "analisis_completo", "generando_borrador", "en_evaluación", "needs_human_review"
+    "analizando",
+    "descartado",
+    "analisis_completo",
+    "generando_borrador",
+    "en_evaluación",
+    "needs_human_review",
+    "esperando_aprobación",
+    "terminado",
 ]
 DepartmentId = Literal["warehouse", "lastmile", "reverse"]
 SectionStatus = Literal["generando_borrador", "en_evaluación", "evaluacion_superada", "needs_human_review"]
+ApprovalStatus = Literal["pendiente", "cambios_solicitados", "aprobada", "rechazada"]
 
 
 class RfpTicketCreated(BaseModel):
@@ -81,6 +91,84 @@ class DepartmentSectionRead(BaseModel):
     iterations: int = Field(description="Iteraciones del ciclo generador-evaluador hasta ahora.")
     draft_content: str | None = Field(description="Último borrador de la sección (Markdown).")
     evaluation: EvaluationResult | None = Field(description="Evaluación del último borrador.")
+    approval_status: ApprovalStatus | None = Field(description="Aprobación del responsable; `None` antes de la Parte 3.")
+    approver: str | None = Field(description="Responsable que aprobó la sección (BRIEFING §2.1).")
+    approved_at: datetime | None
+    review_round: int = Field(description="Ronda de revisión humana actual (0 antes de la Parte 3).")
+    revisions: int = Field(description="Reescrituras pedidas en la Parte 3 por el responsable o el árbitro.")
+    approval_history: list["ApprovalDecisionRead"]
+    pending_review: "PendingReviewRead | None" = Field(
+        description="Revisión esperando la decisión del responsable, tal como la guarda el checkpoint."
+    )
+
+
+class ApprovalDecisionRead(BaseModel):
+    decision: Decision
+    review_round: int
+    comment: str
+    decided_by: str
+    approver: str
+    decided_at: datetime
+    committed_monthly_capacity: int | None = None
+
+
+class PendingReviewRead(BaseModel):
+    """Lo mínimo para decidir sin releer la propuesta: es el valor del `interrupt` de la rama."""
+
+    approver: str
+    review_round: int
+    revisions: int
+    max_rounds: int
+    evaluation_pass: bool | None
+    failed_rules: list[str]
+    arbitration_notes: list[str]
+    allowed_decisions: list[Decision]
+
+
+class ArbitrationRead(BaseModel):
+    round: int
+    trigger_id: Literal["volume-vs-capacity", "returns-sla-breach", "currency-mismatch"]
+    arbiter: str
+    rule: str
+    department_id: DepartmentId
+    action: Literal["request_changes", "reject"]
+    instruction: str | None
+    evidence: str
+    decided_at: datetime
+
+
+class TraceEntryRead(BaseModel):
+    part: Literal["parte_1", "parte_2", "parte_3"]
+    node: str
+    agent: str
+    department_id: str | None
+    input: Any
+    output: Any
+    timestamp: datetime
+    duration_ms: int | None
+
+
+class ApprovalDecisionAccepted(BaseModel):
+    ticket_id: str
+    department_id: DepartmentId
+    task_id: str = Field(description="Tarea de Celery que reanuda la rama del departamento.")
+
+
+class FinalDocumentSectionRead(BaseModel):
+    department_id: DepartmentId
+    department_name: str
+    approver: str
+    approved_at: datetime
+    review_round: int
+
+
+class FinalDocumentRead(BaseModel):
+    ticket_id: str
+    rfp_id: str | None
+    currency: Literal["USD", "EUR"]
+    generated_at: datetime
+    sections: list[FinalDocumentSectionRead]
+    content: str = Field(description="Documento final en Markdown: las secciones aprobadas, sin reescribir.")
 
 
 class RfpSynthesisRead(BaseModel):
@@ -106,3 +194,7 @@ class RfpTicketRead(BaseModel):
     generation_attempts: int = Field(description="Intentos de la Parte 2 (generación y evaluación).")
     max_iterations: int | None = Field(description="Límite de iteraciones por sección de la última generación.")
     response_handoff_ready: bool = Field(description="El handoff hacia la Parte 3 está guardado con el ticket.")
+    approval_attempts: int = Field(description="Intentos de abrir la Parte 3 (aprobación).")
+    arbitrations: list[ArbitrationRead] = Field(description="Decisiones del árbitro fijo (BRIEFING §7), en orden.")
+    trace: list[TraceEntryRead] = Field(description="Qué agente hizo qué y en qué orden, en las tres partes.")
+    final_document_ready: bool = Field(description="El documento final está guardado (`GET /rfps/{id}/document`).")

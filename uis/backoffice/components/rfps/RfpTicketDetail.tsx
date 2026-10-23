@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { RetryAlert } from "@/components/inventory/RetryAlert";
-import { RfpSectionStatusBadge, RfpStatusBadge } from "@/components/rfps/RfpStatusBadge";
+import { RfpApprovalForm } from "@/components/rfps/RfpApprovalForm";
+import { RfpFinalDocument } from "@/components/rfps/RfpFinalDocument";
+import { RfpApprovalStatusBadge, RfpSectionStatusBadge, RfpStatusBadge } from "@/components/rfps/RfpStatusBadge";
+import { RfpTracePanel } from "@/components/rfps/RfpTracePanel";
 import { Panel } from "@/components/ui/Panel";
 import { getUserMessage } from "@/lib/api-client";
 import {
@@ -11,11 +14,17 @@ import {
   formatRfpDate,
   getRfp,
   isRfpInProgress,
+  isRfpOpeningApproval,
+  rfpArbitrationActionLabels,
   rfpComplianceRuleLabels,
   rfpCountryLabels,
+  rfpDecisionLabels,
   rfpDepartmentLabels,
   RFP_POLL_INTERVAL_MS,
   rfpServiceLabels,
+  rfpTriggerLabels,
+  type RfpArbitration,
+  type RfpDepartmentId,
   type RfpDepartmentSection,
   type RfpEvaluationResult,
   type RfpMetadata,
@@ -23,6 +32,9 @@ import {
 } from "@/lib/rfps";
 
 const LOAD_FALLBACK_ERROR = "No se pudo cargar la RFP.";
+
+/** Ronda de revisión cuya decisión ya se envió, por departamento (mientras el worker la aplica). */
+type SubmittedRounds = Partial<Record<RfpDepartmentId, number>>;
 
 interface RfpTicketDetailProps {
   ticketId: string;
@@ -32,8 +44,9 @@ export function RfpTicketDetail({ ticketId }: RfpTicketDetailProps) {
   const [ticket, setTicket] = useState<RfpTicket | null>(null);
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
+  const [submitted, setSubmitted] = useState<SubmittedRounds>({});
 
-  // Carga inicial y consulta periódica mientras el análisis o la generación siguen en curso.
+  // Carga inicial y consulta periódica mientras el worker trabaja o algún responsable tiene que decidir.
   useEffect(() => {
     let active = true;
     let timer: number | undefined;
@@ -43,7 +56,7 @@ export function RfpTicketDetail({ ticketId }: RfpTicketDetailProps) {
         if (!active) return;
         setTicket(loaded);
         setError("");
-        if (isRfpInProgress(loaded.status, loaded.response_handoff_ready)) {
+        if (isRfpInProgress(loaded.status) || loaded.status === "esperando_aprobación") {
           timer = window.setTimeout(load, RFP_POLL_INTERVAL_MS);
         }
       } catch (caught) {
@@ -68,20 +81,34 @@ export function RfpTicketDetail({ ticketId }: RfpTicketDetailProps) {
           Cargando la RFP…
         </p>
       ) : null}
-      {ticket ? <TicketView ticket={ticket} /> : null}
+      {ticket ? (
+        <TicketView
+          ticket={ticket}
+          submitted={submitted}
+          onDecisionSubmitted={(departmentId, round) => {
+            setSubmitted((current) => ({ ...current, [departmentId]: round }));
+            setAttempt((value) => value + 1);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
 
 interface TicketViewProps {
   ticket: RfpTicket;
+  submitted: SubmittedRounds;
+  onDecisionSubmitted: (departmentId: RfpDepartmentId, round: number) => void;
 }
 
-function TicketView({ ticket }: TicketViewProps) {
+function TicketView({ ticket, submitted, onDecisionSubmitted }: TicketViewProps) {
   const analyzed = ticket.status !== "analizando" && ticket.status !== "descartado";
-  const generating = analyzed && isRfpInProgress(ticket.status, ticket.response_handoff_ready);
+  const openingApproval = isRfpOpeningApproval(ticket.status, ticket.response_handoff_ready);
+  const generating = analyzed && isRfpInProgress(ticket.status) && !openingApproval;
   const drafts = ticket.sections.filter((section) => section.draft_status !== null);
   const provisional = drafts.filter((section) => section.draft_status === "needs_human_review");
+  const awaiting = ticket.sections.filter((section) => section.approval_status === "pendiente");
+  const rejected = ticket.sections.filter((section) => section.approval_status === "rechazada");
   return (
     <>
       <header className="space-y-2">
@@ -122,18 +149,50 @@ function TicketView({ ticket }: TicketViewProps) {
             </p>
           </div>
         ) : null}
-        {ticket.status === "en_evaluación" && ticket.response_handoff_ready ? (
+        {openingApproval ? (
+          <p className="rounded-lg border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-900" role="status">
+            Borradores listos: se está abriendo la revisión de cada responsable (y el arbitraje, si dos secciones se
+            contradicen). Esta página se actualiza sola.
+          </p>
+        ) : null}
+        {ticket.status === "esperando_aprobación" && awaiting.length > 0 ? (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+            Esperando la decisión de{" "}
+            {awaiting
+              .map((section) => `${section.responsible} (${rfpDepartmentLabels[section.department_id]})`)
+              .join(", ")}
+            . Cada responsable decide su sección sin esperar a los demás; el documento final se genera solo cuando
+            todas están aprobadas.
+          </p>
+        ) : null}
+        {ticket.status === "esperando_aprobación" && awaiting.length === 0 && rejected.length === 0 ? (
+          <p className="rounded-lg border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-900" role="status">
+            Aplicando la última decisión registrada. Esta página se actualiza sola.
+          </p>
+        ) : null}
+        {rejected.length > 0 ? (
+          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+            <p className="font-semibold">
+              {rejected.map((section) => rfpDepartmentLabels[section.department_id]).join(", ")}:{" "}
+              {rejected.length === 1 ? "sección rechazada" : "secciones rechazadas"}. No se generará el documento
+              final de esta ejecución.
+            </p>
+            <p className="mt-1">
+              Para volver a intentarlo hace falta una ejecución nueva: avisa al equipo técnico con el ticket{" "}
+              {ticket.ticket_id}.
+            </p>
+          </div>
+        ) : null}
+        {ticket.status === "terminado" ? (
           <p className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status">
-            Todas las secciones superaron la evaluación y están listas para la aprobación de cada responsable.
+            Todas las secciones están aprobadas por su responsable y el documento final está listo para enviar.
           </p>
         ) : null}
         {ticket.last_error ? (
           <div role="alert" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             <p className="font-semibold">
-              {ticket.status === "analizando"
-                ? `El análisis falló en el intento ${ticket.attempts}.`
-                : `La generación de borradores falló en el intento ${ticket.generation_attempts}.`}{" "}
-              Se reintenta automáticamente; si no avanza, avisa al equipo técnico con el ticket {ticket.ticket_id}.
+              {failureMessage(ticket)} Se reintenta automáticamente; si no avanza, avisa al equipo técnico con el
+              ticket {ticket.ticket_id}.
             </p>
             <p className="mt-1">{ticket.last_error}</p>
           </div>
@@ -175,13 +234,23 @@ function TicketView({ ticket }: TicketViewProps) {
               </div>
             )}
           </section>
+          {ticket.final_document_ready ? (
+            <RfpFinalDocument ticketId={ticket.ticket_id} clientName={ticket.metadata.client_name} />
+          ) : null}
+          {ticket.arbitrations.length > 0 ? <ArbitrationPanel arbitrations={ticket.arbitrations} /> : null}
           {drafts.length > 0 ? (
             <section aria-labelledby="rfp-drafts-title" className="space-y-4">
               <h2 id="rfp-drafts-title" className="text-lg font-semibold text-slate-900">
                 Borrador de la propuesta económica
               </h2>
               {drafts.map((section) => (
-                <DraftCard key={section.department_id} section={section} />
+                <DraftCard
+                  key={section.department_id}
+                  ticketId={ticket.ticket_id}
+                  section={section}
+                  submittedRound={submitted[section.department_id]}
+                  onDecisionSubmitted={onDecisionSubmitted}
+                />
               ))}
             </section>
           ) : null}
@@ -192,7 +261,45 @@ function TicketView({ ticket }: TicketViewProps) {
           ) : null}
         </>
       ) : null}
+      <RfpTracePanel ticketId={ticket.ticket_id} trace={ticket.trace} />
     </>
+  );
+}
+
+function failureMessage(ticket: RfpTicket): string {
+  if (ticket.status === "analizando") return `El análisis falló en el intento ${ticket.attempts}.`;
+  if (!ticket.response_handoff_ready) {
+    return `La generación de borradores falló en el intento ${ticket.generation_attempts}.`;
+  }
+  return "La aprobación no pudo avanzar (apertura de la revisión o aplicación de una decisión).";
+}
+
+interface ArbitrationPanelProps {
+  arbitrations: RfpArbitration[];
+}
+
+function ArbitrationPanel({ arbitrations }: ArbitrationPanelProps) {
+  return (
+    <Panel
+      id="rfp-arbitrations"
+      title="Arbitraje entre departamentos"
+      description="Contradicciones detectadas en código y resueltas con el árbitro y la regla fijos del BRIEFING."
+    >
+      <ul className="space-y-3 text-sm text-slate-800">
+        {arbitrations.map((record) => (
+          <li key={`${record.round}-${record.trigger_id}-${record.department_id}`}>
+            <p className="font-semibold">
+              Ronda {record.round} · {rfpTriggerLabels[record.trigger_id]} · {rfpDepartmentLabels[record.department_id]}
+              : {rfpArbitrationActionLabels[record.action]}
+            </p>
+            <p>
+              Árbitro: {record.arbiter}. {record.rule}
+            </p>
+            <p className="text-slate-600">Evidencia: {record.evidence}</p>
+          </li>
+        ))}
+      </ul>
+    </Panel>
   );
 }
 
@@ -272,12 +379,17 @@ function DepartmentCard({ section }: DepartmentCardProps) {
 }
 
 interface DraftCardProps {
+  ticketId: string;
   section: RfpDepartmentSection;
+  submittedRound: number | undefined;
+  onDecisionSubmitted: (departmentId: RfpDepartmentId, round: number) => void;
 }
 
-function DraftCard({ section }: DraftCardProps) {
+function DraftCard({ ticketId, section, submittedRound, onDecisionSubmitted }: DraftCardProps) {
   const headingId = `rfp-draft-${section.department_id}`;
   const provisional = section.draft_status === "needs_human_review";
+  const review = section.pending_review;
+  const awaitingWorker = review !== null && submittedRound === review.review_round;
   return (
     <section
       aria-labelledby={headingId}
@@ -287,7 +399,8 @@ function DraftCard({ section }: DraftCardProps) {
         <h3 id={headingId} className="text-base font-semibold text-slate-900">
           {rfpDepartmentLabels[section.department_id]}
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {section.approval_status ? <RfpApprovalStatusBadge status={section.approval_status} /> : null}
           {section.draft_status ? <RfpSectionStatusBadge status={section.draft_status} /> : null}
           <span className="text-xs text-slate-500">
             {section.iterations} {section.iterations === 1 ? "iteración" : "iteraciones"}
@@ -304,6 +417,31 @@ function DraftCard({ section }: DraftCardProps) {
         </p>
       )}
       {section.evaluation ? <EvaluationSummary evaluation={section.evaluation} /> : null}
+      {section.approver && section.approved_at ? (
+        <p className="mt-4 text-sm text-emerald-800">
+          Aprobada por {section.approver} el {formatRfpDate(section.approved_at)} (revisión {section.review_round}).
+        </p>
+      ) : null}
+      {review && !awaitingWorker ? (
+        <RfpApprovalForm
+          ticketId={ticketId}
+          departmentId={section.department_id}
+          review={review}
+          onSubmitted={() => onDecisionSubmitted(section.department_id, review.review_round)}
+        />
+      ) : null}
+      {awaitingWorker ? (
+        <p className="mt-4 text-sm text-cyan-900" role="status">
+          Decisión registrada: se está aplicando. Esta página se actualiza sola.
+        </p>
+      ) : null}
+      <TextList
+        title="Historial de decisiones"
+        items={section.approval_history.map(
+          (entry) =>
+            `Revisión ${entry.review_round} · ${rfpDecisionLabels[entry.decision]} (${entry.approver}, registrada por ${entry.decided_by} el ${formatRfpDate(entry.decided_at)})${entry.comment ? `: ${entry.comment}` : ""}`,
+        )}
+      />
     </section>
   );
 }

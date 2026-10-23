@@ -6,12 +6,13 @@ import pytest
 from fastapi.testclient import TestClient
 from kombu.exceptions import OperationalError as BrokerError
 
-from data.pipelines.rfp_intake import compliance, generators, llm, response_runner, runner
+from data.pipelines.rfp_intake import approval_runner, compliance, generators, llm, response_runner, runner
 from services.api import database as api_database
 from services.api.main import app
 from services.rfp_intake import router as rfp_router
 from tests.pipelines.test_rfp_intake_flow import AGENT_OUTPUTS, RFP_LINES, minimal_pdf
 from tests.pipelines.test_rfp_response_agents import reverse_draft
+from tests.pipelines.test_rfp_response_flow import section_draft
 
 
 PASSWORD = "correct-password"
@@ -185,3 +186,71 @@ def test_generated_ticket_shows_each_draft_with_its_evaluation(auth_client, queu
     }
     assert "[currency-by-country]" in evaluation["feedback_for_generator"]
     assert auth_client.get("/rfps").json()[0]["status"] == "needs_human_review"
+
+
+def test_part_3_registers_each_decision_and_serves_the_final_document(auth_client, queued, monkeypatch):
+    def ask_json(agent, system_prompt, user_prompt, schema):
+        if agent == "classifier":
+            return schema.model_validate({"is_rfp": True, "document_type": "rfp_informal", "confidence": 0.9, "reason": "Pide una propuesta."})
+        if agent in AGENT_OUTPUTS:
+            return schema.model_validate(AGENT_OUTPUTS[agent])
+        if agent.endswith("_generator"):
+            return schema.model_validate({"content": section_draft(agent.split("_")[0])})
+        if agent.endswith("_relevance_evaluator"):
+            return schema.model_validate({"missing_aspect_ids": []})
+        return schema.model_validate({"violations": []})
+
+    resumes: list[list] = []
+
+    def apply_async(args, retry):
+        resumes.append(args)
+        return SimpleNamespace(id="task-resume")
+
+    monkeypatch.setattr(llm, "ask_json", ask_json)
+    monkeypatch.setattr(generators, "retrieve_knowledge", lambda department_id: [])
+    monkeypatch.setattr(rfp_router.resume_approval_task, "apply_async", apply_async)
+    ticket_id = upload(auth_client, minimal_pdf(RFP_LINES)).json()["ticket_id"]
+    engine = api_database.get_engine()
+    runner.process_ticket(engine, queued[0])
+    response_runner.generate_responses(engine, ticket_id, max_iterations=1)
+    approval_runner.start_approval(engine, ticket_id, max_rounds=3)
+    decision_url = f"/rfps/{ticket_id}/sections/warehouse/decision"
+    assert auth_client.get(f"/rfps/{ticket_id}/document").status_code == 404
+
+    detail = auth_client.get(f"/rfps/{ticket_id}").json()
+    assert detail["status"] == "esperando_aprobación"
+    warehouse = detail["sections"][0]
+    assert warehouse["approval_status"] == "pendiente" and warehouse["review_round"] == 1
+    assert warehouse["pending_review"]["approver"] == "Ana Whitfield"
+    assert warehouse["pending_review"]["allowed_decisions"] == ["approve", "request_changes", "reject"]
+    assert {entry["part"] for entry in detail["trace"]} == {"parte_1", "parte_2", "parte_3"}
+
+    # La validación ocurre antes de encolar: nada inválido llega al worker.
+    without_reason = auth_client.post(decision_url, json={"decision": "reject", "review_round": 1})
+    assert without_reason.status_code == 422
+    stale = auth_client.post(decision_url, json={"decision": "approve", "review_round": 2})
+    assert stale.status_code == 409 and "revisión 1" in stale.json()["detail"]
+    unknown = auth_client.post(f"/rfps/{ticket_id}/sections/reverse/decision", json={"decision": "approve", "review_round": 1})
+    assert unknown.status_code == 409 and unknown.json()["detail"] == rfp_router.NO_PENDING_REVIEW_DETAIL
+    assert resumes == []
+
+    accepted = auth_client.post(decision_url, json={"decision": "approve", "review_round": 1, "comment": ""})
+    assert accepted.status_code == 202 and accepted.json()["task_id"] == "task-resume"
+    [[resumed_ticket, department, decision]] = resumes
+    assert (resumed_ticket, department) == (ticket_id, "warehouse")
+    assert decision["decided_by"] == "ana@example.com" and decision["decision"] == "approve"
+
+    # Lo que haría el worker con cada mensaje encolado.
+    approval_runner.submit_decision(engine, ticket_id, "warehouse", decision)
+    auth_client.post(f"/rfps/{ticket_id}/sections/lastmile/decision", json={"decision": "approve", "review_round": 1})
+    approval_runner.submit_decision(engine, ticket_id, "lastmile", resumes[-1][2])
+
+    detail = auth_client.get(f"/rfps/{ticket_id}").json()
+    assert detail["status"] == "terminado" and detail["final_document_ready"] is True
+    assert detail["sections"][0]["approver"] == "Ana Whitfield"
+    assert detail["sections"][0]["approval_history"][0]["decided_by"] == "ana@example.com"
+    document = auth_client.get(f"/rfps/{ticket_id}/document").json()
+    assert document["currency"] == "USD"
+    assert [s["approver"] for s in document["sections"]] == ["Ana Whitfield", "Carlos Vega"]
+    assert document["content"].startswith("# Propuesta económica de TrackFlow para Luna Cosmetics")
+    assert auth_client.post(decision_url, json={"decision": "approve", "review_round": 1}).status_code == 409

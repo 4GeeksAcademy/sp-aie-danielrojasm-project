@@ -42,6 +42,8 @@ class GeneratorSpec:
     # Qué cubre la sección de este departamento, además de lo común a todas.
     content: str
     knowledge_queries: tuple[str, ...]
+    # Línea fija bajo la cabecera que la Parte 3 lee para detectar el conflicto `volume-vs-capacity` (`conflicts.py`).
+    fact_line: str = ""
 
 
 GENERATORS: dict[str, GeneratorSpec] = {
@@ -53,6 +55,8 @@ GENERATORS: dict[str, GeneratorSpec] = {
             "pallet o SKU según la tarifa de referencia), costos de recepción y preparación de pedidos si aplican, "
             "y tiempo de onboarding del inventario.",
             ("tarifas de almacenamiento por metro cúbico", "inventario de larga duración y periodo de gracia"),
+            "**Capacidad comprometida:** <N> pedidos/mes (o «a confirmar con Ana Whitfield» si la base de "
+            "conocimiento no la trae)",
         ),
         GeneratorSpec(
             "lastmile",
@@ -60,6 +64,8 @@ GENERATORS: dict[str, GeneratorSpec] = {
             "transportistas disponibles según destino (sin tarifas de transportista) y SLA de entrega por tipo de "
             "servicio.",
             ("cobertura de transportistas por país", "plazos de envío estándar y express"),
+            "**Volumen asumido:** <volumen mensual de la RFP, o el que fije un arbitraje> pedidos/mes (o «a "
+            "confirmar con el cliente» si la RFP no lo indica)",
         ),
         GeneratorSpec(
             "reverse",
@@ -78,7 +84,7 @@ Qué cubre tu sección: {content}
 
 Formato obligatorio (Markdown, en español, dirigido al cliente, 150-450 palabras de prosa):
 ## {name} — Propuesta económica
-**Responsable:** {responsible} · **Moneda:** {currency}
+**Responsable:** {responsible} · **Moneda:** {currency}{fact_line}
 ### Alcance
 ### Tarifas
 (tabla Markdown: concepto | precio en {currency} | unidad)
@@ -103,6 +109,8 @@ Reglas de contenido:
   respuesta concreta, con "a confirmar con {responsible}" si TrackFlow aún no puede comprometerlo (p. ej. una fecha
   de arranque) o con una pregunta al cliente si falta el dato.
 - Frases cortas, de una idea cada una.
+- Una instrucción de arbitraje en el feedback (empieza por "Arbitraje") es una decisión de la empresa: aplícala
+  aunque cambie un dato del análisis de la RFP (p. ej. el volumen asumido) y ajusta lo que dependa de ese dato.
 
 Responde solo con JSON: {{"content": "<sección completa en Markdown>"}}"""
 
@@ -148,6 +156,7 @@ def generate(
         responsible=department.responsible,
         content=spec.content,
         currency=currency,
+        fact_line=f"\n{spec.fact_line}" if spec.fact_line else "",
         rules="\n".join(f"- [{rule.rule_id}] {rule.guideline}" for rule in compliance.RULES.values()),
     )
     knowledge_block = "\n\n".join(knowledge) or "(Sin fragmentos: la base de conocimiento no respondió.)"
@@ -159,7 +168,7 @@ def generate(
     if previous_draft and feedback:
         parts.append(
             f"TU BORRADOR ANTERIOR:\n<borrador_anterior>\n{previous_draft}\n</borrador_anterior>\n\n"
-            f"LA EVALUACIÓN LO RECHAZÓ. Corrige exactamente esto y conserva lo que ya estaba bien:\n{feedback}"
+            f"LA REVISIÓN PIDIÓ CAMBIOS. Corrige exactamente esto y conserva lo que ya estaba bien:\n{feedback}"
         )
     output = llm.ask_json(f"{department_id}_generator", system_prompt, "\n\n".join(parts), GeneratorOutput)
     return output.content.strip()

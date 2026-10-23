@@ -18,6 +18,10 @@ flower>=2.0
 qdrant-client>=1.15
 openai>=1.100
 langgraph>=1.2.12
+# Checkpointer de la aprobación de RFPs (Parte 3): PostgresSaver usa psycopg 3; SQLAlchemy sigue con psycopg2.
+langgraph-checkpoint-postgres>=3.2.0
+langgraph-checkpoint-sqlite>=3.1.2
+psycopg[binary]>=3.3.6
 httpx>=0.28
 langchain-mcp-adapters>=0.3.2
 redis>=6.4.0
