@@ -28,6 +28,8 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
   dispara el contenedor `scheduler` (`infra/scheduler/`).
 - **`services/tasks/`** — cola de tareas asíncronas (Celery + Redis): instancia, tarea del pipeline semanal y DLQ. El worker
   es el contenedor `worker`; Flower, el contenedor `flower`.
+- **`services/rfp_intake/`** — rutas `/rfps/*` de la API principal (recepción de RFPs en modo ticket); el grafo
+  `rfp_intake` vive en `data/pipelines/rfp_intake/` y lo ejecuta el worker de Celery.
 - **`mcps/trackflow_tools/`** — servidor MCP (FastMCP, Streamable HTTP, puerto 8001) con OAuth de MCP Auth: tickets del
   gestor de incidencias y consulta del inventario. `infra/keycloak/` guarda el realm de su proveedor OAuth.
 - **`agents/`, `skills/`, `workflows/`** — espacio para el producto de hitos futuros (agentes de la empresa, no del IDE).
@@ -47,6 +49,7 @@ en `uis/`, la configuración de agentes de código del Hito 4 y `services/api`, 
 **Python:** el CLI y `services/api/incidents_analyzer.py` usan la biblioteca estándar para validar y agregar el CSV en streaming. El analizador y el seed validan con `packages/shared/incidents/csv_validation.py`. La API usa
 FastAPI, `python-multipart` y Uvicorn, declarados en `services/api/requirements.txt`; el reporte de telemetría usa Pandas, y el pipeline semanal
 de `data/pipelines/`, Pandas y Prefect 3. El modelo de pronóstico de ventas usa scikit-learn, SciPy y matplotlib. El RAG usa `qdrant-client` y `openai`.
+La recepción de RFPs usa `markitdown[pdf]` (PDF → Markdown) y `py-readability-metrics` (necesita `punkt_tab` de NLTK).
 
 ---
 
@@ -442,6 +445,36 @@ Diseño, prohibiciones y evidencias en `docs/agent-memory/memory-design.md`.
 - **Tests:** `tests/conftest.py` da a cada test un `fakeredis` (dependencia de desarrollo); nunca toca `REDIS_URL`.
   Los scripts de grabación usan sus propios espacios de nombres (`:eval`, `:evidence`) y los vacían.
 
+### Recepción y enrutamiento de RFPs — Milestone 09 (Hito 9, parte 1)
+
+Detalle, contrato de handoff y decisiones en `data/pipelines/rfp_intake/README.md`.
+
+- **Capas:** `POST /rfps`, `GET /rfps` y `GET /rfps/{ticket_id}` en `services/rfp_intake/router.py` (misma API, sin
+  segundo servicio). La API guarda el PDF en `data/raw/rfp_intake/<ticket_id>.pdf` (ignorado por git; `RFP_RAW_DIR`),
+  crea el ticket en `analizando`, encola `rfp_intake.process_ticket` (`services/tasks/rfp_intake.py`) y responde
+  `202`. El grafo nunca corre en la API. Sin cola: borra ticket y PDF y responde `503`.
+- **Grafo dedicado `rfp_intake`** (`data/pipelines/rfp_intake/graph.py`), separado del de CX: `convert_document`
+  (`PdfConverter` de MarkItDown; `MarkItDown().convert` dejaba pasar un PDF corrupto como texto) →
+  `classify_document` → `discard` | `extract_metadata` → `orchestrate` → `Send` a `warehouse_worker`,
+  `lastmile_worker` y `reverse_worker` (solo los activos, en paralelo) → `synthesize`. Agentes con el modelo de
+  generación del gateway en modo JSON y esquema Pydantic; un fallo es `RfpAgentError`, nunca una salida por defecto.
+- **Reglas en código:** descarte solo con "no es RFP" y confianza ≥ 0,6; moneda por país (US → USD, ES → EUR);
+  departamentos limitados a los del BRIEFING (el resto a `out_of_scope`; el id de servicio,
+  p. ej. `last_mile`, se acepta como alias de su departamento) y todo servicio pedido en los metadatos activa el suyo; cifras de los workers que no están en sus
+  extractos o metadatos → pregunta abierta; sin volumen mensual, `warehouse` y `lastmile` siempre lo preguntan.
+- **Persistencia:** tablas `rfp_tickets`, `rfp_metadata` y `rfp_department_sections` (SQLModel, `schema.py`; las
+  crea `create_all` al arrancar la API). El runner guarda el resultado en una sola transacción. El handoff a la
+  Parte 2 es el campo `rfp_tickets.handoff` (`rfp_intake.handoff.v1`) y el Markdown queda en
+  `rfp_metadata.document_markdown`. El `CHECK` de `status` solo admite los tres estados de la Parte 1: la Parte 2
+  tendrá que ampliarlo (no hay Alembic).
+- **Fallos:** el ticket sigue en `analizando` con `attempts` y `last_error`; 2 reintentos con backoff y DLQ.
+  Reproceso manual: `scripts/rfp_intake.py reprocess <ticket_id> [--force]`.
+- **Docker:** `services/api/requirements.txt` añade las dos dependencias y `services/Dockerfile` descarga `punkt_tab`;
+  hay que reconstruir `api` y `worker`. `requirements.txt` fija `sqlalchemy<2.1` (como `uv.lock`): la 2.1 usa
+  psycopg 3 por defecto con `postgresql://` y la API no arrancaba en la imagen reconstruida. En local, `readability_metrics` lo descarga la primera vez.
+- **Tests:** `tests/pipelines/test_rfp_intake_agents.py`, `test_rfp_intake_flow.py` (PDF mínimo real, SQLite) y
+  `tests/http/test_rfp_api.py`, sin gateway ni Redis.
+
 ### Servidor MCP de herramientas — Milestone 09
 
 Detalle en `mcps/trackflow_tools/README.md`.
@@ -555,6 +588,8 @@ Todos se ejecutan desde la raíz del monorepo:
 - **Evals del agente LangGraph** — `uv run python scripts/record_agent_traces.py` graba los traces (Qdrant, `.env`,
   Keycloak, la API y el servidor MCP en `MCP_SERVER_URL`);
   `uv run pytest tests/pipelines/test_agent_evals.py -v` los evalúa.
+- **Recepción de RFPs** — `uv run --env-file .env python scripts/rfp_intake.py smoke <pdf>` (grafo sin base de datos)
+  o `reprocess <ticket_id> [--force]`; la subida normal es `/rfps` en el backoffice con la API, Redis y el worker.
 - **Evidencia de la memoria del agente** — `uv run python scripts/record_memory_evidence.py` (gateway, Qdrant y Redis);
   `uv run pytest tests/pipelines/test_agent_memory_evals.py -v` la evalúa.
 - **Guardrails del agente** — `uv run pytest tests/pipelines/test_agent_guardrails.py -v` (sin servicios);

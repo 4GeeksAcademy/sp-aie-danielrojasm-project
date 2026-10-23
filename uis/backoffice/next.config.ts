@@ -82,6 +82,15 @@ const nextConfig: NextConfig = {
         destination: `${apiOrigin}/knowledge/:path*`,
       },
       {
+        // Recepción de RFPs en modo ticket (`services/rfp_intake/`).
+        source: "/api/rfps",
+        destination: `${apiOrigin}/rfps`,
+      },
+      {
+        source: "/api/rfps/:path*",
+        destination: `${apiOrigin}/rfps/:path*`,
+      },
+      {
         source: "/api/auth/:path*",
         destination: `${apiOrigin}/auth/:path*`,
       },

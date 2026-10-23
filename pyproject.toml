@@ -29,6 +29,8 @@ dependencies = [
     "mcpauth==0.2.0b1",
     "langchain-mcp-adapters>=0.3.2",
     "redis>=6.4.0",
+    "markitdown[pdf]>=0.1.9",
+    "py-readability-metrics>=1.4.5",
 ]
 
 [project.scripts]

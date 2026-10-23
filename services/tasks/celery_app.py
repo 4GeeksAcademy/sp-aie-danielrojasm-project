@@ -64,7 +64,7 @@ celery_app = Celery(
     broker=redis_url(),
     # `<clase>+<url>`: Celery resuelve el backend por su ruta de importación.
     backend=f"services.tasks.celery_app:PublishOnlyRedisBackend+{redis_url()}",
-    include=["services.tasks.pipeline", "services.tasks.dead_letter"],
+    include=["services.tasks.pipeline", "services.tasks.rfp_intake", "services.tasks.dead_letter"],
 )
 
 celery_app.conf.update(
