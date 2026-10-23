@@ -25,7 +25,12 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    errores en el log del worker; `/rfps` y `/rfps/[ticketId]` responden 200.
 - Pruebas: 36 nuevas (`tests/pipelines/test_rfp_intake_agents.py`, `test_rfp_intake_flow.py`,
    `tests/http/test_rfp_api.py`); `uv run pytest` 846 (tras integrar los guardrails de `main`) y `npm run verify` en verde.
-- Hay que reconstruir los contenedores `api` y `worker` (dependencias nuevas y `punkt_tab` de NLTK en la imagen).
+- Docker: `docker compose up -d --build -V api worker`. Al reconstruir entró SQLAlchemy 2.1 (driver psycopg 3 por
+   defecto) y la API no arrancaba; `services/api/requirements.txt` fija `sqlalchemy<2.1`. Con los contenedores,
+   los 3 PDF dan el mismo resultado que en local.
+- En Docker el orquestador devolvió una vez `last_mile` (id del servicio) en vez de `lastmile` y Luna se quedó sin
+   Last Mile. Corregido en código: el id del servicio es alias de su departamento y todo servicio pedido en los
+   metadatos activa el suyo (2 tests nuevos).
 - Datos locales: la verificación creó la cuenta `rfp-verificacion@trackflow.com` en `auth.json` y tres tickets en
    Supabase con sus PDF en `data/raw/rfp_intake/` (ignorado por git).
 - Siguiente paso: PR desde `feature/rfp-intake`; la Parte 2 lee los tickets en `analisis_completo` y su handoff.

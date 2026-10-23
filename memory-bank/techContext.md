@@ -459,7 +459,8 @@ Detalle, contrato de handoff y decisiones en `data/pipelines/rfp_intake/README.m
   `lastmile_worker` y `reverse_worker` (solo los activos, en paralelo) → `synthesize`. Agentes con el modelo de
   generación del gateway en modo JSON y esquema Pydantic; un fallo es `RfpAgentError`, nunca una salida por defecto.
 - **Reglas en código:** descarte solo con "no es RFP" y confianza ≥ 0,6; moneda por país (US → USD, ES → EUR);
-  departamentos limitados a los del BRIEFING (el resto a `out_of_scope`); cifras de los workers que no están en sus
+  departamentos limitados a los del BRIEFING (el resto a `out_of_scope`; el id de servicio,
+  p. ej. `last_mile`, se acepta como alias de su departamento) y todo servicio pedido en los metadatos activa el suyo; cifras de los workers que no están en sus
   extractos o metadatos → pregunta abierta; sin volumen mensual, `warehouse` y `lastmile` siempre lo preguntan.
 - **Persistencia:** tablas `rfp_tickets`, `rfp_metadata` y `rfp_department_sections` (SQLModel, `schema.py`; las
   crea `create_all` al arrancar la API). El runner guarda el resultado en una sola transacción. El handoff a la
@@ -469,7 +470,8 @@ Detalle, contrato de handoff y decisiones en `data/pipelines/rfp_intake/README.m
 - **Fallos:** el ticket sigue en `analizando` con `attempts` y `last_error`; 2 reintentos con backoff y DLQ.
   Reproceso manual: `scripts/rfp_intake.py reprocess <ticket_id> [--force]`.
 - **Docker:** `services/api/requirements.txt` añade las dos dependencias y `services/Dockerfile` descarga `punkt_tab`;
-  hay que reconstruir `api` y `worker`. En local, `readability_metrics` lo descarga la primera vez.
+  hay que reconstruir `api` y `worker`. `requirements.txt` fija `sqlalchemy<2.1` (como `uv.lock`): la 2.1 usa
+  psycopg 3 por defecto con `postgresql://` y la API no arrancaba en la imagen reconstruida. En local, `readability_metrics` lo descarga la primera vez.
 - **Tests:** `tests/pipelines/test_rfp_intake_agents.py`, `test_rfp_intake_flow.py` (PDF mínimo real, SQLite) y
   `tests/http/test_rfp_api.py`, sin gateway ni Redis.
 

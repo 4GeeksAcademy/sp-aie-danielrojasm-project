@@ -32,7 +32,7 @@ orchestrate ─┬─ Send → warehouse_worker / lastmile_worker / reverse_work
 | `convert_document` | — | PDF → Markdown con el `PdfConverter` de MarkItDown. Un PDF corrupto falla (no pasa como texto). |
 | `classify_document` | `classifier.py` | Solo descarta si el modelo dice "no es RFP" con confianza ≥ 0,6. |
 | `extract_metadata` | `extraction.py` | Moneda por país (US → USD, ES → EUR); un volumen que no aparece en el texto se descarta. Métricas de legibilidad. |
-| `orchestrate` | `orchestrator.py` | Solo crea workers para `warehouse`, `lastmile` y `reverse`; el resto va a `out_of_scope`. |
+| `orchestrate` | `orchestrator.py` | Solo crea workers para `warehouse`, `lastmile` y `reverse` (el id de servicio, p. ej. `last_mile`, es alias de su departamento); el resto va a `out_of_scope`. Todo servicio pedido en los metadatos activa su departamento. |
 | `*_worker` | `workers.py` | Una frase con una cifra que no está en sus extractos ni en los metadatos se descarta y pasa a pregunta abierta. Sin volumen mensual, `warehouse` y `lastmile` siempre preguntan por él. |
 | `synthesize` | `synthesizer.py` | La estructura de workstreams (departamento, responsable, listas) se arma en código; el modelo solo redacta resumen, pasos y contradicciones. |
 

@@ -202,6 +202,36 @@ def test_orchestrator_gives_the_whole_document_to_a_department_without_valid_par
     assert plan["assignments"] == [{"department_id": "lastmile", "focus": "Envíos.", "paragraph_ids": [1, 2]}]
 
 
+def test_orchestrator_accepts_the_service_id_as_its_department(monkeypatch):
+    fake_model(
+        monkeypatch,
+        {
+            "departments": [
+                {"department_id": "warehouse", "focus": "Almacenaje.", "paragraph_ids": [1]},
+                {"department_id": "last_mile", "focus": "Envíos.", "paragraph_ids": [2]},
+            ],
+            "out_of_scope": [],
+        },
+    )
+
+    plan = orchestrator.plan({"services_requested": ["warehousing", "last_mile"]}, ["P1", "P2"])
+
+    assert [item["department_id"] for item in plan["assignments"]] == ["warehouse", "lastmile"]
+    assert plan["out_of_scope"] == []
+
+
+def test_orchestrator_activates_every_requested_service_even_if_the_model_omits_it(monkeypatch):
+    fake_model(
+        monkeypatch,
+        {"departments": [{"department_id": "warehouse", "focus": "Almacenaje.", "paragraph_ids": [1]}], "out_of_scope": []},
+    )
+
+    plan = orchestrator.plan({"services_requested": ["warehousing", "reverse_logistics"]}, ["P1", "P2"])
+
+    assert [item["department_id"] for item in plan["assignments"]] == ["warehouse", "reverse"]
+    assert plan["assignments"][1]["paragraph_ids"] == [1, 2]
+
+
 # --- Workers -----------------------------------------------------------------------------------
 
 

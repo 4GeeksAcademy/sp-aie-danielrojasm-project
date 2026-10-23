@@ -4,7 +4,9 @@ Decide qué departamentos del BRIEFING aplican según el alcance que pide el cli
 del documento le corresponden. Los workers reciben esos párrafos literales (por número), nunca un resumen.
 
 Lo que el modelo no puede decidir lo valida el código:
-- un `department_id` que no es del BRIEFING no crea un worker: se registra en `out_of_scope` para que Ventas lo vea;
+- un `department_id` que no es del BRIEFING no crea un worker: se registra en `out_of_scope` para que Ventas lo vea.
+  El id del servicio (`last_mile`) se acepta como alias de su departamento (`lastmile`): el modelo los confunde;
+- todo servicio que el cliente pide en los metadatos tiene su departamento activo, aunque el modelo lo omita;
 - los números de párrafo inexistentes se ignoran; si un departamento se queda sin párrafos, recibe el documento
   entero (recortado) para no trabajar a ciegas.
 """
@@ -66,15 +68,22 @@ def plan(metadata: dict[str, Any], paragraphs: list[str]) -> dict[str, Any]:
         f"METADATOS DE LA RFP:\n{json.dumps(metadata, ensure_ascii=False)}\n\n"
         f"{llm.as_document(numbered(paragraphs)[:MAX_ORCHESTRATOR_CHARS])}"
     )
-    return validate_plan(llm.ask_json(AGENT, SYSTEM_PROMPT, prompt, OrchestratorOutput), len(paragraphs))
+    output = llm.ask_json(AGENT, SYSTEM_PROMPT, prompt, OrchestratorOutput)
+    return validate_plan(output, len(paragraphs), metadata.get("services_requested", []))
 
 
-def validate_plan(output: OrchestratorOutput, paragraph_count: int) -> dict[str, Any]:
+DEPARTMENT_BY_SERVICE = {department.service.value: department.department_id for department in DEPARTMENTS.values()}
+
+
+def validate_plan(
+    output: OrchestratorOutput, paragraph_count: int, services_requested: list[str] | None = None
+) -> dict[str, Any]:
     assignments: list[dict[str, Any]] = []
     out_of_scope = [item.strip() for item in output.out_of_scope if item.strip()]
     seen: set[str] = set()
     for assignment in output.departments:
         department_id = assignment.department_id.strip().lower()
+        department_id = DEPARTMENT_BY_SERVICE.get(department_id, department_id)
         if department_id not in DEPARTMENTS:
             logger.warning("orchestrator departamento fuera del BRIEFING: %r (va a out_of_scope).", department_id)
             out_of_scope.append(f"Departamento no reconocido «{assignment.department_id}»: {assignment.focus}")
@@ -87,6 +96,15 @@ def validate_plan(output: OrchestratorOutput, paragraph_count: int) -> dict[str,
             logger.warning("orchestrator %s sin párrafos válidos: recibe el documento completo.", department_id)
             ids = list(range(1, paragraph_count + 1))
         assignments.append({"department_id": department_id, "focus": assignment.focus.strip(), "paragraph_ids": ids})
+    for service in services_requested or []:
+        department_id = DEPARTMENT_BY_SERVICE.get(service)
+        if department_id and department_id not in seen:
+            logger.warning("orchestrator omitió %s aunque el cliente pide %s: se activa.", department_id, service)
+            seen.add(department_id)
+            focus = f"Analizar lo que pide el cliente para {DEPARTMENTS[department_id].name}."
+            assignments.append(
+                {"department_id": department_id, "focus": focus, "paragraph_ids": list(range(1, paragraph_count + 1))}
+            )
     # Orden estable del BRIEFING (warehouse, lastmile, reverse) para que el resultado no dependa del modelo.
     order = list(DEPARTMENTS)
     assignments.sort(key=lambda item: order.index(item["department_id"]))
