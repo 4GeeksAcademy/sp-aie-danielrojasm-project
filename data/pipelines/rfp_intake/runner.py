@@ -5,6 +5,9 @@
 - `process_ticket` (lo llama el worker de Celery o `scripts/rfp_intake.py`): ejecuta el grafo y guarda el
   resultado en una sola transacción: `descartado` con el motivo del clasificador, o `analisis_completo` con
   metadatos, secciones por departamento, síntesis y handoff.
+- En cuanto el grafo confirma que el documento es una RFP válida (metadatos extraídos, ticket aún en
+  `analizando`), se reserva su `rfp_id` en el ticket y se llama a `on_rfp_detected`: el worker lo usa para la
+  notificación en tiempo real (`services/rfp_intake/events.py`). Un fallo de ese aviso nunca rompe el análisis.
 
 El ticket siempre dice la verdad: mientras el grafo corre está en `analizando`; si falla, sigue en `analizando` con
 `last_error` y `attempts` (la tarea se reintenta y la UI lo muestra) y no queda nada a medio escribir. Solo se
@@ -15,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from functools import lru_cache
@@ -52,6 +56,10 @@ class DatabaseNotConfiguredError(RuntimeError):
 
 class TicketNotFoundError(LookupError):
     pass
+
+
+# Recibe el ticket (en `analizando`, con su `rfp_id` ya reservado) y los metadatos extraídos.
+RfpDetectedCallback = Callable[[RfpTicket, dict[str, Any]], None]
 
 
 @dataclass(frozen=True)
@@ -156,7 +164,7 @@ def get_ticket_detail(engine: Engine, ticket_id: str) -> TicketDetail:
 # --- Procesamiento -----------------------------------------------------------------------------
 
 
-def process_ticket(engine: Engine, ticket_id: str) -> str:
+def process_ticket(engine: Engine, ticket_id: str, on_rfp_detected: RfpDetectedCallback | None = None) -> str:
     """Ejecuta el grafo para un ticket en `analizando` y devuelve su estado final."""
     with Session(engine) as session:
         ticket = session.get(RfpTicket, ticket_id)
@@ -174,13 +182,39 @@ def process_ticket(engine: Engine, ticket_id: str) -> str:
 
     logger.info("ticket=%s attempt=%s inicio del grafo rfp_intake.", ticket_id, attempt)
     try:
-        state = intake_graph.run_graph(ticket_id, str(pdf_path))
+        state = intake_graph.run_graph(
+            ticket_id,
+            str(pdf_path),
+            on_metadata=(lambda metadata: _rfp_detected(engine, ticket_id, metadata, on_rfp_detected))
+            if on_rfp_detected
+            else None,
+        )
         status = _persist_result(engine, ticket_id, state)
     except Exception as error:
         record_failure(engine, ticket_id, error)
         raise
     logger.info("ticket=%s attempt=%s status=%s", ticket_id, attempt, status)
     return status
+
+
+def _rfp_detected(
+    engine: Engine, ticket_id: str, metadata: dict[str, Any], on_rfp_detected: RfpDetectedCallback
+) -> None:
+    """Reserva el `rfp_id` (el mismo en un reintento) y avisa. El ticket sigue en `analizando`."""
+    with Session(engine) as session:
+        ticket = session.get(RfpTicket, ticket_id)
+        if ticket is None:
+            raise TicketNotFoundError(ticket_id)
+        if ticket.rfp_id is None:
+            ticket.rfp_id = new_id()
+            ticket.updated_at = utc_now()
+            session.add(ticket)
+            session.commit()
+            session.refresh(ticket)
+    try:
+        on_rfp_detected(ticket, metadata)
+    except Exception:
+        logger.exception("ticket=%s rfp_id=%s no se pudo notificar la RFP nueva.", ticket_id, ticket.rfp_id)
 
 
 def record_failure(engine: Engine, ticket_id: str, error: BaseException) -> None:
@@ -253,6 +287,8 @@ def _persist_result(engine: Engine, ticket_id: str, state: dict[str, Any]) -> st
         metadata, readability, synthesis = state["metadata"], state["readability"], state["synthesis"]
         departments = [workstream["department_id"] for workstream in synthesis["workstreams"]]
         record = RfpMetadata(
+            # Si ya se notificó la RFP, el `rfp_id` anunciado es el que se guarda.
+            rfp_id=ticket.rfp_id or new_id(),
             ticket_id=ticket_id,
             client_name=metadata["client_name"],
             client_country=metadata["client_country"],

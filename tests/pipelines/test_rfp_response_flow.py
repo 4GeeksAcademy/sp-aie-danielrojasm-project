@@ -192,8 +192,14 @@ def test_a_generator_failure_keeps_the_ticket_and_records_the_error(engine, anal
 
 def test_the_part_1_task_enqueues_part_2_when_the_analysis_is_complete(monkeypatch):
     queued: list[list[str]] = []
+    notifiers: list = []
+
+    def process_ticket(engine, ticket_id, on_rfp_detected):
+        notifiers.append(on_rfp_detected)
+        return "analisis_completo"
+
     monkeypatch.setattr(rfp_tasks, "intake_engine", lambda: None)
-    monkeypatch.setattr(rfp_tasks, "process_ticket", lambda engine, ticket_id: "analisis_completo")
+    monkeypatch.setattr(rfp_tasks, "process_ticket", process_ticket)
     monkeypatch.setattr(
         rfp_tasks.generate_rfp_responses_task, "apply_async", lambda args, retry: queued.append(args)
     )
@@ -202,12 +208,14 @@ def test_the_part_1_task_enqueues_part_2_when_the_analysis_is_complete(monkeypat
 
     assert result["status"] == "analisis_completo"
     assert queued == [["ticket-1"]]
+    # El worker publica `rfp_ticket_created` en cuanto la RFP resulta válida (notificación SSE).
+    assert notifiers == [rfp_tasks.notify_rfp_ticket_created]
 
 
 def test_the_part_1_task_does_not_enqueue_part_2_for_a_discarded_document(monkeypatch):
     queued: list[list[str]] = []
     monkeypatch.setattr(rfp_tasks, "intake_engine", lambda: None)
-    monkeypatch.setattr(rfp_tasks, "process_ticket", lambda engine, ticket_id: "descartado")
+    monkeypatch.setattr(rfp_tasks, "process_ticket", lambda engine, ticket_id, on_rfp_detected: "descartado")
     monkeypatch.setattr(
         rfp_tasks.generate_rfp_responses_task, "apply_async", lambda args, retry: queued.append(args)
     )

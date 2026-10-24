@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState, type FormEvent } from "react";
 import { RetryAlert } from "@/components/inventory/RetryAlert";
+import { RfpLiveNotifications } from "@/components/rfps/RfpLiveNotifications";
 import { RfpStatusBadge } from "@/components/rfps/RfpStatusBadge";
-import { Panel } from "@/components/ui/Panel";
+import { Badge, Panel } from "@/components/ui/Panel";
 import { getUserMessage } from "@/lib/api-client";
+import { mergeLiveTickets } from "@/lib/rfp-events";
 import {
   formatRfpDate,
   isRfpInProgress,
@@ -18,6 +20,7 @@ import {
   type RfpTicketCreated,
 } from "@/lib/rfps";
 import { useApiList } from "@/lib/use-api-list";
+import { useRfpTicketStream } from "@/lib/use-rfp-ticket-stream";
 
 const UPLOAD_FALLBACK_ERROR = "No se pudo registrar la RFP. Inténtalo de nuevo.";
 const LIST_FALLBACK_ERROR = "No se pudieron cargar las RFPs.";
@@ -29,8 +32,13 @@ export function RfpIntake() {
   const [uploading, setUploading] = useState(false);
   const [created, setCreated] = useState<RfpTicketCreated | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [dismissed, setDismissed] = useState<ReadonlySet<string>>(new Set());
   const tickets = useApiList(listRfps, LIST_FALLBACK_ERROR, String(refreshKey));
-  const pending = tickets.items.some((ticket) => isRfpInProgress(ticket.status));
+  // Las RFPs nuevas llegan por SSE; tras un corte, una sola recarga de la lista pone al día los estados.
+  const live = useRfpTicketStream(() => setRefreshKey((key) => key + 1));
+  const rows = mergeLiveTickets(tickets.items, live.tickets);
+  const liveIds = new Set(live.tickets.map((ticket) => ticket.ticket_id));
+  const pending = rows.some((ticket) => isRfpInProgress(ticket.status));
 
   // Mientras haya tickets en análisis o generación, la lista se refresca sola hasta que cambien de estado.
   useEffect(() => {
@@ -71,6 +79,12 @@ export function RfpIntake() {
           pide el cliente.
         </p>
       </header>
+
+      <RfpLiveNotifications
+        status={live.status}
+        tickets={live.tickets.filter((ticket) => !dismissed.has(ticket.ticket_id))}
+        onDismiss={(ticketId) => setDismissed((current) => new Set(current).add(ticketId))}
+      />
 
       <Panel id="rfp-upload" title="Subir RFP" description="Solo PDF, hasta 10 MB.">
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
@@ -121,11 +135,11 @@ export function RfpIntake() {
       <Panel id="rfp-tickets" title="Tickets de RFP" description="Los más recientes primero.">
         {tickets.error ? (
           <RetryAlert message={tickets.error} onRetry={tickets.retry} />
-        ) : tickets.loading && tickets.items.length === 0 ? (
+        ) : tickets.loading && rows.length === 0 ? (
           <p className="text-sm text-slate-500" role="status">
             Cargando tickets…
           </p>
-        ) : tickets.items.length === 0 ? (
+        ) : rows.length === 0 ? (
           <p className="text-sm text-slate-500">Todavía no se ha subido ninguna RFP.</p>
         ) : (
           <div className="overflow-x-auto">
@@ -141,12 +155,17 @@ export function RfpIntake() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {tickets.items.map((ticket) => (
-                  <tr key={ticket.ticket_id}>
+                {rows.map((ticket) => (
+                  <tr key={ticket.ticket_id} className={liveIds.has(ticket.ticket_id) ? "bg-cyan-50" : undefined}>
                     <td className="py-3 pr-4">
                       <Link href={`/rfps/${ticket.ticket_id}`} className="font-medium text-cyan-800 hover:underline">
                         {ticket.original_filename}
                       </Link>
+                      {liveIds.has(ticket.ticket_id) ? (
+                        <span className="ml-2">
+                          <Badge tone="info">Nueva</Badge>
+                        </span>
+                      ) : null}
                     </td>
                     <td className="py-3 pr-4 text-slate-700">
                       {ticket.client_name ?? "—"}

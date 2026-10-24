@@ -36,6 +36,23 @@ class RfpTicketCreated(BaseModel):
     task_id: str = Field(description="Tarea de Celery que ejecuta el análisis (`GET /tasks/{task_id}`).")
 
 
+class RfpTicketCreatedEvent(BaseModel):
+    """`data:` del evento SSE `rfp_ticket_created` (BRIEFING de tiempo real, §3): solo campos del ticket.
+
+    Se emite cuando el documento ya está clasificado como una RFP válida y el ticket sigue en `analizando`. Los
+    nombres y valores son los del sistema de RFPs; `original_filename` permite pintar la fila sin otra petición.
+    """
+
+    ticket_id: str
+    rfp_id: str
+    client_name: str | None
+    client_country: Literal["US", "ES"] | None
+    services_requested: list[Literal["warehousing", "last_mile", "reverse_logistics"]]
+    status: Literal["analizando"]
+    original_filename: str
+    created_at: datetime
+
+
 class RfpTicketListItem(BaseModel):
     ticket_id: str
     status: TicketStatus

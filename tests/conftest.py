@@ -12,6 +12,7 @@ from services.api.routes.incidents import summary_cache
 from services.api.routes.inventory import products_cache
 from services.api.routes.telemetry_report import report_cache
 from services.api.user_service import create_user, update_user
+from services.rfp_intake.events import RfpEventBus, use_event_bus
 from services.support_agent.memory.store import MemoryStore, use_memory_store
 from tests.helpers import DEFAULT_PASSWORD, TEST_SECRET
 
@@ -43,8 +44,14 @@ def isolated_environment(tmp_path, monkeypatch):
     report_cache.invalidate("test")
     # La memoria del agente usa un Redis en memoria propio de cada test, nunca el de `REDIS_URL`.
     use_memory_store(MemoryStore(fakeredis.FakeRedis(decode_responses=True)))
+    # Igual para las notificaciones de RFPs: el worker publica y la API lee del mismo servidor en memoria.
+    events_server = fakeredis.FakeServer()
+    use_event_bus(
+        RfpEventBus(fakeredis.FakeRedis(server=events_server), fakeredis.FakeAsyncRedis(server=events_server))
+    )
     yield
     use_memory_store(None)
+    use_event_bus(None)
 
 
 @pytest.fixture

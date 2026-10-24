@@ -541,6 +541,35 @@ Detalle, grafo, triggers y respuestas a las preguntas de diseño en `data/pipeli
 - **Tests:** `tests/pipelines/test_rfp_approval_agents.py`, `test_rfp_approval_flow.py` (ruta E2E reproducible con
   checkpointer SQLite y resumes simulados) y un caso en `tests/http/test_rfp_api.py`.
 
+### Notificación en tiempo real de RFPs nuevas (SSE) — Milestone 09
+
+- **Cuándo se emite:** `graph.run_graph` recorre el grafo con `stream_mode="values"` y llama a `on_metadata` en
+  cuanto `extract_metadata` termina (RFP válida, ticket aún en `analizando`). `runner.process_ticket` reserva ahí el
+  `rfp_id` en `rfp_tickets` (el mismo en un reintento; `_persist_result` lo reutiliza) y llama a `on_rfp_detected`.
+  El grafo no escribe ni publica nada; un fallo de la notificación se registra y no rompe el análisis.
+- **Transporte worker → API:** Redis Stream `trackflow:rfp_events` (`services/rfp_intake/events.py`, mismo
+  `REDIS_URL` que Celery), `MAXLEN ~1000`. Se eligió stream y no pub/sub porque el id de cada entrada es el `id:` de
+  SSE y permite el replay con `Last-Event-ID`.
+- **Endpoint:** `GET /rfps/events` en la API principal, protegido por el router `/rfps` (mismo JWT). Cada conexión
+  hace su propio `XREAD BLOCK 5000`; sin `Last-Event-ID` empieza en el último id (solo lo nuevo); con un id válido
+  reenvía lo posterior. Frames: `: conectado` + `id: <cursor>` + `retry:` al abrir (el cursor permite recuperar aunque el cliente no haya recibido ningún evento), `event: rfp_ticket_created` + `id:` + `data:`
+  (`RfpTicketCreatedEvent`: `ticket_id`, `rfp_id`, `client_name`, `client_country`, `services_requested`, `status`,
+  `original_filename`, `created_at`) y `: ping` tras 15 s sin enviar nada. Redis caído: `503` al conectar; a mitad
+  de stream se cierra y el cliente reconecta.
+- **Restricción encontrada:** el servidor de Next comprime con gzip las respuestas de los rewrites y retiene el SSE en
+  el búfer. La API responde `Cache-Control: no-cache, no-transform` (el middleware de compresión lo respeta) y
+  `X-Accel-Buffering: no`. Por eso el endpoint usa `StreamingResponse` propio y no `EventSourceResponse` de FastAPI,
+  que fija `Cache-Control: no-cache` sin `no-transform`.
+- **Cliente (`uis/backoffice/lib/rfp-events.ts`):** `fetch` + `ReadableStream` vía `apiFetch` (Bearer, 401 → login),
+  no `EventSource`. Backoff exponencial 1 s → 30 s con jitter, watchdog de 45 s sin datos (necesario: si cae la API, el proxy de Next no cierra la conexión con el navegador), reintento inmediato con
+  el evento `online`. Recuperación: `Last-Event-ID` en cada reconexión + una recarga de `GET /rfps` tras reconectar
+  para poner al día los estados. Deduplicación por `ticket_id` en el cliente y al fusionar con la lista.
+- **Escala:** una conexión Redis bloqueante por pestaña abierta. Para decenas de usuarios basta; si crece, un único
+  lector por proceso de la API que reparta a colas en memoria.
+- **Tests:** `tests/http/test_rfp_events.py` (uvicorn real en un hilo + `fakeredis`: cabeceras, evento nombrado,
+  forma del JSON, replay con `Last-Event-ID`, keep-alive, `503`, origen en el runner) y
+  `uis/backoffice/__tests__/rfp-events.test.ts` (parser, backoff, dedupe, reconexión, watchdog, 401).
+
 ### Servidor MCP de herramientas — Milestone 09
 
 Detalle en `mcps/trackflow_tools/README.md`.

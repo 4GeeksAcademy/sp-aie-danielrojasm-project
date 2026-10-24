@@ -8,6 +8,41 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Notificaciones en tiempo real (SSE), parte 1: RFPs nuevas
+
+- `/rfps` del backoffice muestra cada RFP nueva sin recargar: panel "RFPs nuevas en tiempo real" (tarjeta destacada
+   "Nueva RFP · requiere procesamiento", con cliente, país, servicios y enlace al ticket) y fila marcada "Nueva" en
+   la tabla, construida con el propio evento, sin volver a pedir la lista. Indicador de conexión: En vivo /
+   Conectando / Sin conexión · reintentando (con intento y espera) / Notificaciones detenidas.
+- El worker publica `rfp_ticket_created` en el Redis Stream `trackflow:rfp_events` en cuanto el documento es una
+   RFP válida (ticket en `analizando`, `rfp_id` ya reservado); `GET /rfps/events` lo reenvía por SSE con el mismo
+   JWT. Un documento descartado no notifica; Redis caído en el worker no rompe el análisis. Sin llamadas a modelos.
+- Recuperación elegida: `Last-Event-ID` con replay corto en servidor (stream de Redis) + una recarga de `GET /rfps`
+   tras reconectar; deduplicación por `ticket_id`.
+- Fallo encontrado en la verificación real: a través del rewrite de Next (`/api/rfps/events`) el stream llegaba
+   comprimido con gzip y retenido en el búfer (con `curl` sin `--compressed` no se veía). Corregido con
+   `Cache-Control: no-cache, no-transform` en la API.
+- Verificado en local con la API (uvicorn), un Redis en memoria (`fakeredis` por TCP, Docker no estaba disponible)
+   y el `next dev` del backoffice: sin token `401`; con token, cabeceras `text/event-stream` y el evento llega por el
+   proxy ~60 ms después de publicarlo; `: ping` a los 15 s. Con el cliente de `lib/rfp-events.ts` ejecutado en Node
+   contra el proxy: API parada → reintentos a 0,7 / 1,4 / 2,4 / 8 / 11,9 / 15,3 s, todos con `Last-Event-ID`; una RFP
+   publicada con la API caída llega al reconectar y la anterior no se repite. `/rfps` responde 200.
+- Verificado en Docker (`docker compose up -d --build -V api worker`, worker y gateway reales, backoffice `next dev`
+   apuntando a la API del contenedor), subiendo PDF por `/api/rfps`: Luna → evento `rfp_ticket_created` ~13 s
+   después de la subida (tras `extract_metadata`) y en el cliente 62 ms después de publicarse, sin `Content-Encoding`
+   aunque se pida gzip; RapidShip → `descartado` sin evento; el `rfp_id` del evento es el que queda en
+   `rfp_metadata` y Luna sigue sola hasta `esperando_aprobación`. Corte real: API parada, el worker publica con ella
+   caída, el watchdog del cliente detecta a los 45 s que el proxy de Next mantenía viva una conexión muerta y, al
+   reconectar, recupera el ticket.
+- Segundo fallo encontrado en Docker: un cliente que no había recibido ningún evento reconectaba sin `Last-Event-ID`
+   y perdía lo publicado durante el corte. Corregido: el frame de apertura lleva el cursor (`id:`) y el cliente lo
+   guarda aunque no sea un evento.
+- Pruebas: `tests/http/test_rfp_events.py` (9), `uis/backoffice/__tests__/rfp-events.test.ts` (8); ajustados
+   `test_serialization.py` (59 rutas, la nueva sin cuerpo JSON) y `test_rfp_response_flow.py` (firma de
+   `process_ticket`). `uv run pytest` 922, `npx jest` 145 y `npm run verify` en verde.
+- Siguiente paso: PR desde `feature/sse-notifications`; la Parte 2 (chat WebSocket) vive en
+   `real-time-communication/`.
+
 ### Milestone 09 — Flujo agéntico de RFPs, parte 3: aprobación humana y cierre del documento
 
 - Al terminar la Parte 2, su tarea encola `rfp_intake.start_approval`. El grafo `approval_graph.py` (hilo

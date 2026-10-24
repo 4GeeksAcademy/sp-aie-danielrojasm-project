@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import logging
 import operator
+from collections.abc import Callable
 from dataclasses import asdict
 from typing import Annotated, Any, TypedDict
 
@@ -211,5 +212,18 @@ def define_graph() -> StateGraph:
 graph: CompiledStateGraph = define_graph().compile()
 
 
-def run_graph(ticket_id: str, pdf_path: str) -> IntakeState:
-    return graph.invoke({"ticket_id": ticket_id, "pdf_path": pdf_path, "sections": [], "trace": []})
+def run_graph(
+    ticket_id: str, pdf_path: str, on_metadata: Callable[[dict[str, Any]], None] | None = None
+) -> IntakeState:
+    """Ejecuta el grafo y devuelve el estado final.
+
+    `on_metadata` se llama una vez, en cuanto `extract_metadata` termina: el documento ya es una RFP válida y el
+    flujo sigue procesándola. El grafo no sabe qué se hace con ese aviso (`runner.py` lo convierte en la
+    notificación en tiempo real del ticket).
+    """
+    state: IntakeState = {"ticket_id": ticket_id, "pdf_path": pdf_path, "sections": [], "trace": []}
+    for state in graph.stream(state, stream_mode="values"):
+        if on_metadata is not None and "metadata" in state:
+            on_metadata(state["metadata"])
+            on_metadata = None
+    return state

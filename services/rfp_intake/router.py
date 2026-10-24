@@ -4,6 +4,10 @@
   `analizando`, encola la tarea `rfp_intake.process_ticket` y responde `202` con el `ticket_id`. El grafo nunca corre
   en la API: lo ejecuta el worker de Celery (`services/tasks/rfp_intake.py`).
 - `GET /rfps`: últimos tickets, para la vista de recepción.
+- `GET /rfps/events`: stream SSE (`text/event-stream`) con el evento `rfp_ticket_created` de cada RFP válida que
+  entra en `analizando`. Mismo JWT que el resto de `/rfps`; acepta `Last-Event-ID` para reenviar lo que el
+  cliente se perdió mientras estaba desconectado (`events.py`). Sin eventos, manda `: ping` cada ~15 s para que
+  ningún proxy cierre la conexión, y `Cache-Control: no-transform` para que ninguno la comprima ni la retenga.
 - `GET /rfps/{ticket_id}`: estado, clasificación, metadatos, aspectos clave por departamento y síntesis; desde
   la Parte 2, el borrador y el `EvaluationResult` de cada sección y, desde la Parte 3, la aprobación de cada
   responsable, la revisión pendiente, los arbitrajes y la traza. La UI lo consulta periódicamente mientras el ticket
@@ -17,8 +21,13 @@ Aquí no hay lógica de agentes: los handlers llaman a `data/pipelines/rfp_intak
 """
 
 import logging
+import time
+from collections.abc import AsyncIterator
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Request, UploadFile, status
+from fastapi.responses import StreamingResponse
+from fastapi.sse import KEEPALIVE_COMMENT, format_sse_event
 from kombu.exceptions import OperationalError as BrokerError
 from redis.exceptions import RedisError
 from sqlalchemy.engine import Engine
@@ -31,6 +40,7 @@ from data.pipelines.rfp_intake.schema import RfpMetadata
 from services.api.auth_models import User
 from services.api.database import DatabaseNotConfiguredError, get_engine
 from services.api.security import get_current_user
+from services.rfp_intake import events
 from services.rfp_intake.models import (
     ApprovalDecisionAccepted,
     DepartmentId,
@@ -70,6 +80,19 @@ DECISION_QUEUE_DETAIL = (
     "No se pudo registrar la decisión porque la cola de tareas no está disponible. Inténtalo de nuevo en unos minutos."
 )
 DOCUMENT_NOT_READY_DETAIL = "El documento final todavía no existe: falta la aprobación de alguna sección."
+EVENTS_UNAVAILABLE_DETAIL = (
+    "Las notificaciones en tiempo real no están disponibles ahora mismo. La lista de RFPs sigue funcionando y el "
+    "panel se volverá a conectar solo."
+)
+# Cada cuánto se comprueba si el cliente sigue conectado mientras no llegan eventos.
+EVENTS_BLOCK_MS = 5000
+# Keep-alive: comentario `: ping` tras este tiempo sin enviar nada.
+EVENTS_PING_SECONDS = 15.0
+# Pista para clientes `EventSource`; el backoffice usa su propio backoff.
+EVENTS_RETRY_MS = 3000
+# `no-transform`: el servidor de Next (rewrite `/api/rfps/*`) comprime con gzip lo que no lo lleva, y la compresión
+# retiene los eventos en el búfer. `X-Accel-Buffering: no` hace lo mismo con nginx.
+EVENTS_HEADERS = {"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"}
 
 
 def get_rfp_engine() -> Engine:
@@ -154,6 +177,68 @@ def list_rfps() -> list[RfpTicketListItem]:
         )
         for ticket, metadata in rows
     ]
+
+
+async def events_cursor(last_event_id: Annotated[str | None, Header(alias="Last-Event-ID")] = None) -> str:
+    """Desde qué evento se emite: el `Last-Event-ID` de una reconexión o, en una conexión nueva, el último."""
+    if last_event_id and events.is_stream_id(last_event_id.strip()):
+        return last_event_id.strip()
+    if last_event_id:
+        logger.warning("Last-Event-ID no válido %r: se emite solo lo nuevo.", last_event_id[:40])
+    try:
+        return await events.get_event_bus().latest_id()
+    except events.EventsUnavailableError as error:
+        logger.error("Notificaciones de RFPs sin Redis: %s", error)
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, EVENTS_UNAVAILABLE_DETAIL) from error
+
+
+@router.get(
+    "/events",
+    response_class=StreamingResponse,
+    responses={
+        200: {
+            "description": "Stream SSE: `event: rfp_ticket_created`, `id:` del evento y `data:` con "
+            "`RfpTicketCreatedEvent` en JSON.",
+            "content": {"text/event-stream": {}},
+        },
+        503: {"description": "Redis no responde: no se pueden leer las notificaciones."},
+    },
+)
+async def stream_rfp_events(
+    request: Request,
+    cursor: str = Depends(events_cursor),
+    user: User = Depends(get_current_user),
+) -> StreamingResponse:
+    logger.info("SSE de RFPs abierto user=%s desde=%s", user.id, cursor)
+    return StreamingResponse(
+        _rfp_event_frames(request, cursor, user.id), media_type="text/event-stream", headers=EVENTS_HEADERS
+    )
+
+
+async def _rfp_event_frames(request: Request, cursor: str, user_id: str) -> AsyncIterator[bytes]:
+    bus = events.get_event_bus()
+    last_id = cursor
+    # Primer frame inmediato: el cliente sabe que la conexión está abierta sin esperar al primer ping. Lleva el
+    # cursor como `id:` para que un cliente que aún no recibió ningún evento también pueda recuperar tras un corte.
+    yield format_sse_event(comment="conectado", id=cursor, retry=EVENTS_RETRY_MS)
+    last_sent = time.monotonic()
+    try:
+        while not await request.is_disconnected():
+            try:
+                batch = await bus.read_after(last_id, EVENTS_BLOCK_MS)
+            except events.EventsUnavailableError as error:
+                # Se cierra el stream: el cliente reconecta con backoff y recupera desde `last_id`.
+                logger.error("SSE de RFPs cortado user=%s: Redis no responde (%s).", user_id, error)
+                return
+            for item in batch:
+                last_id = item.id
+                yield format_sse_event(id=item.id, event=item.event, data_str=item.data)
+                last_sent = time.monotonic()
+            if time.monotonic() - last_sent >= EVENTS_PING_SECONDS:
+                yield KEEPALIVE_COMMENT
+                last_sent = time.monotonic()
+    finally:
+        logger.info("SSE de RFPs cerrado user=%s último=%s", user_id, last_id)
 
 
 @router.get(
