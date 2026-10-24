@@ -145,10 +145,11 @@ def test_new_rfp_ticket_arrives_as_a_named_event_with_the_briefing_payload(live_
 
 
 def test_a_new_connection_only_receives_what_arrives_after_it(live_api, token):
-    publish("tkt_old")
+    old_id = publish("tkt_old")
     with open_stream(live_api, token) as response:
         stream = frames(response)
-        next(stream)
+        # El frame de apertura lleva el cursor: aunque no llegue ningún evento, el cliente puede recuperar desde ahí.
+        assert next(stream)["id"] == old_id
         publish("tkt_new")
         assert json.loads(next_event(stream)["data"])["ticket_id"] == "tkt_new"
 

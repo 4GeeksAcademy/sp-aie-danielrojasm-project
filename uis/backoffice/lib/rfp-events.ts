@@ -82,7 +82,8 @@ export function createSseParser(): (chunk: string) => SseMessage[] {
         else if (field === "event") event = value;
         else if (field === "data") data.push(value);
       }
-      if (data.length > 0) messages.push({ id, event, data: data.join("\n") });
+      // Un frame con solo `id:` (el de apertura) no es un evento, pero actualiza el cursor.
+      if (data.length > 0 || id !== null) messages.push({ id, event, data: data.join("\n") });
     }
     return messages;
   };

@@ -552,7 +552,7 @@ Detalle, grafo, triggers y respuestas a las preguntas de diseño en `data/pipeli
   SSE y permite el replay con `Last-Event-ID`.
 - **Endpoint:** `GET /rfps/events` en la API principal, protegido por el router `/rfps` (mismo JWT). Cada conexión
   hace su propio `XREAD BLOCK 5000`; sin `Last-Event-ID` empieza en el último id (solo lo nuevo); con un id válido
-  reenvía lo posterior. Frames: `: conectado` + `retry:` al abrir, `event: rfp_ticket_created` + `id:` + `data:`
+  reenvía lo posterior. Frames: `: conectado` + `id: <cursor>` + `retry:` al abrir (el cursor permite recuperar aunque el cliente no haya recibido ningún evento), `event: rfp_ticket_created` + `id:` + `data:`
   (`RfpTicketCreatedEvent`: `ticket_id`, `rfp_id`, `client_name`, `client_country`, `services_requested`, `status`,
   `original_filename`, `created_at`) y `: ping` tras 15 s sin enviar nada. Redis caído: `503` al conectar; a mitad
   de stream se cierra y el cliente reconecta.
@@ -561,7 +561,7 @@ Detalle, grafo, triggers y respuestas a las preguntas de diseño en `data/pipeli
   `X-Accel-Buffering: no`. Por eso el endpoint usa `StreamingResponse` propio y no `EventSourceResponse` de FastAPI,
   que fija `Cache-Control: no-cache` sin `no-transform`.
 - **Cliente (`uis/backoffice/lib/rfp-events.ts`):** `fetch` + `ReadableStream` vía `apiFetch` (Bearer, 401 → login),
-  no `EventSource`. Backoff exponencial 1 s → 30 s con jitter, watchdog de 45 s sin datos, reintento inmediato con
+  no `EventSource`. Backoff exponencial 1 s → 30 s con jitter, watchdog de 45 s sin datos (necesario: si cae la API, el proxy de Next no cierra la conexión con el navegador), reintento inmediato con
   el evento `online`. Recuperación: `Last-Event-ID` en cada reconexión + una recarga de `GET /rfps` tras reconectar
   para poner al día los estados. Deduplicación por `ticket_id` en el cliente y al fusionar con la lista.
 - **Escala:** una conexión Redis bloqueante por pestaña abierta. Para decenas de usuarios basta; si crece, un único

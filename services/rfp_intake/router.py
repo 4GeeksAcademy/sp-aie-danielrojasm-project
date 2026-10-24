@@ -218,8 +218,9 @@ async def stream_rfp_events(
 async def _rfp_event_frames(request: Request, cursor: str, user_id: str) -> AsyncIterator[bytes]:
     bus = events.get_event_bus()
     last_id = cursor
-    # Primer frame inmediato: el cliente sabe que la conexión está abierta sin esperar al primer ping.
-    yield format_sse_event(comment="conectado", retry=EVENTS_RETRY_MS)
+    # Primer frame inmediato: el cliente sabe que la conexión está abierta sin esperar al primer ping. Lleva el
+    # cursor como `id:` para que un cliente que aún no recibió ningún evento también pueda recuperar tras un corte.
+    yield format_sse_event(comment="conectado", id=cursor, retry=EVENTS_RETRY_MS)
     last_sent = time.monotonic()
     try:
         while not await request.is_disconnected():

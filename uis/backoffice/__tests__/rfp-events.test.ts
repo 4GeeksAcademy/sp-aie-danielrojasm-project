@@ -168,6 +168,32 @@ describe("RfpTicketStream", () => {
     expect(reconnections).toBe(1);
   });
 
+  it("recupera desde el cursor del frame de apertura aunque no haya llegado ningún evento", async () => {
+    const lastIds: (string | null)[] = [];
+    const responses = [
+      (signal: AbortSignal) => sseResponse([": conectado\nid: 5-0\nretry: 3000\n\n"], signal),
+      (signal: AbortSignal) => sseResponse([": conectado\nid: 5-0\n\n"], signal, true),
+    ];
+    const stream: RfpTicketStream = new RfpTicketStream({
+      fetchStream: async (_url, init) => {
+        lastIds.push(new Headers(init.headers).get("Last-Event-ID"));
+        const next = responses.shift();
+        if (!next) throw new Error("Sin más respuestas simuladas.");
+        return next(init.signal as AbortSignal);
+      },
+      onTicket: () => undefined,
+      onStatus: (status) => {
+        if (status.state === "reconnecting") queueMicrotask(() => stream.retryNow());
+      },
+    });
+
+    stream.start();
+    await waitFor(() => lastIds.length === 2);
+    stream.stop();
+
+    expect(lastIds).toEqual([null, "5-0"]);
+  });
+
   it("corta y reconecta una conexión que deja de recibir datos (ni siquiera el ping)", async () => {
     let calls = 0;
     const stream = new RfpTicketStream({

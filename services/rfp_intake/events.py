@@ -125,7 +125,7 @@ def notify_rfp_ticket_created(ticket: RfpTicket, metadata: dict[str, Any]) -> No
         created_at=ticket.created_at,
     )
     try:
-        entry_id = get_event_bus().publish(RFP_TICKET_CREATED, event.model_dump_json())
+        entry_id = _decode(get_event_bus().publish(RFP_TICKET_CREATED, event.model_dump_json()))
     except RedisError as error:
         # Sin aviso en vivo, la RFP sigue apareciendo en `GET /rfps` (la UI lo vuelve a pedir al reconectar).
         logger.error(

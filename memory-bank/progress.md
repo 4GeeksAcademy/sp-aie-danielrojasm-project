@@ -26,11 +26,20 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    y el `next dev` del backoffice: sin token `401`; con token, cabeceras `text/event-stream` y el evento llega por el
    proxy ~60 ms después de publicarlo; `: ping` a los 15 s. Con el cliente de `lib/rfp-events.ts` ejecutado en Node
    contra el proxy: API parada → reintentos a 0,7 / 1,4 / 2,4 / 8 / 11,9 / 15,3 s, todos con `Last-Event-ID`; una RFP
-   publicada con la API caída llega al reconectar y la anterior no se repite. `/rfps` responde 200. No se probó con
-   el worker y el gateway del modelo (el evento se publicó con la misma función que usa el worker).
-- Pruebas: `tests/http/test_rfp_events.py` (9), `uis/backoffice/__tests__/rfp-events.test.ts` (7); ajustados
+   publicada con la API caída llega al reconectar y la anterior no se repite. `/rfps` responde 200.
+- Verificado en Docker (`docker compose up -d --build -V api worker`, worker y gateway reales, backoffice `next dev`
+   apuntando a la API del contenedor), subiendo PDF por `/api/rfps`: Luna → evento `rfp_ticket_created` ~13 s
+   después de la subida (tras `extract_metadata`) y en el cliente 62 ms después de publicarse, sin `Content-Encoding`
+   aunque se pida gzip; RapidShip → `descartado` sin evento; el `rfp_id` del evento es el que queda en
+   `rfp_metadata` y Luna sigue sola hasta `esperando_aprobación`. Corte real: API parada, el worker publica con ella
+   caída, el watchdog del cliente detecta a los 45 s que el proxy de Next mantenía viva una conexión muerta y, al
+   reconectar, recupera el ticket.
+- Segundo fallo encontrado en Docker: un cliente que no había recibido ningún evento reconectaba sin `Last-Event-ID`
+   y perdía lo publicado durante el corte. Corregido: el frame de apertura lleva el cursor (`id:`) y el cliente lo
+   guarda aunque no sea un evento.
+- Pruebas: `tests/http/test_rfp_events.py` (9), `uis/backoffice/__tests__/rfp-events.test.ts` (8); ajustados
    `test_serialization.py` (59 rutas, la nueva sin cuerpo JSON) y `test_rfp_response_flow.py` (firma de
-   `process_ticket`). `uv run pytest` 922, `npx jest` 144 y `npm run verify` en verde.
+   `process_ticket`). `uv run pytest` 922, `npx jest` 145 y `npm run verify` en verde.
 - Siguiente paso: PR desde `feature/sse-notifications`; la Parte 2 (chat WebSocket) vive en
    `real-time-communication/`.
 
