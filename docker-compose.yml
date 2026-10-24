@@ -20,7 +20,8 @@ services:
       MCP_SERVER_URL: ${DOCKER_MCP_SERVER_URL:?Falta DOCKER_MCP_SERVER_URL en .env}
       MCP_OAUTH_ISSUER: ${DOCKER_MCP_OAUTH_ISSUER:?Falta DOCKER_MCP_OAUTH_ISSUER en .env}
     ports:
-      - "8000:8000"
+      # Solo esta máquina: Docker publica saltándose el firewall del host (UFW). Lo público entra por el proxy HTTPS.
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./services:/app/services
       - ./packages:/app/packages:ro
@@ -100,8 +101,8 @@ services:
       MCP_OAUTH_ISSUER: ${DOCKER_MCP_OAUTH_ISSUER:?Falta DOCKER_MCP_OAUTH_ISSUER en .env}
       TRACKFLOW_API_URL: ${TRACKFLOW_API_INTERNAL_URL:?Falta TRACKFLOW_API_INTERNAL_URL en .env}
     ports:
-      # Protegido con OAuth; en Codespaces se reenvía para MCP Playground.
-      - "8001:8001"
+      # Protegido con OAuth y solo en esta máquina; en Codespaces se reenvía para MCP Playground.
+      - "127.0.0.1:8001:8001"
     volumes:
       - ./mcps:/app/mcps:ro
       - ./services:/app/services:ro
@@ -216,8 +217,9 @@ services:
       # Del .env raíz; si falta, la ruta del propio backoffice (rewrite /api/telemetry/* hacia la API).
       NEXT_PUBLIC_TELEMETRY_ENDPOINT: ${NEXT_PUBLIC_TELEMETRY_ENDPOINT:-/api/telemetry/events}
     ports:
-      - "3000:3000"
-      - "3001:3001"
+      # `next dev` nunca directo a internet: solo esta máquina (el proxy HTTPS sirve lo público).
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:3001:3001"
     volumes:
       - ./uis:/app/uis
       # El backoffice importa la lógica del Hito 2 desde <raíz>/src.

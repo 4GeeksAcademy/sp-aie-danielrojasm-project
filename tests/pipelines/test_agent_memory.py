@@ -107,8 +107,10 @@ def agent(monkeypatch):
     return state
 
 
-def turn(compiled, message, *, conversation_id="conv-1", user_id=USER):
-    return run_agent(message, conversation_id=conversation_id, user_id=user_id, compiled=compiled)
+def turn(compiled, message, *, conversation_id="conv-1", user_id=USER, can_write_memory=True):
+    return run_agent(
+        message, conversation_id=conversation_id, user_id=user_id, can_write_memory=can_write_memory, compiled=compiled
+    )
 
 
 def events(store: MemoryStore) -> list[tuple[str, str | None]]:
@@ -359,6 +361,20 @@ def test_redis_down_is_a_clear_memory_error():
 
 
 # --- Ciclos completos por el grafo ------------------------------------------------------------------
+
+
+def test_a_role_without_write_permission_cannot_teach_the_shared_memory(compiled, agent, store):
+    # Una cuenta del registro público intenta fijar una regla de carrier falsa que leerían todos los usuarios.
+    agent["replies"][SEUR_MESSAGE] = AgentReply(answer="Gracias por el aviso.", proposal=SEUR_DRAFT)
+    agent["decisions"]["Sí, guárdalo."] = classified("approve")
+
+    first = turn(compiled, SEUR_MESSAGE, user_id="self-registered", can_write_memory=False)
+    second = turn(compiled, "Sí, guárdalo.", user_id="self-registered", can_write_memory=False)
+
+    assert first.state["memory_proposal"] is None
+    assert "¿Quieres que recuerde esto" not in first.state["answer"]
+    assert "memory_decision" not in second.state
+    assert store.entries() == [] and events(store) == []
 
 
 def test_approved_cycle_is_audited_and_reflected_in_a_later_conversation(compiled, agent, store):

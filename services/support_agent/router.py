@@ -20,7 +20,7 @@ from services.support_agent.models import (
     MemoryDecisionRead,
     MemoryProposalRead,
 )
-from services.support_agent.runner import AgentRunError, run_agent
+from services.support_agent.runner import MEMORY_WRITER_ROLES, AgentRunError, run_agent
 
 
 router = APIRouter(prefix="/agent", tags=["agent"], dependencies=[Depends(get_current_user)])
@@ -45,7 +45,12 @@ AGENT_FAILED_DETAIL = (
 )
 def agent_query(body: AgentQueryRequest, user: User = Depends(get_current_user)) -> AgentQueryResponse:
     try:
-        run = run_agent(body.question, conversation_id=body.conversation_id, user_id=user.id)
+        run = run_agent(
+            body.question,
+            conversation_id=body.conversation_id,
+            user_id=user.id,
+            can_write_memory=user.role in MEMORY_WRITER_ROLES,
+        )
     except AgentRunError as error:
         if isinstance(error.__cause__, (RagServiceError, RagConfigurationError)):
             raise HTTPException(

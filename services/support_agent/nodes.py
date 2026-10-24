@@ -262,6 +262,9 @@ def propose_memory(state: AgentState) -> AgentState:
     if not state.get("user_id"):
         logger.info("propose_memory sin usuario autenticado: no se propone nada.")
         return {"memory_proposal": None}
+    if not state.get("can_write_memory"):
+        logger.info("propose_memory user=%s sin rol para escribir en la memoria compartida.", state["user_id"])
+        return {"memory_proposal": None}
     draft = MemoryDraft.model_validate(state["memory_candidate"])
     now = policy.utc_now()
     proposal = policy.build_proposal(

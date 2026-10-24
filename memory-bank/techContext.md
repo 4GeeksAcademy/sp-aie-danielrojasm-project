@@ -55,11 +55,12 @@ La recepción de RFPs usa `markitdown[pdf]` (PDF → Markdown) y `py-readability
 
 ### 🖥️ Frontends
 
-**Framework:** Next.js 16.2.10 (App Router, Turbopack) con React 19.2.4, las mismas versiones en las tres apps.
+**Framework:** Next.js 16.4.3 (App Router, Turbopack) con React 19.2.4 en la web y el backoffice; el tracker sigue en
+16.2.10 (fuera del alcance de la auditoría OWASP).
 
 **Estilos:** Tailwind CSS v4 mediante `@tailwindcss/postcss`, sin `tailwind.config.js`. Los tokens están en `app/globals.css` con `@theme`.
 
-**Calidad:** ESLint 9 (flat config) con `eslint-config-next` 16.2.10 y TypeScript 5 en cada app.
+**Calidad:** ESLint 9 (flat config) con `eslint-config-next` (16.4.3 en la web y el backoffice) y TypeScript 5 en cada app.
 
 Next 16 trae cambios incompatibles con versiones anteriores. Antes de usar una API de Next hay que leer su guía en
 `uis/<app>/node_modules/next/dist/docs/`, como exige el `AGENTS.md` de cada app.
@@ -438,7 +439,8 @@ Diseño, prohibiciones y evidencias en `docs/agent-memory/memory-design.md`.
   `services/api/requirements.txt`) con timeouts de 1–2 s; cualquier fallo es `MemoryUnavailableError` y el agente
   responde avisando de que no puede recordar.
 - **Flujo:** propuesta → decisión explícita del usuario en el turno siguiente de la misma conversación → consolidación.
-  Sin `user_id` no se propone nada (scripts). El clasificador y la generación usan el modelo de generación en modo JSON.
+  Sin `user_id` no se propone nada (scripts), y tampoco sin `can_write_memory`: solo `admin` y `manager`
+  (`MEMORY_WRITER_ROLES`) escriben en la memoria compartida (auditoría OWASP, C2). El clasificador y la generación usan el modelo de generación en modo JSON.
 - **Política en código (`memory/policy.py`):** categorías `carrier_rule`, `incident_context`, `client_preference`;
   transportistas y países de la base de conocimiento; patrones prohibidos; cita del usuario (≥ 80 % de sus palabras en
   el mensaje). Lo bloqueado y los mensajes del registro se guardan redactados (`redact`).
@@ -614,6 +616,22 @@ Detalle en `mcps/trackflow_tools/README.md`.
   2 sin configuración, 3 issuer inaccesible.
 - **Restricción:** MCP Auth descarga el JWKS en cada petición. Con `localhost`, Windows prueba antes `::1` y cada
   validación tarda ~2 s, así que las URLs locales usan `127.0.0.1`.
+
+### Seguridad: auditoría OWASP Top 10 — Milestone 09
+
+Informe en `docs/security/owasp-top10-audit.md`; servidor en `docs/security/server-hardening.md`.
+
+- **Roles en acciones de alto impacto:** el registro (`POST /users`) es público y crea cuentas `user`, así que estar
+  autenticado no basta. `security.require_roles(...)` responde `403` (`FORBIDDEN_ROLE_DETAIL`) y registra el intento;
+  hoy lo usa la decisión de RFPs (`manager`/`admin`). Toda acción irreversible nueva (aprobar devoluciones, cambiar
+  carrier) tiene que pasar por él. El backoffice no tiene lógica de roles: muestra el `detail` del `403`.
+- **Memoria del agente:** `run_agent(can_write_memory=False)` por defecto; la API y el chat lo conceden por rol.
+- **Exposición de puertos:** todo puerto de `docker-compose.yml` va atado a `127.0.0.1` (Docker se salta UFW);
+  `tests/infra/test_compose_exposure.py` lo comprueba. Lo público (443, 80 para redirigir) entra por un proxy HTTPS.
+- **Servidor:** `infra/server/harden.sh` (usuario `trackflow`, `/srv/trackflow/{app,logs,config}`, SSH sin root ni
+  contraseñas, UFW con 22 limitado, 80 y 443); `--check` saca el estado como evidencia.
+- **Riesgos abiertos:** sin rate limit en login, JWT en `localStorage`, compose solo de desarrollo, contenedores como
+  root, el MCP recibe `JWT_SECRET_KEY`, `python-jose`/`ecdsa` sin versión corregida (solo HS256).
 
 ### 🚫 Sin APIs dentro de `uis/`
 

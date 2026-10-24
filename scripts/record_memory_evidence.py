@@ -64,7 +64,10 @@ def record(store: MemoryStore, case_id: str, turns: list[dict], extra: dict) -> 
     recorded = []
     for turn in turns:
         conversation_id = conversations.setdefault(turn["conversation"], uuid.uuid4().hex)
-        run = run_agent(turn["message"], conversation_id=conversation_id, user_id=turn["user"])
+        # Los casos simulan agentes de CX con rol de escritura (`MEMORY_WRITER_ROLES`).
+        run = run_agent(
+            turn["message"], conversation_id=conversation_id, user_id=turn["user"], can_write_memory=True
+        )
         trace = load_trace(run.trace_path)
         recorded.append(
             {

@@ -8,7 +8,10 @@ from kombu.exceptions import OperationalError as BrokerError
 
 from data.pipelines.rfp_intake import approval_runner, compliance, generators, llm, response_runner, runner
 from services.api import database as api_database
+from services.api.auth_models import UserRole, UserUpdate
 from services.api.main import app
+from services.api.security import FORBIDDEN_ROLE_DETAIL
+from services.api.user_service import get_user_by_email, update_user
 from services.rfp_intake import router as rfp_router
 from tests.pipelines.test_rfp_intake_flow import AGENT_OUTPUTS, RFP_LINES, minimal_pdf
 from tests.pipelines.test_rfp_response_agents import reverse_draft
@@ -224,6 +227,13 @@ def test_part_3_registers_each_decision_and_serves_the_final_document(auth_clien
     assert warehouse["pending_review"]["approver"] == "Ana Whitfield"
     assert warehouse["pending_review"]["allowed_decisions"] == ["approve", "request_changes", "reject"]
     assert {entry["part"] for entry in detail["trace"]} == {"parte_1", "parte_2", "parte_3"}
+
+    # Una cuenta del registro público (rol `user`) no decide: 403 y nada encolado.
+    forbidden = auth_client.post(decision_url, json={"decision": "approve", "review_round": 1, "comment": ""})
+    assert forbidden.status_code == 403 and forbidden.json()["detail"] == FORBIDDEN_ROLE_DETAIL
+    assert resumes == []
+    ana = get_user_by_email("ana@example.com")
+    update_user(ana.id, UserUpdate(role=UserRole.MANAGER))
 
     # La validación ocurre antes de encolar: nada inválido llega al worker.
     without_reason = auth_client.post(decision_url, json={"decision": "reject", "review_round": 1})

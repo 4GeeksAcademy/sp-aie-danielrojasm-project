@@ -11,7 +11,9 @@ from fastapi.testclient import TestClient
 
 from data.pipelines import rag
 from data.process.rag import RagConfigurationError, RagServiceError
+from services.api.auth_models import UserRole, UserUpdate
 from services.api.main import app
+from services.api.user_service import update_user
 from services.support_agent import nodes, router
 from services.support_agent.guardrails import events
 from services.support_agent.guardrails.input_guard import INSTRUCTION_OVERRIDE_REFUSAL
@@ -90,6 +92,11 @@ def test_memory_proposal_is_answered_in_the_same_conversation_by_the_authenticat
     monkeypatch.setattr(
         nodes, "classify_decision", lambda text, proposal: DecisionClassification(decision="approve", confianza=0.9)
     )
+
+    # Con el rol del registro público, la memoria compartida no se toca.
+    denied = auth_client.post("/agent/query", json={"question": message}).json()
+    assert denied["memory_proposal"] is None and get_memory_store().entries() == []
+    update_user(auth_client.user_id, UserUpdate(role=UserRole.MANAGER))
 
     first = auth_client.post("/agent/query", json={"question": message}).json()
     second = auth_client.post(

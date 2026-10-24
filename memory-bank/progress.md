@@ -8,6 +8,29 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Auditoría OWASP Top 10 y endurecimiento del servidor
+
+- Informe en `docs/security/owasp-top10-audit.md`: las 10 categorías evaluadas por separado en backend, frontend y
+   agente, con hallazgo y evidencia (archivo:línea o test). El agente tiene carril propio (A01, A02 y A05 como
+   prioritarias); el motor de devoluciones no existe en el fork y el de carriers es una función pura sin LLM.
+- 4 críticas corregidas, cada una con un test o comando que falla en `main` y pasa en la rama:
+   - **C1 (A01):** una cuenta del registro público aprobaba secciones de RFPs → `require_roles(manager, admin)`,
+     `403` y nada encolado (`tests/http/test_rfp_api.py`).
+   - **C2 (A08/A01, agente):** cualquier cuenta podía fijar hechos en la memoria compartida (p. ej. una regla de
+     carrier falsa) → `can_write_memory` solo para `admin`/`manager` en `/agent/query` y en el chat
+     (`tests/http/test_agent_api.py`, `tests/pipelines/test_agent_memory.py`).
+   - **C3 (A05):** API, MCP y `next dev` publicados en `0.0.0.0`, saltándose UFW → atados a `127.0.0.1`
+     (`tests/infra/test_compose_exposure.py`).
+   - **C4 (A06/A10):** Next.js 16.2.10 con RCE sin autenticación → 16.4.3 en la web y el backoffice; `npm audit`
+     0 vulnerabilidades en las dos (antes, 1 crítica y 3 altas de producción por app).
+- Servidor: `infra/server/harden.sh` (usuario `trackflow`, permisos de `/srv/trackflow/{app,logs,config}`, SSH sin
+   root ni contraseñas, UFW con 22 limitado, 80 y 443) y `docs/security/server-hardening.md`. Aplicado en el
+   servidor del curso: `--check` antes (`permitrootlogin yes`, contraseñas activas, UFW inactivo) y después
+   (`permitrootlogin no`, `passwordauthentication no`, `allowusers trackflow`, UFW activo); `ssh root@` rechazado.
+- Verificado: `uv run pytest` 951, `npm run verify` y Jest del backoffice en verde.
+- Siguiente paso, por prioridad: rate limit en `/auth/login` y
+   `/auth/forgot-password` (A07, alta) y alta de cuentas por invitación o activación por admin (A04).
+
 ### Milestone 09 — Sistemas en tiempo real, parte 2: chat por WebSocket con el First-line CX agent
 
 - Vista nueva `/atencion-cliente` del backoffice (el ítem "Atención al cliente" del sidebar deja de ser "próximo"):
