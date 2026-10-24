@@ -14,7 +14,8 @@
   sigue en curso.
 - `POST /rfps/{ticket_id}/sections/{department_id}/decision`: registra la decisión del responsable de una sección.
   Se valida contra la revisión pendiente en el checkpoint antes de encolar `rfp_intake.resume_approval`; responde
-  `202` y el worker reanuda solo la rama de ese departamento.
+  `202` y el worker reanuda solo la rama de ese departamento. Solo `manager` o `admin`: una cuenta recién registrada
+  (rol `user`) recibe `403` y no se encola nada.
 - `GET /rfps/{ticket_id}/document`: el documento final (Markdown) cuando el ticket está en `terminado`.
 
 Aquí no hay lógica de agentes: los handlers llaman a `data/pipelines/rfp_intake/runner.py` y `approval_runner.py`.
@@ -37,9 +38,9 @@ from data.pipelines.rfp_intake import approval, approval_runner, runner
 from data.pipelines.rfp_intake.departments import DEPARTMENTS, TicketStatus
 from data.pipelines.rfp_intake.evaluators import EvaluationResult
 from data.pipelines.rfp_intake.schema import RfpMetadata
-from services.api.auth_models import User
+from services.api.auth_models import User, UserRole
 from services.api.database import DatabaseNotConfiguredError, get_engine
-from services.api.security import get_current_user
+from services.api.security import get_current_user, require_roles
 from services.rfp_intake import events
 from services.rfp_intake.models import (
     ApprovalDecisionAccepted,
@@ -323,6 +324,7 @@ def get_rfp(ticket_id: str) -> RfpTicketRead:
     status_code=status.HTTP_202_ACCEPTED,
     response_model=ApprovalDecisionAccepted,
     responses={
+        403: {"description": "Solo un manager o un admin puede decidir sobre una sección."},
         404: {"description": TICKET_NOT_FOUND_DETAIL},
         409: {"description": "La sección no tiene una revisión pendiente o la decisión no encaja con ella."},
         503: {"description": "PostgreSQL, el checkpoint o la cola de tareas no están disponibles."},
@@ -332,7 +334,7 @@ def decide_section(
     ticket_id: str,
     department_id: DepartmentId,
     body: approval.DecisionInput,
-    user: User = Depends(get_current_user),
+    user: User = Depends(require_roles(UserRole.MANAGER, UserRole.ADMIN)),
 ) -> ApprovalDecisionAccepted:
     engine = get_rfp_engine()
     try:

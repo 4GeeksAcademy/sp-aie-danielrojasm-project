@@ -1,4 +1,6 @@
+import logging
 import os
+from collections.abc import Callable
 from uuid import uuid4
 from datetime import datetime, timedelta, timezone
 
@@ -6,10 +8,11 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
-from services.api.auth_models import User
+from services.api.auth_models import User, UserRole
 from services.api.user_service import get_user_by_id
 
 
+logger = logging.getLogger("trackflow.api")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 ALGORITHM = "HS256"
 
@@ -95,6 +98,22 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     if user is None or not user.is_active:
         raise _unauthorized()
     return user
+
+
+FORBIDDEN_ROLE_DETAIL = "Tu rol no permite esta acción; pide a un manager o admin que la haga."
+
+
+def require_roles(*roles: UserRole) -> Callable[[User], User]:
+    """Dependencia para acciones de alto impacto: el registro es público, así que estar autenticado no basta."""
+    allowed = {role.value for role in roles}
+
+    def dependency(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role not in allowed:
+            logger.warning("acceso denegado por rol user=%s role=%s", current_user.id, current_user.role)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=FORBIDDEN_ROLE_DETAIL)
+        return current_user
+
+    return dependency
 
 
 def user_from_token(token: str) -> User | None:

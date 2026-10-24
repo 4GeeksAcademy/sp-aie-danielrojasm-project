@@ -24,11 +24,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from services.api.user_service import get_user_by_id
 from services.support_agent.chat import models
 from services.support_agent.chat.broker import ChatBroker, channel_for
 from services.support_agent.chat.models import ChatMessage, ChatSession, SessionStatus
 from services.support_agent.chat.store import ChatStoreUnavailableError, get_chat_store
-from services.support_agent.runner import AgentRunError, run_agent
+from services.support_agent.runner import MEMORY_WRITER_ROLES, AgentRunError, run_agent
 from services.support_agent.streaming import GenerationAborted
 
 
@@ -164,11 +165,14 @@ class LiveSession:
 
         logger.info("chat_generation_started session_id=%s message_id=%s", self.session_id, generation.message.message_id)
         try:
+            # Solo escribe el titular; su rol se lee en cada turno para que un cambio de rol aplique sin reconectar.
+            owner = await asyncio.to_thread(get_user_by_id, self.session.user_id)
             run = await asyncio.to_thread(
                 run_agent,
                 text,
                 conversation_id=self.session_id,
                 user_id=self.session.user_id,
+                can_write_memory=owner is not None and owner.role in MEMORY_WRITER_ROLES,
                 on_token=on_token,
                 abort=generation.abort,
             )

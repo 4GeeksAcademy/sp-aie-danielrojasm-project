@@ -21,6 +21,8 @@ class AgentState(TypedDict, total=False):
     # proponen escrituras). `run_id` es el de la corrida, para la auditoría.
     conversation_id: str
     user_id: str | None
+    # La memoria es compartida: solo un rol de confianza (`MEMORY_WRITER_ROLES`) puede proponer hechos para todos.
+    can_write_memory: bool
     run_id: str
     # Pedidos que la sesión autenticada puede consultar; cualquier otro se rechaza por falta de autorización.
     authorized_orders: list[str]

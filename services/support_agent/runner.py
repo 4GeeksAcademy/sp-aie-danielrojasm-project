@@ -35,6 +35,8 @@ logger = logging.getLogger("trackflow.agent")
 
 # Nodos cuyo texto generado es la respuesta que ve el usuario (el resto usa el modelo para decidir, no para responder).
 STREAMED_NODES = frozenset({nodes.GENERATE_ANSWER, nodes.SMALL_TALK_REPLY})
+# Lo que se recuerda lo leen todos los usuarios; el registro es público, así que el rol `user` no escribe.
+MEMORY_WRITER_ROLES = frozenset({"admin", "manager"})
 
 
 @dataclass(frozen=True)
@@ -59,6 +61,7 @@ def run_agent(
     *,
     conversation_id: str | None = None,
     user_id: str | None = None,
+    can_write_memory: bool = False,
     authorized_orders: Iterable[str] = (),
     compiled: CompiledStateGraph | None = None,
     directory: Path | None = None,
@@ -66,7 +69,8 @@ def run_agent(
     on_token: Callable[[str], None] | None = None,
     abort: threading.Event | None = None,
 ) -> AgentRun:
-    """Un turno de conversación. Sin `user_id` el agente recuerda, pero no propone ni resuelve escrituras de memoria.
+    """Un turno de conversación. Sin `user_id` el agente recuerda, pero no propone ni resuelve escrituras de memoria;
+    sin `can_write_memory` (rol fuera de `MEMORY_WRITER_ROLES`) tampoco propone.
 
     `authorized_orders` son los pedidos vinculados a la sesión autenticada; el guard de entrada rechaza cualquier
     otro por falta de autorización. `on_token` recibe el texto de la respuesta conforme se genera y `abort` la
@@ -79,6 +83,7 @@ def run_agent(
         "question": question,
         "conversation_id": conversation_id,
         "user_id": user_id,
+        "can_write_memory": can_write_memory,
         "run_id": run_id,
         "authorized_orders": sorted({canonical_order(order) for order in authorized_orders}),
     }
