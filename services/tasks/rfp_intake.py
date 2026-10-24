@@ -8,6 +8,9 @@ handoff de enrutamiento y genera y evalúa la sección de cada departamento; al 
 checkpoint. Cada decisión que registra un responsable en el backoffice llega como `rfp_intake.resume_approval` y
 reanuda solo la rama de su departamento. Los mensajes solo llevan el `ticket_id` (y, en el `resume`, la decisión).
 
+Durante el análisis, en cuanto el documento resulta ser una RFP válida, el worker publica el evento
+`rfp_ticket_created`, que la API reenvía al backoffice por SSE (`services/rfp_intake/events.py`).
+
 Reintentos: `max_retries = 2` con el mismo backoff que el resto de tareas (`TASKS_RETRY_BACKOFF_SECONDS` × 2^n).
 Cada intento fallido deja `last_error` en el ticket, que no cambia de estado; al agotar los reintentos el fallo
 va a la DLQ y el ticket se puede reprocesar con `scripts/rfp_intake.py reprocess`, `generate` o `approval start`.
@@ -25,6 +28,7 @@ from data.pipelines.rfp_intake.approval_runner import NoPendingReviewError, star
 from data.pipelines.rfp_intake.departments import TicketStatus
 from data.pipelines.rfp_intake.response_runner import generate_responses
 from data.pipelines.rfp_intake.runner import TicketNotFoundError, intake_engine, process_ticket
+from services.rfp_intake.events import notify_rfp_ticket_created
 from services.tasks.celery_app import attempt_of, celery_app
 from services.tasks.dead_letter import send_to_dead_letter
 from services.tasks.pipeline import retry_countdown
@@ -43,7 +47,7 @@ APPROVAL_ENTRY_STATUSES = frozenset({TicketStatus.EN_EVALUACION.value, TicketSta
 @celery_app.task(bind=True, name=TASK_NAME, max_retries=MAX_RETRIES, soft_time_limit=10 * 60, time_limit=12 * 60)
 def process_rfp_ticket_task(self, ticket_id: str) -> dict[str, Any]:
     try:
-        status = process_ticket(intake_engine(), ticket_id)
+        status = process_ticket(intake_engine(), ticket_id, on_rfp_detected=notify_rfp_ticket_created)
         if status == TicketStatus.ANALISIS_COMPLETO.value:
             generate_rfp_responses_task.apply_async(args=[ticket_id], retry=False)
     except TicketNotFoundError:

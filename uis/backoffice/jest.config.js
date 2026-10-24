@@ -18,6 +18,7 @@ module.exports = {
     "lib/inventory-telemetry.ts",
     "lib/labels.ts",
     "lib/registration.ts",
+    "lib/rfp-events.ts",
     "lib/telemetry.ts",
     "lib/telemetry-helpers.ts",
     "lib/use-api-list.ts",

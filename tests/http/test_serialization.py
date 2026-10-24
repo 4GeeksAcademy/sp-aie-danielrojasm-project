@@ -25,6 +25,8 @@ ROUTES_THAT_ALWAYS_REJECT = {
 ROUTES_WITHOUT_JSON_BODY = {
     ("DELETE", "/users/{user_id}"),
     ("GET", "/api/incidents/results/export"),
+    # Stream SSE (`text/event-stream`); su `data:` es `RfpTicketCreatedEvent` (tests/http/test_rfp_events.py).
+    ("GET", "/rfps/events"),
 }
 SUPPLIER = {
     "name": "MRW España",
@@ -110,9 +112,9 @@ def test_every_json_route_declares_a_pydantic_response_model():
     # 32 rutas (el health check no se publica), el conteo físico, la ingesta y el
     # reporte de telemetría, las 3 de `/reporting` (pipeline semanal), el estado de
     # tareas de Celery (`/tasks/{task_id}`), la consulta a la base de conocimiento (`/knowledge/query`),
-    # el agente LangGraph (`/agent/query` y `/agent/guardrails/summary`), las 5 del flujo de RFPs (`/rfps`)
-    # y 12 rechazos explícitos de edición directa del stock.
-    assert len(operations) == 58
+    # el agente LangGraph (`/agent/query` y `/agent/guardrails/summary`), las 6 del flujo de RFPs (`/rfps`,
+    # incluido el stream SSE) y 12 rechazos explícitos de edición directa del stock.
+    assert len(operations) == 59
     assert missing == []
     # Los rechazos no tienen respuesta 2xx: su contrato es el cuerpo del 405.
     assert len(rejecting) == 12
