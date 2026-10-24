@@ -71,7 +71,75 @@ Valores esperados en `--check`: `permitrootlogin no`, `passwordauthentication no
 `Status: active` con `Default: deny (incoming)` y solo `22/tcp LIMIT IN`, `80/tcp ALLOW IN`, `443/tcp ALLOW IN`;
 en escucha fuera de `127.0.0.1` solo 22, 80 y 443.
 
-## Estado
+## Evidencia en el servidor del curso (Ubuntu 22.04.5 LTS)
 
-El script y la corrección de `docker-compose.yml` están en el repositorio. La ejecución en el servidor y las
-salidas `baseline-antes.txt` / `baseline-despues.txt` quedan pendientes: requieren acceso SSH de un operador.
+Aplicado por fases para no perder el acceso: primero se creó `trackflow` con una clave ed25519 y se comprobó que
+entraba y que `sudo whoami` devolvía `root`; después `trackflow` ejecutó `sudo bash harden.sh trackflow`.
+
+**Antes** (`harden.sh --check`):
+
+```text
+== SSH (valores efectivos)
+maxauthtries 6
+permitrootlogin yes
+pubkeyauthentication yes
+passwordauthentication yes
+kbdinteractiveauthentication no
+== Firewall
+Status: inactive
+== Puertos TCP en escucha
+0.0.0.0:22
+127.0.0.1:18789
+127.0.0.1:39393
+127.0.0.53%lo:53
+[::1]:18789
+[::]:22
+== Usuarios con shell y sudo
+root
+sudo:x:27:
+== Permisos de /srv/trackflow
+/srv/trackflow no existe
+```
+
+**Después** (`harden.sh --check`):
+
+```text
+== SSH (valores efectivos)
+maxauthtries 3
+permitrootlogin no
+pubkeyauthentication yes
+passwordauthentication no
+kbdinteractiveauthentication no
+allowusers trackflow
+== Firewall
+Status: active
+Default: deny (incoming), allow (outgoing), disabled (routed)
+22/tcp (OpenSSH)           LIMIT IN    Anywhere
+80/tcp                     ALLOW IN    Anywhere
+443/tcp                    ALLOW IN    Anywhere
+(y las mismas tres reglas en v6)
+== Usuarios con shell y sudo
+root
+trackflow
+sudo:x:27:trackflow
+== Permisos de /srv/trackflow
+drwxr-x--- trackflow:trackflow /srv/trackflow
+drwxr-x--- trackflow:trackflow /srv/trackflow/app
+drwx------ trackflow:trackflow /srv/trackflow/config
+drwxr-x--- trackflow:trackflow /srv/trackflow/logs
+```
+
+**Pruebas desde fuera del servidor:**
+
+```text
+$ ssh root@<servidor>
+root@<servidor>: Permission denied (publickey).
+$ ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password trackflow@<servidor>
+trackflow@<servidor>: Permission denied (publickey).
+$ ssh trackflow@<servidor> whoami           # con la clave
+trackflow
+puertos TCP: 22, 80 y 443 aceptan conexión; 8000, 3000 y 18789 cerrados o filtrados
+```
+
+Los servicios en `127.0.0.1:18789` y `:39393` ya estaban antes y siguen solo en loopback; root conserva su cuenta
+(cron, servicios), pero no entra por SSH.

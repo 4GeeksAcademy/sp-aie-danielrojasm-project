@@ -244,9 +244,8 @@ stdout del contenedor y no hay alertas sobre logins fallidos repetidos o `403` e
 
 ## Pendientes priorizados
 
-1. Ejecutar `infra/server/harden.sh` en el servidor y adjuntar `--check` antes/después (`server-hardening.md`).
-2. A07: rate limit en `/auth/login` y `/auth/forgot-password`.
-3. A01/A04: alta por invitación o activación por admin; `require_roles` en escrituras de inventario e incidencias.
-4. A05: compose de producción sin `--reload` ni modos dev, contenedores sin root y cabeceras de seguridad.
-5. A02: token de servicio propio para el servidor MCP en lugar de `JWT_SECRET_KEY`; JWT en cookie `HttpOnly`.
-6. A06: migrar de `python-jose` a `PyJWT`.
+1. A07: rate limit en `/auth/login` y `/auth/forgot-password`.
+2. A01/A04: alta por invitación o activación por admin; `require_roles` en escrituras de inventario e incidencias.
+3. A05: compose de producción sin `--reload` ni modos dev, contenedores sin root y cabeceras de seguridad.
+4. A02: token de servicio propio para el servidor MCP en lugar de `JWT_SECRET_KEY`; JWT en cookie `HttpOnly`.
+5. A06: migrar de `python-jose` a `PyJWT`.

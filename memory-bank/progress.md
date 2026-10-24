@@ -24,10 +24,11 @@ decisión o un problema nuevo) añade una entrada al principio del **Historial**
    - **C4 (A06/A10):** Next.js 16.2.10 con RCE sin autenticación → 16.4.3 en la web y el backoffice; `npm audit`
      0 vulnerabilidades en las dos (antes, 1 crítica y 3 altas de producción por app).
 - Servidor: `infra/server/harden.sh` (usuario `trackflow`, permisos de `/srv/trackflow/{app,logs,config}`, SSH sin
-   root ni contraseñas, UFW con 22 limitado, 80 y 443) y `docs/security/server-hardening.md`. **Pendiente de
-   ejecutar en el servidor:** necesita a un operador con SSH; la evidencia es la salida de `--check` antes y después.
+   root ni contraseñas, UFW con 22 limitado, 80 y 443) y `docs/security/server-hardening.md`. Aplicado en el
+   servidor del curso: `--check` antes (`permitrootlogin yes`, contraseñas activas, UFW inactivo) y después
+   (`permitrootlogin no`, `passwordauthentication no`, `allowusers trackflow`, UFW activo); `ssh root@` rechazado.
 - Verificado: `uv run pytest` 951, `npm run verify` y Jest del backoffice en verde.
-- Siguiente paso: ejecutar `harden.sh` en el servidor y, por prioridad, rate limit en `/auth/login` y
+- Siguiente paso, por prioridad: rate limit en `/auth/login` y
    `/auth/forgot-password` (A07, alta) y alta de cuentas por invitación o activación por admin (A04).
 
 ### Milestone 09 — Sistemas en tiempo real, parte 2: chat por WebSocket con el First-line CX agent
