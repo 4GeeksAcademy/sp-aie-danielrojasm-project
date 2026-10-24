@@ -159,6 +159,80 @@ duración, estado final, checkpoints y, si aplica, el nodo y el tipo de error. E
 | Qdrant, la colección o el gateway LLM no disponibles | 503 con la referencia `run_id` |
 | Cualquier otro fallo de un nodo | 500 con la referencia `run_id`, sin traza |
 
+## Chat por WebSocket (`chat/`)
+
+El mismo agente, por un canal bidireccional: la respuesta llega token a token y el usuario puede interrumpirla a
+mitad para redirigirla. El grafo no cambia; solo cómo se comunica. Lo usa la vista `/atencion-cliente` del backoffice.
+
+| Ruta | Qué hace |
+| --- | --- |
+| `POST /agent/chat/sessions` (bearer) | Abre una `ChatSession` (`session_id`, `agent_id` = `first_line_cx`, `user_id`, `client_id`, `status`, `created_at`). |
+| `GET /agent/chat/sessions/{session_id}` (bearer) | La sesión con su historial; 404 si no existe o es ajena. |
+| `WS /agent/chat/sessions/{session_id}/ws?token=<JWT>` | Canal ligado a esa sesión. |
+
+- **Autenticación:** el mismo JWT del backoffice, en `?token=` o en un primer frame `{"event": "auth", "data":
+  {"token": "…"}}` (5 s). Sin token válido se cierra con 1008 antes de cualquier evento de chat. 4404: la sesión no
+  existe; 4403: es de otro usuario. Los roles `admin` y `manager` pueden observar sesiones ajenas, pero solo el
+  titular escribe.
+- **Sesión = hilo:** `session_id` es también el `conversation_id` del agente (la memoria pendiente va por
+  conversación). No hay otro id para la misma conversación.
+- **Frames** (`{"event", "data"}`): el cliente envía `user_message` (`text`) e `interrupt_requested` (`new_input`).
+  El servidor envía `session_snapshot` (al conectar: `messages`, `status` y la `generation` en curso con su último
+  `sequence`), `user_message` (eco del turno, con `message_id`), `token_chunk` (`message_id`, `token`, `sequence` desde
+  1 en cada respuesta), `generation_interrupted` (`message_id`, `status: "interrupted"`, `text` parcial, `new_input`),
+  `generation_completed` (`message_id`, `text` final), `generation_failed` (`detail` con la referencia `run_id`) y
+  `chat_error` (frame no válido, mensaje mientras el agente responde, observador que intenta escribir).
+
+### Tokens
+
+`run_agent(on_token=…, abort=…)` recorre el grafo con `stream_mode=["updates", "custom"]` y pone un `TokenStream` en
+`configurable`. En `generate_answer` y `small_talk_reply` la llamada al modelo pasa a `stream=True`
+(`streaming.complete`); cada trozo se emite con el writer del modo `custom`. El modelo responde en JSON
+(`{"respuesta", "propuesta_memoria"}`), así que `JsonFieldStreamer` solo deja pasar el valor de `respuesta`. Los
+textos fijos (guardrails, `no_information`, `ticket_fallback`) no salen del modelo: llegan enteros en
+`generation_completed`. Ese evento trae siempre la respuesta tras el guard de salida, que es la que queda en el
+historial (incluye los avisos de memoria y la pregunta de la propuesta).
+
+### Interrupción
+
+`interrupt_requested` durante una respuesta:
+
+1. Pone el `abort` del turno. `streaming.complete` lo mira antes de cada trozo: cierra la respuesta HTTP del modelo
+   (deja de generar) y lanza `GenerationAborted`; el runner también corta entre nodos. El trace queda
+   `interrupted` y el hilo del checkpointer se libera.
+2. En el mismo instante el turno deja de aceptar tokens: aunque quede alguno en vuelo, no se publica.
+3. El mensaje del asistente queda `interrupted` con el texto ya mostrado y se publica `generation_interrupted`.
+4. Empieza un turno nuevo con `new_input`: otro `user_message` y otro mensaje del asistente. El interrumpido no se
+   borra ni se reescribe.
+
+No se usa `interrupt()` de LangGraph: eso es una pausa del grafo para una decisión humana (como la aprobación de
+RFPs); aquí no hay nada que reanudar, la generación se descarta. Sin generación en curso, `interrupt_requested` es un
+turno normal. Si la interrupción llega cuando el grafo ya terminó pero aún no se publicó `generation_completed`, el
+mensaje queda igualmente `interrupted` con lo mostrado (el trace de esa corrida dice `completed`).
+
+### Pub/sub y reconexión
+
+`hub.LiveSession` es el productor: una por sesión con conexiones abiertas o un turno en curso, y es la única que
+llama al agente. Publica en el canal `chat.<session_id>` de `broker.ChatBroker` (en memoria, una cola por
+suscriptor). Cada conexión solo consume su cola y le pasa a la `LiveSession` los mensajes del usuario; N conexiones a
+la misma sesión son una sola generación con los mismos eventos. Si se cierra la última conexión, el turno termina y
+se guarda igual.
+
+El historial vive en Redis (`chat/store.py`, mismo `REDIS_URL`): `trackflow:chat:sessions`,
+`trackflow:chat:messages:<session_id>` y `trackflow:chat:order:<session_id>`. Al conectar, la suscripción y el
+`session_snapshot` se hacen sin ceder el bucle de eventos, así que ningún token cae entre los dos; si hay una
+respuesta en curso, el snapshot trae su texto parcial y su `sequence`, y el cliente descarta lo que ya tiene. El
+cliente (`uis/backoffice/lib/agent-chat.ts`) reconecta con el backoff del SSE de RFPs (1 s → 30 s con jitter) a la
+misma sesión y no acepta tokens hasta recibir el snapshot.
+
+**Límites:** el broker y las `LiveSession` son del proceso: con varias réplicas de la API, el canal pasaría a Redis
+Pub/Sub y el productor necesitaría un dueño por sesión. Un reinicio de la API a mitad de respuesta pierde ese turno
+(el mensaje en `streaming` no se guarda hasta terminar).
+
+Tests: `tests/pipelines/test_agent_streaming.py` (extracción del JSON, abort del stream del modelo, trace
+`interrupted`) y `tests/http/test_agent_chat_ws.py` (auth, contrato de eventos, interrupción, rehidratación,
+varios suscriptores con una sola llamada al modelo).
+
 ## Evals
 
 `data/eval/agent/eval-cases.json` define los casos (RAG, tool, ambos, ticket inexistente y gestor caído);

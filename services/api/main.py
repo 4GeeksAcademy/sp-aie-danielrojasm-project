@@ -42,6 +42,7 @@ from services.api.routes.users import router as users_router
 from services.api.security import get_current_user
 from services.reporting.router import router as reporting_router
 from services.rfp_intake.router import router as rfp_router
+from services.support_agent.chat.router import router as agent_chat_router
 from services.support_agent.router import router as agent_router
 
 
@@ -124,6 +125,7 @@ app.include_router(reporting_router)
 app.include_router(tasks_router)
 app.include_router(knowledge_router)
 app.include_router(agent_router)
+app.include_router(agent_chat_router)
 app.include_router(rfp_router)
 app.add_exception_handler(IncidentValidationError, handle_incident_validation_error)
 

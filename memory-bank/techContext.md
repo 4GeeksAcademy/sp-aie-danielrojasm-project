@@ -570,6 +570,28 @@ Detalle, grafo, triggers y respuestas a las preguntas de diseño en `data/pipeli
   forma del JSON, replay con `Last-Event-ID`, keep-alive, `503`, origen en el runner) y
   `uis/backoffice/__tests__/rfp-events.test.ts` (parser, backoff, dedupe, reconexión, watchdog, 401).
 
+### Chat por WebSocket con el First-line CX agent — Milestone 09
+
+Detalle, contrato y límites en la sección "Chat por WebSocket" de `services/support_agent/README.md`.
+
+- **Rutas:** `POST /agent/chat/sessions`, `GET /agent/chat/sessions/{session_id}` y
+  `WS /agent/chat/sessions/{session_id}/ws` (`services/support_agent/chat/router.py`, router aparte del de
+  `/agent/query` porque la dependencia OAuth2 de ese router no sirve en un WebSocket). El backoffice entra por el
+  rewrite `/api/agent/chat/:path*`; Next reenvía también el upgrade del WebSocket a destinos externos.
+- **Auth:** mismo JWT; se acepta el socket y se cierra con 1008 si falta o no vale (un handshake rechazado le llega al
+  navegador como 1006 y el cliente no sabría que debe volver al login). 4404 / 4403 / 1011 para sesión inexistente,
+  ajena o Redis caído. `admin` y `manager` observan; solo el titular escribe.
+- **Streaming del agente (`streaming.py`):** `TokenStream` (`abort` + nodos que emiten) en `configurable`; writer del
+  modo `custom`; `complete(client, …)` recibe el cliente del módulo que llama para no romper los tests que sustituyen
+  `get_llm_client`. Sin `TokenStream` es la llamada de siempre.
+- **Productor/consumidor:** `hub.LiveSession` (una por sesión viva) ejecuta `run_agent` en un hilo; los tokens vuelven
+  al bucle con `call_soon_threadsafe` y salen por `broker.ChatBroker` (en memoria, `chat.<session_id>`, una cola por
+  conexión). Suscripción y `session_snapshot` sin ceder el bucle.
+- **Persistencia:** Redis (`trackflow:chat:*`), sin checkpoint: el del agente se libera al terminar cada turno. Tests
+  con `fakeredis` (`use_chat_store`) y hub nuevo por test (`use_chat_hub`).
+- **Restricciones:** un solo proceso de la API (broker en memoria). En `next dev`, el upgrade se bloquea si el origen
+  no es `localhost` (`allowedDevOrigins`): las pruebas con navegador usan `http://localhost:3002`.
+
 ### Servidor MCP de herramientas — Milestone 09
 
 Detalle en `mcps/trackflow_tools/README.md`.

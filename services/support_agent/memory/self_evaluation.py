@@ -24,6 +24,7 @@ from data.process.rag import RagServiceError, get_llm_client, load_settings
 from services.support_agent import prompt
 from services.support_agent.memory.models import MemoryDraft, MemoryEntry
 from services.support_agent.memory.policy import CATEGORY_LABELS
+from services.support_agent.streaming import complete
 
 
 logger = logging.getLogger("trackflow.agent")
@@ -89,16 +90,17 @@ def generate_reply(question: str, context: list[dict[str, Any]]) -> AgentReply:
     model = load_settings().generation_model
     started = time.perf_counter()
     try:
-        completion = get_llm_client().chat.completions.create(
+        content = complete(
+            get_llm_client(),
+            visible_field="respuesta",
             model=model,
             messages=messages,
             temperature=rag.GENERATION_TEMPERATURE,
             response_format={"type": "json_object"},
-        )
+        ).strip()
     except openai.OpenAIError as error:
         logger.error("generate_reply fallo del modelo %s: %s", model, type(error).__name__)
         raise RagServiceError("El modelo de generación no respondió.") from error
-    content = (completion.choices[0].message.content or "").strip() if completion.choices else ""
     reply = parse_reply(content)
     logger.info(
         "generate_reply model=%s fragments=%d proposal=%s duration_ms=%.0f",

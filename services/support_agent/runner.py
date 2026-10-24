@@ -3,14 +3,19 @@
 Cada corrida usa su `run_id` como `thread_id` del checkpointer. El trace se escribe siempre, también cuando un nodo
 falla; en ese caso el hilo se conserva en el checkpointer para poder retomarlo desde el último checkpoint sin repetir
 los nodos que ya terminaron. Las corridas completadas liberan su hilo: su historial ya está en el trace.
+
+Con `on_token` (chat por WebSocket) la corrida recorre el grafo también en modo `custom` y entrega cada token de la
+respuesta conforme el modelo lo genera (`streaming.py`). Con `abort` puesto, la corrida se corta en el siguiente token
+o al terminar el nodo en curso: el trace queda `interrupted`, el hilo se libera y se lanza `GenerationAborted`.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 import time
 import uuid
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,13 +23,18 @@ from typing import Any
 
 from langgraph.graph.state import CompiledStateGraph
 
+from services.support_agent import nodes
 from services.support_agent.graph import graph as default_graph
 from services.support_agent.guardrails.input_guard import canonical_order
 from services.support_agent.state import AgentState
+from services.support_agent.streaming import TOKEN_STREAM_KEY, GenerationAborted, TokenStream
 from services.support_agent.tracing import TRACE_VERSION, load_trace, sources_used, trace_path, write_trace
 
 
 logger = logging.getLogger("trackflow.agent")
+
+# Nodos cuyo texto generado es la respuesta que ve el usuario (el resto usa el modelo para decidir, no para responder).
+STREAMED_NODES = frozenset({nodes.GENERATE_ANSWER, nodes.SMALL_TALK_REPLY})
 
 
 @dataclass(frozen=True)
@@ -53,11 +63,14 @@ def run_agent(
     compiled: CompiledStateGraph | None = None,
     directory: Path | None = None,
     run_id: str | None = None,
+    on_token: Callable[[str], None] | None = None,
+    abort: threading.Event | None = None,
 ) -> AgentRun:
     """Un turno de conversación. Sin `user_id` el agente recuerda, pero no propone ni resuelve escrituras de memoria.
 
     `authorized_orders` son los pedidos vinculados a la sesión autenticada; el guard de entrada rechaza cualquier
-    otro por falta de autorización.
+    otro por falta de autorización. `on_token` recibe el texto de la respuesta conforme se genera y `abort` la
+    interrumpe (`GenerationAborted`).
     """
     run_id = run_id or uuid.uuid4().hex
     conversation_id = conversation_id or uuid.uuid4().hex
@@ -69,7 +82,8 @@ def run_agent(
         "run_id": run_id,
         "authorized_orders": sorted({canonical_order(order) for order in authorized_orders}),
     }
-    return _execute(compiled or default_graph, graph_input, trace, directory)
+    stream = TokenStream(abort=abort or threading.Event(), nodes=STREAMED_NODES) if on_token else None
+    return _execute(compiled or default_graph, graph_input, trace, directory, stream, on_token)
 
 
 def resume_run(
@@ -100,13 +114,25 @@ def _execute(
     graph_input: AgentState | None,
     trace: dict[str, Any],
     directory: Path | None,
+    stream: TokenStream | None = None,
+    on_token: Callable[[str], None] | None = None,
 ) -> AgentRun:
     run_id = trace["run_id"]
-    config = {"configurable": {"thread_id": run_id}}
+    config: dict[str, Any] = {"configurable": {"thread_id": run_id}}
+    modes: list[str] = ["updates"]
+    if stream is not None:
+        config["configurable"][TOKEN_STREAM_KEY] = stream
+        modes.append("custom")
     started = last = time.perf_counter()
     try:
-        for update in compiled.stream(graph_input, config, stream_mode="updates"):
-            for node, output in update.items():
+        for mode, chunk in compiled.stream(graph_input, config, stream_mode=modes):
+            if stream is not None and stream.abort.is_set():
+                raise GenerationAborted("La generación se interrumpió a petición del cliente.")
+            if mode == "custom":
+                if on_token is not None and chunk.get("token"):
+                    on_token(chunk["token"])
+                continue
+            for node, output in chunk.items():
                 now = time.perf_counter()
                 trace["steps"].append(
                     {
@@ -117,6 +143,16 @@ def _execute(
                     }
                 )
                 last = now
+    except GenerationAborted:
+        path = _finish(compiled, config, trace, "interrupted", started, directory)
+        compiled.checkpointer.delete_thread(run_id)
+        logger.info(
+            "agent_run run_id=%s status=interrupted nodes=%s trace=%s",
+            run_id,
+            ">".join(step["node"] for step in trace["steps"]) or "-",
+            path,
+        )
+        raise
     except Exception as error:
         snapshot = compiled.get_state(config)
         failed_node = snapshot.next[0] if snapshot.next else None

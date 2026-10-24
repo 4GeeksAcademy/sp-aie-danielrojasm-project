@@ -13,6 +13,8 @@ from services.api.routes.inventory import products_cache
 from services.api.routes.telemetry_report import report_cache
 from services.api.user_service import create_user, update_user
 from services.rfp_intake.events import RfpEventBus, use_event_bus
+from services.support_agent.chat.hub import use_chat_hub
+from services.support_agent.chat.store import ChatStore, use_chat_store
 from services.support_agent.memory.store import MemoryStore, use_memory_store
 from tests.helpers import DEFAULT_PASSWORD, TEST_SECRET
 
@@ -49,9 +51,14 @@ def isolated_environment(tmp_path, monkeypatch):
     use_event_bus(
         RfpEventBus(fakeredis.FakeRedis(server=events_server), fakeredis.FakeAsyncRedis(server=events_server))
     )
+    # El historial del chat también va a un Redis en memoria, y cada test empieza sin sesiones vivas.
+    use_chat_store(ChatStore(fakeredis.FakeRedis(decode_responses=True)))
+    use_chat_hub(None)
     yield
     use_memory_store(None)
     use_event_bus(None)
+    use_chat_store(None)
+    use_chat_hub(None)
 
 
 @pytest.fixture
