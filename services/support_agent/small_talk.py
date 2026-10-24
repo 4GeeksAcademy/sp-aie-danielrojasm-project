@@ -12,6 +12,7 @@ import openai
 from data.pipelines import rag
 from data.process.rag import RagServiceError, get_llm_client, load_settings
 from services.support_agent.prompt import build_small_talk_messages
+from services.support_agent.streaming import complete
 
 
 logger = logging.getLogger("trackflow.agent")
@@ -20,15 +21,15 @@ logger = logging.getLogger("trackflow.agent")
 def brief_reply(question: str) -> str:
     model = load_settings().generation_model
     try:
-        completion = get_llm_client().chat.completions.create(
+        answer = complete(
+            get_llm_client(),
             model=model,
             messages=build_small_talk_messages(question),
             temperature=rag.GENERATION_TEMPERATURE,
-        )
+        ).strip()
     except openai.OpenAIError as error:
         logger.error("brief_reply fallo del modelo %s: %s", model, type(error).__name__)
         raise RagServiceError("El modelo de generación no respondió.") from error
-    answer = (completion.choices[0].message.content or "").strip() if completion.choices else ""
     if not answer:
         raise RagServiceError("El modelo de generación devolvió una respuesta vacía.")
     return answer

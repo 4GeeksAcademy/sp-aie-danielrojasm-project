@@ -82,6 +82,12 @@ const nextConfig: NextConfig = {
         destination: `${apiOrigin}/knowledge/:path*`,
       },
       {
+        // Chat con el agente de CX (`/agent/chat/*`): sesiones por REST y el
+        // WebSocket, que Next también reenvía (upgrade) a la API.
+        source: "/api/agent/chat/:path*",
+        destination: `${apiOrigin}/agent/chat/:path*`,
+      },
+      {
         // Recepción de RFPs en modo ticket (`services/rfp_intake/`).
         source: "/api/rfps",
         destination: `${apiOrigin}/rfps`,

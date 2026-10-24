@@ -31,10 +31,10 @@ const navItems: NavItem[] = [
   { key: "suppliers", label: "Directorio de proveedores", href: "/suppliers" },
   { key: "knowledge_assistant", label: "Asistente comercial", href: "/knowledge" },
   { key: "rfp_intake", label: "Recepción de RFPs", href: "/rfps" },
+  { key: "customer_service", label: "Atención al cliente", href: "/atencion-cliente" },
   { key: "telemetry_report", label: "Telemetría técnica", href: "/telemetry" },
   { key: "profile", label: "Mi perfil", href: "/account/profile" },
   { key: "returns", label: "Devoluciones", href: "#", upcoming: true },
-  { key: "customer_service", label: "Atención al cliente", href: "#", upcoming: true },
   { key: "executive_dashboard", label: "Dashboard ejecutivo", href: "#", upcoming: true },
 ];
 

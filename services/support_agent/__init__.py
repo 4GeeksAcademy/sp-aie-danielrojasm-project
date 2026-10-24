@@ -10,4 +10,5 @@
 - `graph.py`: construcción, validación estructural y compilación del grafo (con checkpointer).
 - `tracing.py` + `runner.py`: cada corrida deja un trace JSON consultable con los nodos, su salida y los checkpoints.
 - `router.py`: `POST /agent/query`, que solo invoca el grafo, y `GET /agent/guardrails/summary`.
+- `streaming.py` + `chat/`: la respuesta token a token por WebSocket, con interrupción y rehidratación del hilo.
 """

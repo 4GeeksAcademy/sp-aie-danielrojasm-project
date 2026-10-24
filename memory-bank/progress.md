@@ -8,6 +8,40 @@ Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
 
+### Milestone 09 — Sistemas en tiempo real, parte 2: chat por WebSocket con el First-line CX agent
+
+- Vista nueva `/atencion-cliente` del backoffice (el ítem "Atención al cliente" del sidebar deja de ser "próximo"):
+   la respuesta del agente se pinta token a token; escribir mientras responde lo interrumpe ("Interrumpir y
+   enviar"), el mensaje parcial queda marcado "Interrumpido" y la respuesta redirigida sale como mensaje nuevo.
+   Indicador En vivo / Sin conexión · reintentando (intento y espera) / Recuperando la conversación.
+- El agente no cambia: `run_agent(on_token, abort)` recorre el grafo también en modo `custom` y, solo en
+   `generate_answer` y `small_talk_reply`, la llamada al modelo pasa a `stream=True` (`streaming.py`); del JSON del
+   modelo solo se emite `respuesta`. `POST /agent/query` sigue sin streaming.
+- `WS /agent/chat/sessions/{session_id}/ws` con el mismo JWT (`?token=` o primer frame `auth`), `session_id` = id del
+   hilo y del `conversation_id` del agente. Eventos del BRIEFING (`token_chunk`, `interrupt_requested`,
+   `generation_interrupted`, `generation_completed`, `session_snapshot`, `user_message`) más `generation_failed` y
+   `chat_error`. Historial en Redis; productor (`LiveSession`) desacoplado de las conexiones con un broker en
+   memoria por sesión (`chat.<session_id>`).
+- Abort real: el `abort` del turno cierra la respuesta HTTP del modelo y corta el grafo (`GenerationAborted`, trace
+   `interrupted`); no se usa `interrupt()` de LangGraph.
+- Verificado en local (API con uvicorn en 8010 sobre el Redis, Qdrant y gateway reales; `next dev` en 3002), siempre
+   por el proxy de Next (`/api/agent/chat/*`, que también reenvía el upgrade del WebSocket):
+   - Sin token → cierre 1008 antes de cualquier evento.
+   - Turno completo: 101 `token_chunk`, el primero a 12,8 s (enrutado, RAG y memoria van antes) y el último a 14,4 s.
+   - Interrupción tras 6 tokens: `generation_interrupted` 14 ms después, 0 tokens más del mensaje original, en el
+     log `stream_aborted node=generate_answer chars=81` y la corrida `status=interrupted` sin terminar
+     `generate_answer`; el turno nuevo responde a `new_input` ("La ventana de devolución estándar es de 30 días…").
+   - En Chrome headless por CDP: el texto del mensaje en curso crece (37 → 63 → 111 caracteres), el botón cambia a
+     "Interrumpir y enviar", queda la burbuja "Interrumpido" y, tras recargar, las 4 burbujas siguen.
+   - Corte real: API parada con la vista abierta → el proxy de Next cierra el socket (a diferencia del SSE, no hace
+     falta watchdog), reintentos a 1 s y 2 s, "Recuperando la conversación…"; con la API de vuelta, En vivo en 5,7 s
+     y los 6 mensajes rehidratados.
+- Pruebas: `tests/http/test_agent_chat_ws.py` (15), `tests/pipelines/test_agent_streaming.py` (11),
+   `uis/backoffice/__tests__/agent-chat.test.ts` (10); `test_serialization.py` pasa a 61 rutas. `uv run pytest` 948,
+   `npx jest` 155 y `npm run verify` en verde; `/`, `/atencion-cliente` y `/rfps` responden 200 en `npm run dev`.
+- Siguiente paso: PR desde `feature/websocket-chat`. Si la API pasa a varias réplicas, el broker y las `LiveSession`
+   tienen que moverse a Redis Pub/Sub con un dueño por sesión.
+
 ### Milestone 09 — Notificaciones en tiempo real (SSE), parte 1: RFPs nuevas
 
 - `/rfps` del backoffice muestra cada RFP nueva sin recargar: panel "RFPs nuevas en tiempo real" (tarjeta destacada
