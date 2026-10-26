@@ -617,6 +617,26 @@ Detalle en `mcps/trackflow_tools/README.md`.
 - **Restricción:** MCP Auth descarga el JWKS en cada petición. Con `localhost`, Windows prueba antes `::1` y cada
   validación tarda ~2 s, así que las URLs locales usan `127.0.0.1`.
 
+### Seguridad de IA: marco NIST — Milestone 09
+
+Informe en `docs/security/nist-ai-security-report.md` (inventario con responsables, entradas al modelo, funciones NIST,
+RGPD y CCPA/CPRA, brechas abiertas).
+
+- **Rate limit de turnos del agente:** `services/support_agent/rate_limit.py`. Ventana fija de 60 s por usuario en
+  Redis (`trackflow:agent_rate:<user_id>:<ventana>`, INCR + EXPIRE), compartida entre workers. El límite sale de
+  `AGENT_RATE_LIMIT_PER_MINUTE` (vacía = 10). Se comprueba antes del grafo en `POST /agent/query` y en cada
+  `user_message`/`interrupt_requested` del chat. Pasado el límite: `429` + `Retry-After` o `chat_error`, log
+  `agent_rate_limited` y evento `rate_limit` en `GET /agent/guardrails/summary`.
+- **Decisión:** si Redis cae, el turno se permite (*fail-open*) y se registra `agent_rate_limit_unavailable`. El
+  soporte 24/7 pesa más que el coste de un corte de Redis. Los tests sustituyen el limitador con `use_rate_limiter()`.
+- **Órdenes operativas en contenido externo:** `isolation.find_embedded_directive` retira, solo de los fragmentos
+  externos (RAG, tickets y memoria, nunca del mensaje del usuario), las frases que ordenan asignar o cambiar carrier,
+  aprobar devoluciones, aplicar descuentos, confirmar despachos o compartir datos de una marca. Esas órdenes las da
+  una persona por el flujo oficial. Los patrones exigen imperativo al inicio de la frase o "siempre" / "a partir de
+  ahora", para no tocar descripciones ("se asigna el carrier…"). Un test comprueba que el corpus no pierde frases.
+- **Restricción:** `/knowledge/query` y la subida de RFPs aún no pasan por el limitador ni retiran las órdenes del
+  PDF (brechas B3 y B4 del informe).
+
 ### Seguridad: auditoría OWASP Top 10 — Milestone 09
 
 Informe en `docs/security/owasp-top10-audit.md`; servidor en `docs/security/server-hardening.md`.

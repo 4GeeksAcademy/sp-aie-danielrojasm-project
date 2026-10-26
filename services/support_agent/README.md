@@ -114,8 +114,9 @@ fallo tiene su propia capa; ninguna llama al modelo, así que los tests las prue
 | --- | --- | --- | --- |
 | System prompt seguro | `prompt.py` | Solo el mensaje de sistema da instrucciones. La consulta va en `<mensaje_usuario>` y las fuentes en `<contenido_externo>`, ambos en el mensaje del usuario. Declara dominio, small talk con redirección, lo prohibido y los datos que nunca se revelan | — |
 | Guard de entrada | `guardrails/input_guard.py`, nodo `input_guard` | Rechaza cambios de instrucciones (también ofuscados o en inglés), uso como chatbot personal y pedidos que no son de la sesión; reconduce el small talk; avisa cuando se pide aplicar la política de otro país | `security` / `content` |
-| Aislamiento del contenido externo | `guardrails/isolation.py`, nodo `generate_answer` | Quita etiquetas del prompt y frases con órdenes de los fragmentos del RAG, los tickets y la memoria | `security` |
+| Aislamiento del contenido externo | `guardrails/isolation.py`, nodo `generate_answer` | Quita etiquetas del prompt y, de los fragmentos del RAG, los tickets y la memoria, las frases que cambian las instrucciones o dan una orden operativa (asignar o cambiar el carrier, aprobar una devolución, aplicar un descuento, compartir datos de una marca) | `security` |
 | Guard de salida | `guardrails/output_guard.py`, nodo `output_guard` | Fuga de instrucciones (marca `PROMPT_CANARY`, etiquetas, trozos literales) → rechazo; correos, direcciones, coordenadas, ubicaciones internas de almacén, tarifas con transportistas y pedidos ajenos → frase retirada; falta la línea "Fuente:" o el small talk se alarga → se corrige | `security` / `content` / `structural` |
+| Rate limit | `rate_limit.py`, `router.py` y `chat/router.py` (antes del grafo) | Como mucho `AGENT_RATE_LIMIT_PER_MINUTE` turnos (10 por defecto) por usuario y minuto en Redis, contando cada interrupción del chat; pasado el límite, `429` con `Retry-After` o `chat_error`, sin llamar al modelo. Sin Redis, el turno se permite y se registra el error | `security` |
 | Memoria | `memory/policy.py` (Parte 1) | Lo prohibido por el CONTEXT nunca se propone; un mensaje rechazado no llega a resolver una propuesta pendiente | `content` |
 
 | Entrada | Comportamiento | Recorrido |
@@ -138,7 +139,8 @@ API.
 
 **Cómo se prueba:** `tests/pipelines/test_agent_guardrails.py` (determinista: capas como funciones y grafo con dobles
 que fallan si un abuso llega a una fuente o al modelo) y los casos `context-*` y `small-talk-redirect` de
-`data/eval/agent/eval-cases.json`, grabados contra el agente real.
+`data/eval/agent/eval-cases.json`, grabados contra el agente real. Los dos casos de prompt injection del BRIEFING de
+seguridad y el rate limit, de extremo a extremo por la API: `tests/http/test_ai_security_controls.py`.
 
 ## Traces
 
@@ -156,6 +158,7 @@ duración, estado final, checkpoints y, si aplica, el nodo y el tipo de error. E
 | Respuesta generada, sin información o ticket sin confirmar | 200 |
 | Rechazo o reconducción de un guardrail | 200 con el texto del guardrail |
 | Pregunta vacía (la decide el grafo) | 422 con el motivo |
+| Más de `AGENT_RATE_LIMIT_PER_MINUTE` consultas del usuario en el minuto | 429 con `Retry-After`; no se ejecuta el grafo |
 | Qdrant, la colección o el gateway LLM no disponibles | 503 con la referencia `run_id` |
 | Cualquier otro fallo de un nodo | 500 con la referencia `run_id`, sin traza |
 

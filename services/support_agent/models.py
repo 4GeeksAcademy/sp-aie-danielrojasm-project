@@ -51,6 +51,6 @@ class AgentQueryResponse(BaseModel):
 class GuardrailSummary(BaseModel):
     since: datetime = Field(description="Inicio de la ventana: arranque del proceso de la API.")
     total: int = Field(description="Activaciones de guardrails (bloqueos, redirecciones, limpiezas y correcciones).")
-    by_guardrail: dict[str, int] = Field(description="Por capa: input_guard, external_content_isolation, output_guard.")
+    by_guardrail: dict[str, int] = Field(description="Por capa: input_guard, external_content_isolation, output_guard, rate_limit.")
     by_failure_type: dict[str, int] = Field(description="Por tipo de fallo: structural, content, security.")
     by_action: dict[str, int] = Field(description="Por acción: block, redirect, constrain, sanitize, redact, repair.")

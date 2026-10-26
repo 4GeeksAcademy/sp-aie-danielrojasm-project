@@ -16,6 +16,7 @@ from services.rfp_intake.events import RfpEventBus, use_event_bus
 from services.support_agent.chat.hub import use_chat_hub
 from services.support_agent.chat.store import ChatStore, use_chat_store
 from services.support_agent.memory.store import MemoryStore, use_memory_store
+from services.support_agent.rate_limit import AgentRateLimiter, use_rate_limiter
 from tests.helpers import DEFAULT_PASSWORD, TEST_SECRET
 
 
@@ -37,6 +38,7 @@ def isolated_environment(tmp_path, monkeypatch):
         "GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN",
         "TASKS_SIMULATE_FAILURE",
         "TASKS_RETRY_BACKOFF_SECONDS",
+        "AGENT_RATE_LIMIT_PER_MINUTE",
     ):
         monkeypatch.delenv(variable, raising=False)
     # Las cachés son del módulo: sin vaciarlas, un test vería el resumen o el
@@ -54,11 +56,14 @@ def isolated_environment(tmp_path, monkeypatch):
     # El historial del chat también va a un Redis en memoria, y cada test empieza sin sesiones vivas.
     use_chat_store(ChatStore(fakeredis.FakeRedis(decode_responses=True)))
     use_chat_hub(None)
+    # El límite de turnos del agente cuenta en un Redis en memoria: ningún test hereda los turnos de otro.
+    use_rate_limiter(AgentRateLimiter(fakeredis.FakeRedis(decode_responses=True)))
     yield
     use_memory_store(None)
     use_event_bus(None)
     use_chat_store(None)
     use_chat_hub(None)
+    use_rate_limiter(None)
 
 
 @pytest.fixture
