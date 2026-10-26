@@ -1,5 +1,8 @@
 """`POST /agent/query`: invoca el grafo compilado del agente y traduce su resultado a HTTP.
 
+Antes de ejecutar el grafo, cada turno pasa por el límite por usuario (`rate_limit.py`): pasado el límite responde
+`429` con `Retry-After` y no llama al modelo.
+
 `GET /agent/guardrails/summary` resume cuántas veces se activó cada guardrail desde que arrancó el proceso.
 
 Convive con `POST /knowledge/query`. No hay lógica de negocio aquí: la recuperación, la generación y el enrutado
@@ -20,6 +23,7 @@ from services.support_agent.models import (
     MemoryDecisionRead,
     MemoryProposalRead,
 )
+from services.support_agent.rate_limit import get_rate_limiter
 from services.support_agent.runner import MEMORY_WRITER_ROLES, AgentRunError, run_agent
 
 
@@ -39,11 +43,17 @@ AGENT_FAILED_DETAIL = (
     response_model=AgentQueryResponse,
     responses={
         422: {"description": "La pregunta está vacía o no es válida."},
+        429: {"description": "Límite de consultas por minuto superado; `Retry-After` indica cuándo seguir."},
         500: {"description": "Un nodo del grafo falló; la respuesta incluye la referencia de la corrida."},
         503: {"description": "Qdrant, la colección o el gateway LLM no están disponibles."},
     },
 )
 def agent_query(body: AgentQueryRequest, user: User = Depends(get_current_user)) -> AgentQueryResponse:
+    rate = get_rate_limiter().hit(user.id, channel="http")
+    if not rate.allowed:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, rate.detail, headers={"Retry-After": str(rate.retry_after)}
+        )
     try:
         run = run_agent(
             body.question,

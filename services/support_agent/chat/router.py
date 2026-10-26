@@ -10,7 +10,9 @@ evento de chat. Códigos de cierre: 1008 sin autenticación, 4404 sesión inexis
 1011 historial no disponible.
 
 Cada conexión se suscribe al canal de su sesión (`hub.ChatHub.join`) y recibe primero un `session_snapshot`; un
-supervisor (rol `admin` o `manager`) puede observar sesiones ajenas, pero solo su dueño envía mensajes.
+supervisor (rol `admin` o `manager`) puede observar sesiones ajenas, pero solo su dueño envía mensajes. Cada
+`user_message` o `interrupt_requested` del dueño consume una unidad de su límite por minuto (`rate_limit.py`); pasado
+el límite, el turno no arranca y la conexión recibe un `chat_error` con la espera.
 """
 
 from __future__ import annotations
@@ -38,6 +40,7 @@ from services.support_agent.chat.models import (
     client_frame,
 )
 from services.support_agent.chat.store import ChatStoreUnavailableError, get_chat_store
+from services.support_agent.rate_limit import get_rate_limiter
 
 
 logger = logging.getLogger("trackflow.chat")
@@ -166,6 +169,9 @@ async def _handle_frame(raw: str, live: LiveSession, session_id: str, owner: boo
         return WRONG_SESSION_DETAIL
     if not owner:
         return READ_ONLY_DETAIL
+    rate = await asyncio.to_thread(get_rate_limiter().hit, live.session.user_id, channel="chat")
+    if not rate.allowed:
+        return rate.detail
     if isinstance(frame, InterruptRequestedFrame):
         await live.interrupt(frame.data.new_input)
         return None
