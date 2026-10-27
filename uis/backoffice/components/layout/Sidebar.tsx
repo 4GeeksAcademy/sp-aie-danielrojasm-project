@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { rememberSidebarNavigation } from "@/lib/inventory-telemetry";
@@ -19,6 +20,14 @@ function trackClick(item: NavItem) {
 
 export function Sidebar() {
   const activeKey = findActiveNavKey(usePathname());
+  const navRef = useRef<HTMLElement>(null);
+
+  // En móvil el menú es una tira horizontal: sin esto, el módulo activo queda fuera de la vista.
+  useEffect(() => {
+    navRef.current
+      ?.querySelector('[aria-current="page"]')
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activeKey]);
 
   return (
     <aside className="border-b border-slate-800 bg-slate-900 text-slate-200 lg:sticky lg:top-0 lg:h-screen lg:w-64 lg:shrink-0 lg:overflow-y-auto lg:border-b-0 lg:border-r">
@@ -33,7 +42,7 @@ export function Sidebar() {
           <span className="block text-xs text-slate-400">Backoffice interno</span>
         </span>
       </Link>
-      <nav aria-label="Módulos del backoffice" className="px-3 pb-4">
+      <nav ref={navRef} aria-label="Módulos del backoffice" className="px-3 pb-4">
         {/* En móvil las secciones forman una sola tira horizontal; en escritorio, una columna con títulos. */}
         <div className="flex gap-1 overflow-x-auto lg:flex-col lg:gap-4">
           {navSections.map((section) => (
