@@ -23,6 +23,7 @@ import type {
 } from "@trackflow/logic/types/models";
 import { InventoryTable } from "@/components/dashboard/InventoryTable";
 import { LazyCarrierSimulator } from "@/components/dashboard/LazyCarrierSimulator";
+import { ModuleDirectory } from "@/components/dashboard/ModuleDirectory";
 import { RecordLookup } from "@/components/dashboard/RecordLookup";
 import {
   ValidationReport,
@@ -129,6 +130,8 @@ export default function OperationsDashboardPage() {
           tone={invalidCount > 0 ? "danger" : "default"}
         />
       </div>
+
+      <ModuleDirectory />
 
       <div className="grid gap-6 xl:grid-cols-3">
         {/* min-w-0: sin él, el grid ensancha la columna al min-width de la tabla y la página se desborda en móvil. */}

@@ -99,6 +99,10 @@ que un valor nuevo del modelo rompe el tipado en lugar de mostrarse crudo.
 La web pública tiene cabecera y footer oscuros con la marca (`slate-950` y `cyan-300`). El backoffice tiene sidebar y barra superior, fondo
 claro y `robots: noindex`. No comparten layout ni componentes.
 
+**Navegación del backoffice:** `uis/backoffice/lib/navigation.ts` es la única fuente del menú (secciones por área, ítems con clave de
+telemetría estable y las rutas públicas). El sidebar y el directorio de módulos de `/` (`ModuleDirectory`) se generan desde ahí. Una página
+nueva en `app/` necesita su ítem o un `matchPrefixes` de un ítem existente; si no, falla `__tests__/navigation.test.ts`.
+
 ---
 
 ### Directorio de proveedores — Milestone 09
