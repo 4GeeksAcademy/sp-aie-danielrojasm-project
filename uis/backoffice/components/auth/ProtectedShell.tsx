@@ -5,15 +5,15 @@ import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { PUBLIC_ROUTES } from "@/lib/navigation";
 
-const publicRoutes = new Set(["/login", "/register", "/forgot-password", "/reset-password"]);
 const guestOnlyRoutes = new Set(["/login", "/register"]);
 
 export function ProtectedShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthenticated, isLoading, sessionError, retrySession, logout } = useAuth();
-  const isPublicRoute = publicRoutes.has(pathname);
+  const isPublicRoute = PUBLIC_ROUTES.has(pathname);
   const isGuestOnlyRoute = guestOnlyRoutes.has(pathname);
 
   useEffect(() => {

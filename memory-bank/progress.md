@@ -7,6 +7,20 @@
 Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y qué viene después. Cada cambio relevante (una feature, una
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
+### Milestone 09 — Backoffice conectado de punta a punta
+
+- Todo el trabajo de hitos está mergeado en `main` (PR #45 incluido) y no queda ningún PR abierto.
+- El menú sale de un único mapa, `uis/backoffice/lib/navigation.ts`, con 8 secciones: Operaciones, Inventario, Incidencias, Comercial y
+   proveedores, Experiencia de cliente, Tecnología, Cuenta y Próximamente. El sidebar muestra los títulos de sección en escritorio y
+   marca el módulo activo con `aria-current="page"`. Gana el prefijo más largo, así `/rfps/<id>` marca RFPs y `/account/change-password`
+   marca Mi perfil. El logo lleva al inicio.
+- El panel de inicio `/` añade "Módulos del backoffice" (`components/dashboard/ModuleDirectory.tsx`): una tarjeta por sección con los
+   mismos enlaces que el sidebar.
+- `ProtectedShell` lee las rutas públicas del mismo mapa, así que auth y layout comparten una única lista.
+- `__tests__/navigation.test.ts` falla si una ruta privada de `app/` no cuelga de ningún ítem o si un ítem apunta a una página que no existe.
+- Verificado: `npm test` del backoffice (161), `npm run verify` con código 0 y las 19 rutas del backoffice con 200 en `npm run dev`.
+- Pendiente: hacer el recorrido por clics con sesión iniciada y el stack de Docker Compose arrancado antes de grabar el vídeo.
+
 
 ### Milestone 09 — Prácticas seguras de IA: informe NIST y protecciones frente a prompt injection
 
@@ -1000,7 +1014,7 @@ endpoint en `services/` (Hito 5).
 2. **Tests:** añadir tests unitarios de `src/utils/*` (valores de control de `.agents/rules/business-logic.md` y casos límite) e incluirlos en
    `npm run verify`.
 3. **Backoffice:** convertir las secciones del panel en rutas propias (`/inventario`, `/transportistas`, `/envios`) cuando tengan datos
-   reales. Los módulos marcados "Próximo" en el sidebar (Devoluciones, CX, Dashboard ejecutivo) esperan a sus hitos.
+   reales. Los módulos marcados "Próximo" en el sidebar (Devoluciones, Dashboard ejecutivo) esperan a sus hitos.
 4. **Tipos compartidos:** valorar mover `src/types` a `packages/shared` cuando haya un segundo consumidor (la API).
 
 ---
