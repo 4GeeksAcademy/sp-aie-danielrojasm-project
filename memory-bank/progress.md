@@ -7,6 +7,19 @@
 Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y qué viene después. Cada cambio relevante (una feature, una
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
+### Milestone 09 — Agentes de RFP: corrección de salidas fuera de esquema
+
+- `deepseek-v4-flash` a veces devuelve `{"type": "json_object"}` o `{"thinking": [...]}` en vez del objeto pedido. Antes,
+   `ask_json` lo convertía en `RfpAgentError` y Celery repetía la tarea entera (análisis o generación completos, ~80 s).
+   Un ticket de ModaViva lo sufrió en el clasificador y en `reverse_generator` y necesitó dos intentos en cada parte.
+- `data/pipelines/rfp_intake/llm.py`: si la salida no cumple el esquema, se pide corregirla en la misma conversación
+   (la respuesta inválida + los campos esperados), hasta `MAX_FORMAT_ATTEMPTS` (3) llamadas. Log `trackflow.rfp_intake`
+   con `format_attempt` y el tipo de error, sin el contenido. Los fallos del gateway siguen sin repetirse aquí.
+- Medido contra el gateway real con el clasificador y la RFP de ModaViva: 1 de cada 12 primeras salidas es inválida; la
+   corrección la arregla en 8 de 8. En 40 clasificaciones con el código nuevo, 1 agotó los tres intentos (cae al
+   reintento de Celery, como antes).
+- Pruebas: 3 nuevas en `tests/pipelines/test_rfp_intake_agents.py`. `uv run pytest` 978 y `npm run verify` en verde.
+
 ### Milestone 09 — Chat de atención al cliente: la caja de mensaje sigue a la vista
 
 - En `/atencion-cliente`, cada mensaje nuevo dejaba la caja de mensaje fuera de la pantalla: `scrollIntoView` sobre el final de

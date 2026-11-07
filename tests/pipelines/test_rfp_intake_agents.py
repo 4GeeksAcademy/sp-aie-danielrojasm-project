@@ -5,6 +5,7 @@ descartar o no, la moneda, los departamentos válidos y la regla de no inventar 
 """
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -119,6 +120,65 @@ def test_ask_json_wraps_invalid_model_output(monkeypatch):
 
     with pytest.raises(RfpAgentError, match="no cumple su esquema"):
         llm.ask_json("classifier", "sistema", "usuario", classifier.ClassifierOutput)
+
+
+class ScriptedClient:
+    """Cliente LLM falso que devuelve las respuestas en orden y registra los mensajes de cada llamada."""
+
+    def __init__(self, *contents: str):
+        self.calls: list[list[dict]] = []
+        self._contents = list(contents)
+        self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create))
+
+    def _create(self, **kwargs):
+        self.calls.append(kwargs["messages"])
+        message = SimpleNamespace(content=self._contents.pop(0))
+        return SimpleNamespace(choices=[SimpleNamespace(message=message)])
+
+
+VALID_CLASSIFICATION = json.dumps(
+    {"is_rfp": True, "document_type": "rfp_formal", "confidence": 0.97, "reason": "Pide propuesta."}
+)
+THINKING_ONLY = json.dumps({"thinking": ["Analizar el documento", "final_content"]})
+
+
+def scripted_model(monkeypatch, *contents: str) -> ScriptedClient:
+    client = ScriptedClient(*contents)
+    monkeypatch.setattr(llm, "get_llm_client", lambda: client)
+    monkeypatch.setattr(llm, "load_settings", lambda: SimpleNamespace(generation_model="modelo"))
+    return client
+
+
+def test_ask_json_asks_once_to_fix_an_output_outside_the_schema(monkeypatch):
+    client = scripted_model(monkeypatch, THINKING_ONLY, VALID_CLASSIFICATION)
+
+    result = llm.ask_json("classifier", "sistema", "usuario", classifier.ClassifierOutput)
+
+    assert result.is_rfp is True
+    assert len(client.calls) == 2
+    retry = client.calls[1]
+    assert retry[:2] == client.calls[0]
+    assert retry[2] == {"role": "assistant", "content": THINKING_ONLY}
+    assert retry[3]["role"] == "user"
+    assert all(field in retry[3]["content"] for field in classifier.ClassifierOutput.model_fields)
+
+
+def test_ask_json_fails_when_every_correction_is_also_outside_the_schema(monkeypatch):
+    invalid = [THINKING_ONLY, "no es json", json.dumps({"type": "json_object"})]
+    client = scripted_model(monkeypatch, *invalid[: llm.MAX_FORMAT_ATTEMPTS], VALID_CLASSIFICATION)
+
+    with pytest.raises(RfpAgentError, match="no cumple su esquema"):
+        llm.ask_json("classifier", "sistema", "usuario", classifier.ClassifierOutput)
+
+    assert len(client.calls) == llm.MAX_FORMAT_ATTEMPTS
+
+
+def test_ask_json_does_not_repeat_a_valid_answer(monkeypatch):
+    client = scripted_model(monkeypatch, VALID_CLASSIFICATION)
+
+    llm.ask_json("classifier", "sistema", "usuario", classifier.ClassifierOutput)
+
+    assert len(client.calls) == 1
 
 
 # --- Extracción de metadatos -------------------------------------------------------------------
