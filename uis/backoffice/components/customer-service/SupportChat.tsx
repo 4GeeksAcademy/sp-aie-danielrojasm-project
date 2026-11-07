@@ -81,12 +81,17 @@ export function SupportChat() {
   const { thread, status, fatalError, generating, send, startNewConversation, dismissError } = useAgentChat();
   const [draft, setDraft] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
-  const endRef = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
+  // La conversación baja hasta el último mensaje y la página solo se mueve lo justo para que
+  // la caja de mensaje siga a la vista mientras la conversación crece.
   const lastText = thread.messages.at(-1)?.text;
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
-  }, [thread.messages.length, lastText]);
+    const log = logRef.current;
+    if (log) log.scrollTop = log.scrollHeight;
+    formRef.current?.scrollIntoView({ block: "nearest" });
+  }, [thread.messages.length, lastText, thread.awaitingReply]);
 
   const canSend = thread.ready && status.state === "open";
   const error = localError ?? thread.error;
@@ -150,7 +155,7 @@ export function SupportChat() {
       ) : null}
 
       <Panel id="support-chat" title="Conversación">
-        <div className="max-h-[55vh] min-h-48 overflow-y-auto rounded-lg bg-slate-50 p-4">
+        <div ref={logRef} className="max-h-[55vh] min-h-48 overflow-y-auto rounded-lg bg-slate-50 p-4">
           {!thread.ready ? (
             <p className="text-sm text-slate-500">
               {status.state === "reconnecting"
@@ -170,10 +175,9 @@ export function SupportChat() {
           {thread.awaitingReply ? (
             <p className="mt-3 text-sm text-slate-500">El agente está consultando sus fuentes…</p>
           ) : null}
-          <div ref={endRef} />
         </div>
 
-        <form onSubmit={handleSubmit} noValidate className="mt-4 space-y-3">
+        <form ref={formRef} onSubmit={handleSubmit} noValidate className="mt-4 space-y-3">
           <div>
             <label htmlFor="chat-message" className="block text-sm font-semibold text-slate-800">
               {generating ? "Escribe para interrumpir y redirigir al agente" : "Tu mensaje"}
