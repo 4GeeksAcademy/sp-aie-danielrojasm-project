@@ -7,6 +7,18 @@
 Este es el registro vivo del proyecto: qué funciona, qué problemas conocemos y qué viene después. Cada cambio relevante (una feature, una
 decisión o un problema nuevo) añade una entrada al principio del **Historial**. No es un roadmap de marketing.
 
+### Milestone 09 — Chat de atención al cliente: la caja de mensaje sigue a la vista
+
+- En `/atencion-cliente`, cada mensaje nuevo dejaba la caja de mensaje fuera de la pantalla: `scrollIntoView` sobre el final de
+   la conversación movía también la página, y la conversación crecía hasta el 55 % de la altura y empujaba el formulario.
+- `SupportChat.tsx`: la conversación se desplaza con su propio `scrollTop` y el formulario se trae a la vista con
+   `scrollIntoView({ block: "nearest" })`, que solo mueve la página si hace falta.
+- Verificado: Jest del backoffice (161) y `npm run verify` en verde. En Chrome headless (1280×700) contra el `next dev` del
+   contenedor `uis`, con dos preguntas reales al agente: la caja sigue visible al enviar y al terminar cada respuesta, la
+   conversación queda abajo del todo y no hay errores de consola.
+- Nota: el `next dev` del contenedor `uis` no siempre recarga los cambios hechos desde Windows; tras editar hay que
+   reiniciarlo con `docker compose restart uis`.
+
 ### Milestone 09 — Backoffice conectado de punta a punta
 
 - Todo el trabajo de hitos está mergeado en `main` (PR #45 incluido) y no queda ningún PR abierto.
